@@ -1,0 +1,12 @@
+{
+  "name": "STAY — Independent Living + Circle Coordination",
+  "short_name": "STAY",
+  "description": "Adaptive independent living and Circle coordination for Alexa+.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#245248",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

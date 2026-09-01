@@ -1,0 +1,26 @@
+{
+  "name": "@stay/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/handler.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run src",
+    "test:coverage": "vitest run src --coverage"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "@stay/adapters": "workspace:*",
+    "@stay/contracts": "workspace:*",
+    "@stay/domain": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.160",
+    "@types/node": "26.4.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

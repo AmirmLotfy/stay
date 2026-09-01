@@ -1,0 +1,38 @@
+packages:
+  - apps/*
+  - packages/*
+  - services/*
+  - infrastructure/*
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@swc/core': true
+  aws-cdk-lib: true
+  better-sqlite3: false
+  esbuild: true
+  node-llama-cpp: false
+  tree-sitter-go: false
+  tree-sitter-javascript: false
+  tree-sitter-python: false
+  tree-sitter-rust: false
+  tree-sitter-typescript: false
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - '@types/node@26.4.1'
+  - lucide-react@1.39.0
+  - '@aws-sdk/client-apigatewaymanagementapi@3.1124.0'
+  - '@aws-sdk/client-bedrock-runtime@3.1124.0'
+  - '@aws-sdk/client-dynamodb@3.1124.0'
+  - '@aws-sdk/client-eventbridge@3.1124.0'
+  - '@aws-sdk/client-sesv2@3.1124.0'
+  - '@aws-sdk/credential-provider-node@3.972.82'
+  - '@aws-sdk/lib-dynamodb@3.1124.0'
+  - '@aws-sdk/token-providers@3.1124.0'
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@swc/core'
+  - aws-cdk-lib
+  - esbuild
+  - sharp

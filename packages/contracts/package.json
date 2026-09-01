@@ -1,0 +1,32 @@
+{
+  "name": "@stay/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "generate:openapi": "tsx src/generate-openapi.ts && openapi-typescript ../../docs/openapi.json -o src/generated-api.d.ts && prettier --write ../../docs/openapi.json src/generated-api.d.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "4.5.4",
+    "zod-openapi": "6.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "openapi-typescript": "7.13.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

@@ -1,0 +1,71 @@
+name: Deploy reviewed demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Generate the exact AWS diff first; deploy only in a later reviewed run
+        required: true
+        default: diff
+        type: choice
+        options:
+          - diff
+          - deploy
+      confirm_reviewed_diff:
+        description: Confirm the exact target, cost settings, and preceding diff were reviewed
+        required: true
+        default: false
+        type: boolean
+      bedrock_model_id:
+        description: Exact live-verified us-east-1 Nova model or inference profile ID
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Confirm target identity
+        run: aws sts get-caller-identity
+      - name: Require reviewed diff for deployment
+        if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff != true
+        run: |
+          echo 'Deployment requires confirm_reviewed_diff=true after reviewing a prior diff run.'
+          exit 1
+      - name: Generate exact stack diff
+        if: inputs.operation == 'diff'
+        run: >-
+          pnpm --filter @stay/infra diff --
+          --parameters AlertEmail=${{ secrets.ALERT_EMAIL }}
+          --parameters SesFromEmail=${{ secrets.SES_FROM_EMAIL }}
+          --parameters SesRecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }}
+          --parameters BedrockModelId=${{ inputs.bedrock_model_id }}
+      - name: Deploy reviewed stack
+        if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
+        run: >-
+          pnpm --filter @stay/infra deploy --
+          --parameters AlertEmail=${{ secrets.ALERT_EMAIL }}
+          --parameters SesFromEmail=${{ secrets.SES_FROM_EMAIL }}
+          --parameters SesRecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }}
+          --parameters BedrockModelId=${{ inputs.bedrock_model_id }}
+          --require-approval never

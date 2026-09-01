@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.next/
+.turbo/
+.vite/
+cdk.out/
+coverage/
+dist/
+node_modules/
+out/
+playwright-report/
+test-results/
+*.tsbuildinfo
