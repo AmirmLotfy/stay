@@ -8,3 +8,4 @@ node_modules
 playwright-report
 pnpm-lock.yaml
 test-results
+apps/web/next-env.d.ts
