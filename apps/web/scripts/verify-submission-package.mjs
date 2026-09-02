@@ -151,6 +151,38 @@ record(
   unresolved ? `${unresolved.length} unresolved form fields` : 'none',
 );
 
+function formFieldAnswer(fieldId) {
+  const field = devpostCopy.match(new RegExp(`### ${fieldId}[^\\n]*\\n\\n([^\\n]+)`, 'i'));
+  return field?.[1]?.trim();
+}
+
+const participantEligibility = [
+  ['28308', 'age of majority'],
+  ['28309', 'eligible jurisdiction'],
+].map(([fieldId, label]) => ({ answer: formFieldAnswer(fieldId), label }));
+const deniedEligibility = participantEligibility.filter(({ answer }) =>
+  /^no\b/i.test(answer ?? ''),
+);
+const unresolvedEligibility = participantEligibility.filter(
+  ({ answer }) => !answer || /^\[|must confirm/i.test(answer),
+);
+
+if (deniedEligibility.length > 0) {
+  record(
+    'failed',
+    'participant eligibility',
+    `negative confirmation: ${deniedEligibility.map(({ label }) => label).join(', ')}`,
+  );
+} else if (unresolvedEligibility.length > 0) {
+  record(
+    'pending',
+    'participant eligibility',
+    `unresolved: ${unresolvedEligibility.map(({ label }) => label).join(', ')}`,
+  );
+} else {
+  record('passed', 'participant eligibility', 'age and jurisdiction confirmed eligible');
+}
+
 await verifyUrl(
   'public judge demo',
   'https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com',
