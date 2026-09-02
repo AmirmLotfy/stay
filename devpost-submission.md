@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for current `main` commit `10be747`: https://github.com/AmirmLotfy/stay/actions/runs/33627226642
+Public CI evidence for submission-finalization commit `a8f43d8`: https://github.com/AmirmLotfy/stay/actions/runs/33629021097
 
 ## Screenshot Shot List
 
