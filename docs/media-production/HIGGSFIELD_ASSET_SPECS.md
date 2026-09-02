@@ -1,6 +1,6 @@
 # Higgsfield asset specifications
 
-These specifications are the approved-source candidates for STAY submission media. Every credit-bearing action requires a fresh visible preflight and action-time approval.
+These specifications are the approved-source candidates for STAY submission media. The user approved HF-LOGO-001 and HF-VO-001 on 2026-09-02 with a combined ceiling of 15.1 credits. No job has been dispatched because the Higgsfield skill bundle is installed but the underlying Higgsfield app connection currently reports `not_installed`, leaving no callable generation action. Every changed provider/model/cost still requires a fresh visible preflight before dispatch.
 
 ## Brand mark candidate HF-LOGO-001
 
@@ -41,7 +41,7 @@ See `VOICEOVER_SCRIPT.md`. Target: warm, grounded English voice; 135–145 words
 - Exact script SHA-256: `8a1039e9a92fa59e89bd580fe8456bc88b1a881f93ae0db0bda2f8edac25c7ca`
 - Displayed cost: 6.6 credits
 - Account warning: more than 90% of credits already used
-- Status: `PREPARED_NOT_DISPATCHED`; Generate was not clicked and no credits were spent
+- Status: `APPROVED_NOT_DISPATCHED`; the approved Higgsfield app action is unavailable and no credits were spent
 
 ## Music candidate HF-MUSIC-001
 
