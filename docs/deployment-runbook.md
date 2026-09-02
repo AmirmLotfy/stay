@@ -28,6 +28,7 @@ pnpm verify
 pnpm test:e2e
 cd infrastructure/cdk
 pnpm exec cdk bootstrap aws://ACCOUNT_ID/us-east-1
+pnpm build
 pnpm exec cdk diff StayDemoStack --strict \
   -c enableCloudFront=false \
   -c enableDeletionProtection=true \
@@ -45,6 +46,7 @@ The OIDC role may assume only the four modern CDK bootstrap roles for this exact
 ## 4. Deploy the reviewed fallback update
 
 ```bash
+pnpm build
 pnpm exec cdk deploy StayDemoStack --require-approval never \
   -c enableCloudFront=false \
   -c enableDeletionProtection=true \
@@ -96,6 +98,7 @@ The domain is purchased, delegated, and active. The deployed stack contains the 
    ```bash
    NEXT_PUBLIC_APP_URL=https://saystay.site pnpm --filter @stay/web build
    cd infrastructure/cdk
+   pnpm build
    pnpm exec cdk diff StayDemoStack --strict \
      -c enableCloudFront=false \
      -c enableDeletionProtection=true \
@@ -106,6 +109,7 @@ The domain is purchased, delegated, and active. The deployed stack contains the 
 5. Only after delegation and diff review, deploy the custom-domain update:
 
    ```bash
+   pnpm build
    pnpm exec cdk deploy StayDemoStack --require-approval never \
      -c enableCloudFront=false \
      -c enableDeletionProtection=true \

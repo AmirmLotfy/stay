@@ -1,10 +1,31 @@
 export interface StayRuntimeConfig {
   apiUrl: string;
+  fallbackUrl?: string;
   websocketUrl: string;
   cognitoBaseUrl: string;
   publicClientId: string;
   redirectUri: string;
   logoutUri: string;
+}
+
+export function resolveRuntimeConfig(
+  config: StayRuntimeConfig,
+  currentOrigin: string,
+): StayRuntimeConfig {
+  if (!config.fallbackUrl) return config;
+  let fallbackOrigin: string;
+  try {
+    fallbackOrigin = new URL(config.fallbackUrl).origin;
+  } catch {
+    return config;
+  }
+  if (currentOrigin !== fallbackOrigin) return config;
+  return {
+    ...config,
+    apiUrl: fallbackOrigin,
+    redirectUri: `${fallbackOrigin}/auth/callback`,
+    logoutUri: `${fallbackOrigin}/`,
+  };
 }
 
 interface TokenResponse {
@@ -42,7 +63,10 @@ export async function loadRuntimeConfig(): Promise<StayRuntimeConfig | null> {
   const response = await fetch('/config.json', { cache: 'no-store' });
   if (!response.ok || !response.headers.get('content-type')?.includes('application/json'))
     return null;
-  const config = (await response.json()) as StayRuntimeConfig;
+  const config = resolveRuntimeConfig(
+    (await response.json()) as StayRuntimeConfig,
+    window.location.origin,
+  );
   sessionStorage.setItem(configKey, JSON.stringify(config));
   return config;
 }

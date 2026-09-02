@@ -133,6 +133,7 @@ aws configure get region
 pnpm build
 pnpm cdk:synth
 cd infrastructure/cdk
+pnpm build
 pnpm exec cdk diff StayDemoStack --strict -c enableCloudFront=false -c enableDeletionProtection=true --method template
 ```
 

@@ -211,6 +211,24 @@ describe('StayDemoStack', () => {
         Match.objectLike({ EndpointType: 'REGIONAL', SecurityPolicy: 'TLS_1_2' }),
       ]),
     });
+    template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+      CallbackURLs: Match.arrayWith([
+        'https://saystay.site/auth/callback',
+        Match.objectLike({ 'Fn::Join': Match.anyValue() }),
+      ]),
+      LogoutURLs: Match.arrayWith([
+        'https://saystay.site/',
+        Match.objectLike({ 'Fn::Join': Match.anyValue() }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-demo-mcp',
+      Environment: {
+        Variables: Match.objectLike({
+          MCP_ALLOWED_ORIGINS: Match.objectLike({ 'Fn::Join': Match.anyValue() }),
+        }),
+      },
+    });
     template.hasOutput('DemoUrl', { Value: 'https://saystay.site' });
     template.hasOutput('ApiUrl', { Value: 'https://saystay.site' });
     template.resourceCountIs('AWS::SES::EmailIdentity', 1);

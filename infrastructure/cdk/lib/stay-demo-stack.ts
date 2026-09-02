@@ -321,7 +321,9 @@ export class StayDemoStack extends Stack {
       });
     }
     const transportOrigin = cloudFrontOrigin ?? httpApi.apiEndpoint;
-    const allowedWebOrigins = enableCustomDomain ? [customDomainOrigin] : [transportOrigin];
+    const allowedWebOrigins = enableCustomDomain
+      ? [customDomainOrigin, transportOrigin]
+      : [transportOrigin];
     const preferredDemoUrl = enableCustomDomain ? customDomainOrigin : transportOrigin;
     const apiBaseUrl = enableCustomDomain ? customDomainOrigin : transportOrigin;
 
@@ -861,6 +863,7 @@ export class StayDemoStack extends Stack {
           'config.json',
           JSON.stringify({
             apiUrl: apiBaseUrl,
+            fallbackUrl: transportOrigin,
             websocketUrl: webSocketStage.url,
             cognitoBaseUrl,
             publicClientId: publicClient.userPoolClientId,
