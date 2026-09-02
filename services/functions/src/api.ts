@@ -3,6 +3,7 @@ import {
   AccessPreferencesSchema,
   ConfirmationPurposeSchema,
   RouteGroups,
+  SafetyWindowTemplateSchema,
   type ActorContext,
   type CommandResult,
   type ConfirmationToken,
@@ -20,6 +21,7 @@ import {
   type StoredConfirmation,
   type VersionedEntity,
 } from './repository.js';
+import { createSafetyWindowSchedules } from './safety-window-schedules.js';
 
 const localEngine = new StayEngine();
 const localConfirmations = new Map<string, StoredConfirmation>();
@@ -31,6 +33,11 @@ const CommandBodySchema = z.object({
   title: z.string().optional(),
   detail: z.string().optional(),
   urgency: z.enum(['normal', 'time-sensitive', 'urgent']).optional(),
+  template: SafetyWindowTemplateSchema.optional(),
+  startsAt: z.iso.datetime().optional(),
+  expectedBy: z.iso.datetime().optional(),
+  graceMinutes: z.number().int().min(1).max(60).optional(),
+  escalationMemberIds: z.array(z.string().min(1)).min(1).max(8).optional(),
   preferences: AccessPreferencesSchema.optional(),
   label: z.string().min(1).max(120).optional(),
   value: z.string().min(1).max(800).optional(),
@@ -381,7 +388,28 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         ? confirmation
         : undefined;
     let result: CommandResult<VersionedEntity>;
-    if (group === 'safety-windows' && id && body.action === 'record-missed-check') {
+    if (
+      group === 'safety-windows' &&
+      body.action === 'create' &&
+      body.title &&
+      body.template &&
+      body.startsAt &&
+      body.expectedBy &&
+      body.graceMinutes &&
+      body.escalationMemberIds
+    ) {
+      result = engine.createSafetyWindow(
+        {
+          title: body.title,
+          template: body.template,
+          startsAt: body.startsAt,
+          expectedBy: body.expectedBy,
+          graceMinutes: body.graceMinutes,
+          escalationMemberIds: body.escalationMemberIds,
+        },
+        { actor, idempotencyKey },
+      );
+    } else if (group === 'safety-windows' && id && body.action === 'record-missed-check') {
       result = engine.markSafetyWindowMissed(id, {
         actor,
         idempotencyKey,
@@ -546,9 +574,13 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     } else {
       throw new StayDomainError('BAD_REQUEST', 'That command is not available for this route.');
     }
+    if (store && group === 'safety-windows' && body.action === 'create') {
+      await createSafetyWindowSchedules(actor.householdId, result.entity as SafetyWindow);
+    }
     if (store && result.emittedEvents[0]) {
       const expectedVersion =
         group === 'help-requests' ||
+        (group === 'safety-windows' && body.action === 'create') ||
         (group === 'house-memory' && body.action === 'add') ||
         (group === 'incidents' && body.action === 'activate-from-window')
           ? 0
@@ -586,9 +618,11 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
           ? 404
           : code === 'STALE_VERSION' || code === 'CONFLICT' || code === 'CONFIRMATION_REQUIRED'
             ? 409
-            : code === 'INTERNAL_ERROR'
-              ? 500
-              : 400;
+            : code === 'PROVIDER_UNAVAILABLE'
+              ? 503
+              : code === 'INTERNAL_ERROR'
+                ? 500
+                : 400;
     log(status >= 500 ? 'ERROR' : 'WARN', 'request failed', {
       correlationId,
       code,

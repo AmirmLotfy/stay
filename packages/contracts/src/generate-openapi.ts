@@ -17,6 +17,7 @@ import {
   PlaybookSchema,
   PrivacySettingsSchema,
   SafetyWindowSchema,
+  SafetyWindowTemplateSchema,
 } from './openapi-schemas.js';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +59,22 @@ const PrivacyCommand = VersionedCommand.extend({
   locationSharing: z.enum(['off', 'incident-only', 'always']).optional(),
   temporaryPrivateUntil: z.iso.datetime().nullable().optional(),
 });
+const SafetyWindowCommand = z.union([
+  z.object({
+    action: z.literal('create'),
+    title: z.string().min(1).max(120),
+    template: SafetyWindowTemplateSchema,
+    startsAt: z.iso.datetime(),
+    expectedBy: z.iso.datetime(),
+    graceMinutes: z.number().int().min(1).max(60),
+    escalationMemberIds: z.array(z.string().min(1)).min(1).max(8),
+  }),
+  z.object({
+    action: z.enum(['check-in', 'close-early', 'cancel', 'record-missed-check']),
+    entityId: z.string().min(1),
+    expectedVersion: z.number().int().positive(),
+  }),
+]);
 const envelope = <T extends z.ZodType>(schema: T) =>
   z.object({
     data: schema,
@@ -136,7 +153,7 @@ const document = createDocument({
         summary: 'List Safety Windows',
         responses: responses(envelope(z.array(SafetyWindowSchema))),
       },
-      post: command('Create or transition a Safety Window'),
+      post: command('Create or transition a Safety Window', SafetyWindowCommand),
     },
     '/v1/help-requests': {
       get: {

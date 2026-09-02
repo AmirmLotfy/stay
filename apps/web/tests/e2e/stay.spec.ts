@@ -63,6 +63,10 @@ test('makes adaptive access, routine help, and resident check-in controls functi
   await navigate('Windows');
   await page.getByRole('button', { name: 'I’m okay' }).click();
   await expect(page.getByText('Sarah checked in', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Set up Arrived home' }).click();
+  await page.getByLabel('Window name').fill('Afternoon return');
+  await page.getByRole('button', { name: 'Schedule window' }).click();
+  await expect(page.getByText(/Afternoon return is scheduled/i)).toBeVisible();
 
   await navigate('Circle');
   await page
@@ -127,7 +131,7 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
         body: JSON.stringify({
           id: 'demo-00000000-0000-4000-8000-000000012345',
           mode: 'isolated-demo',
-          createdAt: '2026-09-02T06:20:00.000Z',
+          createdAt: '2026-09-02T10:20:00.000Z',
           expiresAt: '2099-09-02T10:20:00.000Z',
           isolation: 'This session cannot read or write authenticated households.',
         }),
@@ -156,12 +160,12 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
           state: 'coordinating',
           severity: 'attention',
           accessInstructionsAvailable: true,
-          createdAt: '2026-09-02T06:40:00.000Z',
+          createdAt: '2026-09-02T10:40:00.000Z',
           version: 1,
           timeline: [
             {
               id: 'incident-activated',
-              at: '2026-09-02T06:40:00.000Z',
+              at: '2026-09-02T10:40:00.000Z',
               kind: 'incident-activated',
               title: 'Circle coordination started',
               detail: 'No emergency service was contacted.',
@@ -194,7 +198,7 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
           provenance: {
             mode: 'live',
             provider: 'STAY API test fixture',
-            observedAt: '2026-09-02T06:20:00.000Z',
+            observedAt: '2026-09-02T10:20:00.000Z',
           },
         }),
       });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { NotificationLedger, formatResidentTime, sharingAllowed } from './privacy.js';
+import {
+  NotificationLedger,
+  formatResidentDateTimeInput,
+  formatResidentTime,
+  residentDateTimeToUtc,
+  sharingAllowed,
+} from './privacy.js';
 import { transitionIncident, transitionSafetyWindow } from './state-machines.js';
 
 describe('lifecycle state machines', () => {
@@ -36,6 +42,21 @@ describe('privacy, timezones, and deduplication', () => {
     expect(formatResidentTime('2026-03-08T07:30:00Z', 'America/New_York')).toContain('03:30');
     expect(formatResidentTime('2026-11-01T05:30:00Z', 'America/New_York')).toContain('01:30');
     expect(formatResidentTime('2026-11-01T06:30:00Z', 'America/New_York')).toContain('01:30');
+  });
+
+  it('round-trips resident-local scheduling time and rejects DST gaps or ambiguity', () => {
+    expect(formatResidentDateTimeInput(new Date('2026-09-02T10:30:00Z'), 'America/New_York')).toBe(
+      '2026-09-02T06:30',
+    );
+    expect(residentDateTimeToUtc('2026-09-02T06:30', 'America/New_York')).toBe(
+      '2026-09-02T10:30:00.000Z',
+    );
+    expect(() => residentDateTimeToUtc('2026-03-08T02:30', 'America/New_York')).toThrow(
+      /does not exist/,
+    );
+    expect(() => residentDateTimeToUtc('2026-11-01T01:30', 'America/New_York')).toThrow(
+      /occurs twice/,
+    );
   });
 
   it('delivers a notification only once for the same event and channel', () => {

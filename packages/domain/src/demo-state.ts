@@ -63,7 +63,7 @@ function timeline(
   return { id, at, kind, title, detail, actorName };
 }
 
-export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): HomeState {
+export function createDemoState(now = new Date('2026-09-02T10:20:00.000Z')): HomeState {
   const iso = now.toISOString();
   return {
     householdId: 'demo-household-sarah',
@@ -170,8 +170,8 @@ export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): Hom
         title: 'Morning check-in',
         template: 'morning-check-in',
         state: 'open',
-        startsAt: '2026-09-02T06:00:00.000Z',
-        expectedBy: '2026-09-02T06:30:00.000Z',
+        startsAt: '2026-09-02T10:00:00.000Z',
+        expectedBy: '2026-09-02T10:30:00.000Z',
         graceMinutes: 10,
         checkAttempts: 0,
         escalationMemberIds: ['member-maya', 'member-tom', 'member-james'],

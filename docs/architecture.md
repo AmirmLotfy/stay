@@ -52,7 +52,7 @@ The write transaction requires the current version, writes version `n + 1`, appe
 - API Gateway HTTP API serves REST, MCP, OAuth metadata, and the public TTL-isolated demo API.
 - Cognito uses authorization code flow, a public no-secret PWA client, a confidential Alexa client, token revocation, refresh rotation, and no identity pool.
 - DynamoDB uses on-demand capacity, KMS, PITR, TTL, Streams, and deletion protection.
-- EventBridge Scheduler invokes one deterministic Safety Window transition Lambda through a dedicated role.
+- EventBridge Scheduler invokes one deterministic Safety Window transition Lambda through a dedicated role. Creation prepares named one-time open, first-check, and grace-expiry schedules with strict expected versions; stale, duplicate, cancelled, or resident-completed work becomes a logged no-op.
 - A domain bus fans out to SQS-backed notification, WebSocket, and metric consumers with DLQs.
 - SES sends minimal messages. Sensitive detail stays inside an authenticated, active, assigned incident.
 - Lambda uses Node 22, ARM64, X-Ray, bounded timeouts, structured logs, and adaptive AWS SDK retry.

@@ -103,6 +103,37 @@ describe('REST API contract', () => {
     });
   });
 
+  it('creates a versioned Safety Window through the resident command route', async () => {
+    const startsAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expectedBy = new Date(startsAt.getTime() + 30 * 60 * 1000);
+    const result = (await handler(
+      event(
+        '/v1/demo/safety-windows',
+        'POST',
+        {
+          action: 'create',
+          title: 'Arrived home',
+          template: 'arrived-home',
+          startsAt: startsAt.toISOString(),
+          expectedBy: expectedBy.toISOString(),
+          graceMinutes: 10,
+          escalationMemberIds: ['member-maya', 'member-tom', 'member-james'],
+        },
+        {
+          'x-stay-demo-session': 'test-create-window',
+          'idempotency-key': 'api-create-arrived-home-window',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).entity).toMatchObject({
+      id: 'window-api-create-arrived-home-window',
+      state: 'scheduled',
+      version: 1,
+    });
+  });
+
   it('updates access settings and creates a bounded House Memory aggregate', async () => {
     const access = (await handler(
       event(

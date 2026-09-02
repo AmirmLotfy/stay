@@ -18,5 +18,5 @@ export const residentActorFixture: ActorContext = {
 };
 
 export function isolatedDemoFixture() {
-  return createDemoState(new Date('2026-09-02T06:20:00Z'));
+  return createDemoState(new Date('2026-09-02T10:20:00Z'));
 }

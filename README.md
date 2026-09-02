@@ -12,17 +12,17 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 ## Current evidence
 
-| Capability                                                        | Status              | Evidence boundary                                                                            |
-| ----------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Implemented locally | Static Next.js build; browser-only fallback plus deployed TTL-isolated API session client    |
-| Deterministic Safety Window, help, incident, and playbook engines | Implemented locally | Unit and contract tests; no Bedrock dependency                                               |
-| Streamable HTTP MCP server and ten tools                          | Implemented locally | MCP SDK protocol/origin tests, including `2025-11-25` negotiation                            |
-| Strands + Amazon Bedrock intent layer                             | Feature-gated       | Code is implemented; exact `BEDROCK_MODEL_ID` and live access are not yet verified           |
-| AWS topology                                                      | Prepared            | CDK synth/nag are local evidence only; no stack has been deployed from this checkout         |
-| SES delivery                                                      | Prepared            | Requires a verified sender/recipient and live delivery proof                                 |
-| Real Alexa+ device/add-on                                         | Unavailable         | Partner access is not assumed; the compliant web simulator is the guaranteed submission path |
-| Simulated edge providers                                          | Implemented         | Every observation includes mode, provider, timestamp, and reason                             |
-| Payments                                                          | Not implemented     | Monetization is documentation-only                                                           |
+| Capability                                                        | Status              | Evidence boundary                                                                               |
+| ----------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| Resident/Circle PWA and Alexa-style simulator                     | Implemented locally | Static Next.js build; browser-only fallback plus deployed TTL-isolated API session client       |
+| Deterministic Safety Window, help, incident, and playbook engines | Implemented locally | Versioned creation/transition tests and one-time schedule contract tests; no Bedrock dependency |
+| Streamable HTTP MCP server and ten tools                          | Implemented locally | MCP SDK protocol/origin tests, including `2025-11-25` negotiation                               |
+| Strands + Amazon Bedrock intent layer                             | Feature-gated       | Code is implemented; exact `BEDROCK_MODEL_ID` and live access are not yet verified              |
+| AWS topology                                                      | Prepared            | CDK synth/nag are local evidence only; no stack has been deployed from this checkout            |
+| SES delivery                                                      | Prepared            | Requires a verified sender/recipient and live delivery proof                                    |
+| Real Alexa+ device/add-on                                         | Unavailable         | Partner access is not assumed; the compliant web simulator is the guaranteed submission path    |
+| Simulated edge providers                                          | Implemented         | Every observation includes mode, provider, timestamp, and reason                                |
+| Payments                                                          | Not implemented     | Monetization is documentation-only                                                              |
 
 See [release evidence](docs/release-evidence.md) for the checklist that prevents local or simulator results from being reported as cloud or device proof.
 
@@ -69,6 +69,8 @@ All REST routes are under `/v1`: `home`, `tasks`, `access`, `circle`, `safety-wi
 
 Writes require `Idempotency-Key` and optimistic `expectedVersion`. The repository transaction updates the aggregate, appends an outbox event, and reserves the idempotency key together. DynamoDB Streams publish outbox events to a dedicated EventBridge bus.
 
+Creating a Safety Window prepares three named one-time EventBridge Scheduler invocations: open, first check, and second check after the configured grace period. Each payload carries the expected aggregate version; a check-in, cancellation, retry, duplicate, or delayed delivery therefore becomes a logged no-op when it is no longer current.
+
 Generate OpenAPI and TypeScript client contracts with:
 
 ```bash
@@ -108,7 +110,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Playwright covers 20 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard, touch-only protected flow, emergency copy, automated WCAG checks, adaptive Access preferences, routine Help Board requests, resident Safety Window check-in, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
+Playwright covers 20 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard, touch-only protected flow, emergency copy, automated WCAG checks, adaptive Access preferences, routine Help Board requests, resident Safety Window creation/check-in, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
 
 ## AWS deployment gate
 

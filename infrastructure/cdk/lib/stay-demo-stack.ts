@@ -462,14 +462,19 @@ export class StayDemoStack extends Stack {
       ],
     });
 
-    new scheduler.CfnScheduleGroup(this, 'SafetyWindowScheduleGroup', {
-      name: 'stay-demo-safety-windows',
+    const scheduleGroupName = 'stay-demo-safety-windows';
+    const scheduleGroup = new scheduler.CfnScheduleGroup(this, 'SafetyWindowScheduleGroup', {
+      name: scheduleGroupName,
     });
     const schedulerRole = new iam.Role(this, 'SchedulerInvokeRole', {
       assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),
       description: 'Invokes only the deterministic STAY Safety Window transition Lambda.',
     });
     schedulerFunction.grantInvoke(schedulerRole);
+    apiFunction.addEnvironment('SAFETY_WINDOW_SCHEDULE_GROUP', scheduleGroupName);
+    apiFunction.addEnvironment('SAFETY_WINDOW_SCHEDULER_TARGET_ARN', schedulerFunction.functionArn);
+    apiFunction.addEnvironment('SAFETY_WINDOW_SCHEDULER_ROLE_ARN', schedulerRole.roleArn);
+    apiFunction.node.addDependency(scheduleGroup);
     apiFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [

@@ -4,6 +4,7 @@ import type {
   ConfirmationPurpose,
   ConfirmationToken,
   HouseMemoryItem,
+  SafetyWindowTemplate,
 } from '@stay/contracts';
 import type { HomeState } from '@stay/domain';
 import type { StayRuntimeConfig } from './auth';
@@ -51,6 +52,11 @@ interface DemoCommand {
   title?: string;
   detail?: string;
   urgency?: 'normal' | 'time-sensitive' | 'urgent';
+  template?: SafetyWindowTemplate;
+  startsAt?: string;
+  expectedBy?: string;
+  graceMinutes?: number;
+  escalationMemberIds?: string[];
   preferences?: AccessPreferences;
   label?: string;
   value?: string;
@@ -181,6 +187,11 @@ export async function runDemoCommand<T>(
       ...(command.title ? { title: command.title } : {}),
       ...(command.detail ? { detail: command.detail } : {}),
       ...(command.urgency ? { urgency: command.urgency } : {}),
+      ...(command.template ? { template: command.template } : {}),
+      ...(command.startsAt ? { startsAt: command.startsAt } : {}),
+      ...(command.expectedBy ? { expectedBy: command.expectedBy } : {}),
+      ...(command.graceMinutes ? { graceMinutes: command.graceMinutes } : {}),
+      ...(command.escalationMemberIds ? { escalationMemberIds: command.escalationMemberIds } : {}),
       ...(command.preferences ? { preferences: command.preferences } : {}),
       ...(command.label ? { label: command.label } : {}),
       ...(command.value ? { value: command.value } : {}),

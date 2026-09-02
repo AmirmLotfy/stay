@@ -626,11 +626,25 @@ export interface paths {
       };
       requestBody: {
         content: {
-          'application/json': {
-            action: string;
-            entityId?: string;
-            expectedVersion?: number;
-          };
+          'application/json':
+            | {
+                /** @constant */
+                action: 'create';
+                title: string;
+                template: components['schemas']['SafetyWindowTemplate'];
+                /** Format: date-time */
+                startsAt: string;
+                /** Format: date-time */
+                expectedBy: string;
+                graceMinutes: number;
+                escalationMemberIds: string[];
+              }
+            | {
+                /** @enum {string} */
+                action: 'check-in' | 'close-early' | 'cancel' | 'record-missed-check';
+                entityId: string;
+                expectedVersion: number;
+              };
         };
       };
       responses: {
@@ -1600,6 +1614,9 @@ export interface components {
       /** @enum {string} */
       textScale: 'default' | 'large' | 'extra-large';
     };
+    /** @enum {string} */
+    SafetyWindowTemplate:
+      'morning-check-in' | 'arrived-home' | 'medication-routine' | 'meal-check' | 'custom';
     ApiError: {
       /** @enum {string} */
       code:

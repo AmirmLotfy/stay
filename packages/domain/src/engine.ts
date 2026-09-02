@@ -10,6 +10,7 @@ import type {
   Incident,
   Playbook,
   SafetyWindow,
+  SafetyWindowTemplate,
   SourceProvenance,
   TimelineEvent,
 } from '@stay/contracts';
@@ -20,7 +21,7 @@ import { requirePermission } from './permissions.js';
 const domainProvenance: SourceProvenance = {
   mode: 'live',
   provider: 'STAY deterministic domain engine',
-  observedAt: '2026-09-02T06:20:00.000Z',
+  observedAt: '2026-09-02T10:20:00.000Z',
 };
 
 export interface CommandMeta {
@@ -34,6 +35,15 @@ export interface PrivacyUpdateInput {
   routineSharing?: boolean;
   locationSharing?: HomeState['privacy']['locationSharing'];
   temporaryPrivateUntil?: string | null;
+}
+
+export interface CreateSafetyWindowInput {
+  title: string;
+  template: SafetyWindowTemplate;
+  startsAt: string;
+  expectedBy: string;
+  graceMinutes: number;
+  escalationMemberIds: string[];
 }
 
 export class StayEngine {
@@ -92,6 +102,88 @@ export class StayEngine {
           state: window.state,
           checkAttempts: window.checkAttempts,
           expectedVersion: window.version,
+        },
+      );
+      this.#outbox(event);
+      return this.#result(window, [event]);
+    });
+  }
+
+  public createSafetyWindow(
+    input: CreateSafetyWindowInput,
+    meta: Omit<CommandMeta, 'expectedVersion'>,
+  ): CommandResult<SafetyWindow> {
+    requirePermission(meta.actor, 'safety-window:manage');
+    return this.#idempotent<SafetyWindow>(meta.idempotencyKey, () => {
+      const title = input.title.trim();
+      const startsAt = new Date(input.startsAt);
+      const expectedBy = new Date(input.expectedBy);
+      const now = this.#now(meta);
+      if (
+        !title ||
+        title.length > 120 ||
+        Number.isNaN(startsAt.getTime()) ||
+        Number.isNaN(expectedBy.getTime())
+      ) {
+        throw new StayDomainError('BAD_REQUEST', 'A valid title and window timing are required.');
+      }
+      if (startsAt.getTime() <= new Date(now).getTime()) {
+        throw new StayDomainError('BAD_REQUEST', 'The Safety Window must start in the future.');
+      }
+      if (expectedBy.getTime() <= startsAt.getTime()) {
+        throw new StayDomainError('BAD_REQUEST', 'The expected check-in must be after the start.');
+      }
+      if (
+        !Number.isInteger(input.graceMinutes) ||
+        input.graceMinutes < 1 ||
+        input.graceMinutes > 60
+      ) {
+        throw new StayDomainError('BAD_REQUEST', 'Grace time must be between 1 and 60 minutes.');
+      }
+      const escalationMemberIds = [...new Set(input.escalationMemberIds)];
+      if (
+        !escalationMemberIds.length ||
+        escalationMemberIds.some(
+          (memberId) => !this.#state.circle.some((member) => member.id === memberId),
+        )
+      ) {
+        throw new StayDomainError('BAD_REQUEST', 'Choose a valid preconfigured Circle plan.');
+      }
+      const window: SafetyWindow = {
+        id: this.#entityId('window', meta.idempotencyKey),
+        residentId: meta.actor.residentId,
+        residentName: this.#state.resident.firstName,
+        title,
+        template: input.template,
+        state: 'scheduled',
+        startsAt: startsAt.toISOString(),
+        expectedBy: expectedBy.toISOString(),
+        graceMinutes: input.graceMinutes,
+        checkAttempts: 0,
+        escalationMemberIds,
+        version: 1,
+        timeline: [
+          this.#timeline(
+            now,
+            'window-scheduled',
+            'Safety Window scheduled',
+            `The window opens at ${startsAt.toISOString()} and expects a check-in by ${expectedBy.toISOString()}.`,
+            this.#state.resident.firstName,
+          ),
+        ],
+      };
+      this.#state.safetyWindows.unshift(window);
+      const event = this.#event(
+        'SafetyWindow.Created',
+        'safety-window',
+        window.id,
+        now,
+        meta.actor,
+        {
+          template: window.template,
+          startsAt: window.startsAt,
+          expectedBy: window.expectedBy,
+          graceMinutes: window.graceMinutes,
         },
       );
       this.#outbox(event);

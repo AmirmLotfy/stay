@@ -25,13 +25,59 @@ const actor: ActorContext = {
 };
 
 describe('StayEngine protected demonstration', () => {
+  it('creates a future Safety Window with the resident preconfigured Circle order', () => {
+    const created = new StayEngine().createSafetyWindow(
+      {
+        title: 'Arrived home',
+        template: 'arrived-home',
+        startsAt: '2026-09-03T15:00:00.000Z',
+        expectedBy: '2026-09-03T15:30:00.000Z',
+        graceMinutes: 10,
+        escalationMemberIds: ['member-maya', 'member-tom', 'member-james'],
+      },
+      {
+        actor,
+        idempotencyKey: 'create-arrived-home-window',
+        now: new Date('2026-09-02T10:00:00.000Z'),
+      },
+    );
+
+    expect(created.entity).toMatchObject({
+      id: 'window-create-arrived-home-window',
+      state: 'scheduled',
+      version: 1,
+      escalationMemberIds: ['member-maya', 'member-tom', 'member-james'],
+    });
+    expect(created.emittedEvents[0]?.type).toBe('SafetyWindow.Created');
+  });
+
+  it('rejects Safety Windows that start in the past', () => {
+    expect(() =>
+      new StayEngine().createSafetyWindow(
+        {
+          title: 'Past window',
+          template: 'custom',
+          startsAt: '2026-09-01T15:00:00.000Z',
+          expectedBy: '2026-09-01T15:30:00.000Z',
+          graceMinutes: 10,
+          escalationMemberIds: ['member-maya'],
+        },
+        {
+          actor,
+          idempotencyKey: 'create-past-window',
+          now: new Date('2026-09-02T10:00:00.000Z'),
+        },
+      ),
+    ).toThrow(/start in the future/);
+  });
+
   it('coordinates the complete missed-window responder flow without a model', () => {
     const engine = new StayEngine();
     const first = engine.markSafetyWindowMissed('window-morning', {
       actor,
       idempotencyKey: 'miss-1',
       expectedVersion: 1,
-      now: new Date('2026-09-02T06:31:00Z'),
+      now: new Date('2026-09-02T10:31:00Z'),
     });
     expect(first.entity.state).toBe('first-check-missed');
 
@@ -39,7 +85,7 @@ describe('StayEngine protected demonstration', () => {
       actor,
       idempotencyKey: 'miss-2',
       expectedVersion: 2,
-      now: new Date('2026-09-02T06:41:00Z'),
+      now: new Date('2026-09-02T10:41:00Z'),
     });
     expect(second.entity.state).toBe('escalating');
 
@@ -47,19 +93,19 @@ describe('StayEngine protected demonstration', () => {
       actor,
       idempotencyKey: 'activate-1',
       expectedVersion: 3,
-      now: new Date('2026-09-02T06:41:01Z'),
+      now: new Date('2026-09-02T10:41:01Z'),
     });
     const asked = engine.offerIncidentToMember(activated.entity.id, 'member-tom', {
       actor,
       idempotencyKey: 'ask-tom-1',
       expectedVersion: 1,
-      now: new Date('2026-09-02T06:42:00Z'),
+      now: new Date('2026-09-02T10:42:00Z'),
     });
     const accepted = engine.acceptIncident(asked.entity.id, 'member-tom', {
       actor,
       idempotencyKey: 'accept-tom-1',
       expectedVersion: 2,
-      now: new Date('2026-09-02T06:43:00Z'),
+      now: new Date('2026-09-02T10:43:00Z'),
     });
     expect(accepted.entity.state).toBe('responding');
     expect(accepted.entity.timeline.at(-1)?.title).toBe('Tom is on the way');
@@ -71,7 +117,7 @@ describe('StayEngine protected demonstration', () => {
       actor,
       idempotencyKey: 'same-command',
       expectedVersion: 1,
-      now: new Date('2026-09-02T06:31:00Z'),
+      now: new Date('2026-09-02T10:31:00Z'),
     };
     const first = engine.markSafetyWindowMissed('window-morning', command);
     const replay = engine.markSafetyWindowMissed('window-morning', command);
@@ -140,7 +186,7 @@ describe('StayEngine protected demonstration', () => {
       actor,
       idempotencyKey: 'check-in',
       expectedVersion: 1,
-      now: new Date('2026-09-02T06:25:00Z'),
+      now: new Date('2026-09-02T10:25:00Z'),
     });
     expect(checkedIn.entity.state).toBe('checked-in');
     expect(checkedIn.emittedEvents[0]?.type).toBe('SafetyWindow.CheckedIn');

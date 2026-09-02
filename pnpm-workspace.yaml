@@ -29,6 +29,7 @@ minimumReleaseAgeExclude:
   - '@aws-sdk/credential-provider-node@3.972.82'
   - '@aws-sdk/lib-dynamodb@3.1124.0'
   - '@aws-sdk/token-providers@3.1124.0'
+  - '@aws-sdk/client-scheduler@3.1124.0'
 
 onlyBuiltDependencies:
   - '@parcel/watcher'

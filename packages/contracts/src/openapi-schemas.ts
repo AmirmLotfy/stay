@@ -13,6 +13,7 @@ import {
   PlaybookSchema as Playbook,
   PrivacySettingsSchema as PrivacySettings,
   SafetyWindowSchema as SafetyWindow,
+  SafetyWindowTemplateSchema as SafetyWindowTemplate,
   SourceProvenanceSchema,
 } from './index.js';
 
@@ -28,6 +29,9 @@ export const IncidentSchema = Incident.meta({ id: 'Incident' });
 export const PlaybookSchema = Playbook.meta({ id: 'Playbook' });
 export const PrivacySettingsSchema = PrivacySettings.meta({ id: 'PrivacySettings' });
 export const SafetyWindowSchema = SafetyWindow.meta({ id: 'SafetyWindow' });
+export const SafetyWindowTemplateSchema = SafetyWindowTemplate.meta({
+  id: 'SafetyWindowTemplate',
+});
 export const CommandResultSchema = z
   .object({
     entity: z.unknown(),

@@ -1091,6 +1091,45 @@ svg {
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
+.window-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-block-end: 18px;
+}
+.window-form > .section-heading,
+.window-form > .window-plan-note,
+.window-form > .window-form-error,
+.window-form > .form-actions {
+  grid-column: 1 / -1;
+}
+.window-form > div:not(.section-heading, .form-actions) {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 6px;
+}
+.window-form label {
+  font-weight: 650;
+}
+.window-form input,
+.window-form select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text);
+  background: var(--chalk);
+}
+.window-plan-note {
+  padding: 14px 16px;
+  margin: 0;
+  border-inline-start: 3px solid var(--pine);
+  color: var(--text-soft);
+  background: var(--surface-muted);
+}
 .template-card {
   position: relative;
   padding: 23px;
@@ -1769,6 +1808,7 @@ svg {
   .status-cards,
   .two-column,
   .template-grid,
+  .window-form,
   .request-grid,
   .help-request-form,
   .memory-form,

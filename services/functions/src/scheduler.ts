@@ -1,6 +1,5 @@
 import type { DomainEvent, SafetyWindow } from '@stay/contracts';
 import { transitionSafetyWindow } from '@stay/domain';
-import type { EventBridgeEvent } from 'aws-lambda';
 import { z } from 'zod';
 import { log } from './logging.js';
 import { DynamoStayRepository } from './repository.js';
@@ -13,10 +12,16 @@ const ScheduledTransitionSchema = z.object({
   scheduledAt: z.iso.datetime(),
 });
 
-export async function handler(
-  event: EventBridgeEvent<'SafetyWindowScheduledTransition', unknown>,
-): Promise<void> {
-  const transition = ScheduledTransitionSchema.parse(event.detail);
+type ScheduledInvocation = z.infer<typeof ScheduledTransitionSchema> & {
+  id?: string;
+  detail?: unknown;
+};
+
+export async function handler(event: ScheduledInvocation): Promise<void> {
+  const transition = ScheduledTransitionSchema.parse(event.detail ?? event);
+  const invocationId =
+    event.id ??
+    `${transition.windowId}:${transition.transition}:${transition.expectedVersion}:${transition.scheduledAt}`;
   if (!process.env.TABLE_NAME) throw new Error('TABLE_NAME is not configured.');
   const repository = new DynamoStayRepository(process.env.TABLE_NAME);
   const window = await repository.get<SafetyWindow>(
@@ -49,7 +54,7 @@ export async function handler(
   next.version += 1;
   const occurredAt = new Date().toISOString();
   next.timeline.push({
-    id: `scheduled-${transition.transition}-${event.id}`,
+    id: `scheduled-${transition.transition}-${invocationId}`,
     at: occurredAt,
     kind: `scheduled-${transition.transition}`,
     title:
@@ -65,7 +70,7 @@ export async function handler(
     actorName: 'STAY Scheduler',
   });
   const domainEvent: DomainEvent = {
-    id: `${next.id}:scheduled:${transition.transition}:${event.id}`,
+    id: `${next.id}:scheduled:${transition.transition}:${invocationId}`,
     type:
       transition.transition === 'open'
         ? 'SafetyWindow.Opened'
@@ -85,7 +90,7 @@ export async function handler(
       aggregateType: 'safety-window',
       entity: next,
       expectedVersion: transition.expectedVersion,
-      idempotencyKey: `schedule:${event.id}`,
+      idempotencyKey: `schedule:${invocationId}`,
       idempotencyExpiresAt: Math.floor(Date.now() / 1000) + 86_400,
       event: domainEvent,
     });
@@ -93,7 +98,7 @@ export async function handler(
     if (error instanceof Error && error.name === 'TransactionCanceledException') {
       log('INFO', 'concurrent scheduled transition became a no-op', {
         windowId: transition.windowId,
-        eventId: event.id,
+        invocationId,
       });
       return;
     }

@@ -10,8 +10,17 @@ import type {
   Incident,
   Playbook,
   SafetyWindow,
+  SafetyWindowTemplate,
 } from '@stay/contracts';
-import { createDemoState, StayEngine, type HomeState, type PrivacyUpdateInput } from '@stay/domain';
+import {
+  createDemoState,
+  formatResidentDateTimeInput,
+  residentDateTimeToUtc,
+  StayEngine,
+  type CreateSafetyWindowInput,
+  type HomeState,
+  type PrivacyUpdateInput,
+} from '@stay/domain';
 import {
   Accessibility,
   BellRing,
@@ -114,6 +123,14 @@ const circleNavigation: Array<{ id: CircleSurface; label: string }> = [
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function residentTime(value: string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone,
+  }).format(new Date(value));
 }
 
 function browserDemoSession(): { id: string; expiresAt: string } {
@@ -294,7 +311,9 @@ export default function StayApp() {
     if (actionPending) return;
     setActionPending(true);
     setLastError(null);
-    const window = engine.current.snapshot().safetyWindows[0];
+    const currentWindows = engine.current.snapshot().safetyWindows;
+    const window =
+      currentWindows.find((candidate) => candidate.id === 'window-morning') ?? currentWindows[0];
     if (!window) {
       setActionPending(false);
       return;
@@ -673,10 +692,52 @@ export default function StayApp() {
     [actionPending, demoSession, refresh, runtimeConfig],
   );
 
+  const createSafetyWindow = useCallback(
+    async (input: CreateSafetyWindowInput): Promise<boolean> => {
+      if (actionPending) return false;
+      setActionPending(true);
+      setLastError(null);
+      const idempotencyKey = uid('window-create');
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<SafetyWindow>(runtimeConfig, demoSession, {
+            group: 'safety-windows',
+            action: 'create',
+            idempotencyKey,
+            ...input,
+          });
+          const next = engine.current.snapshot();
+          next.safetyWindows = [
+            remote.entity,
+            ...next.safetyWindows.filter((item) => item.id !== remote.entity.id),
+          ];
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.createSafetyWindow(input, { actor: residentActor, idempotencyKey });
+          refresh();
+        }
+        setDemoStep(0);
+        setNotice(
+          `${input.title} is scheduled. Sarah’s saved Circle order will be used only after two missed checks.`,
+        );
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The Safety Window was not created.');
+        return false;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
   const manageSafetyWindow = useCallback(
-    async (action: 'check-in' | 'close-early' | 'cancel') => {
+    async (action: 'check-in' | 'close-early' | 'cancel', windowId: string) => {
       if (actionPending) return;
-      const window = engine.current.snapshot().safetyWindows[0];
+      const window = engine.current
+        .snapshot()
+        .safetyWindows.find((candidate) => candidate.id === windowId);
       if (!window) return;
       setActionPending(true);
       setLastError(null);
@@ -1137,7 +1198,8 @@ export default function StayApp() {
                 state={state}
                 demoStep={demoStep}
                 pending={actionPending}
-                onAction={(action) => void manageSafetyWindow(action)}
+                onAction={(action, windowId) => void manageSafetyWindow(action, windowId)}
+                onCreate={createSafetyWindow}
               />
             )}
             {surface === 'circle' && (
@@ -1545,19 +1607,74 @@ function WindowsSurface({
   demoStep,
   pending,
   onAction,
+  onCreate,
 }: {
   state: HomeState;
   demoStep: number;
   pending: boolean;
-  onAction: (action: 'check-in' | 'close-early' | 'cancel') => void;
+  onAction: (action: 'check-in' | 'close-early' | 'cancel', windowId: string) => void;
+  onCreate: (input: CreateSafetyWindowInput) => Promise<boolean>;
 }) {
-  const window = state.safetyWindows[0]!;
-  const templates = [
-    ['Arrived home', 'Confirm you are settled after a trip'],
-    ['Medication routine', 'A neutral routine check—not a medical record'],
-    ['Meal check', 'A gentle everyday rhythm'],
-    ['Custom window', 'Choose the words, timing, and Circle plan'],
+  const window =
+    (demoStep > 0
+      ? state.safetyWindows.find((candidate) => candidate.id === 'window-morning')
+      : undefined) ?? state.safetyWindows[0]!;
+  const [selectedTemplate, setSelectedTemplate] = useState<SafetyWindowTemplate | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    title: '',
+    startsAt: '',
+    expectedBy: '',
+    graceMinutes: '10',
+  });
+  const templates: Array<{
+    id: SafetyWindowTemplate;
+    title: string;
+    detail: string;
+  }> = [
+    {
+      id: 'arrived-home',
+      title: 'Arrived home',
+      detail: 'Confirm you are settled after a trip',
+    },
+    {
+      id: 'medication-routine',
+      title: 'Medication routine',
+      detail: 'A neutral routine check—not a medical record',
+    },
+    { id: 'meal-check', title: 'Meal check', detail: 'A gentle everyday rhythm' },
+    { id: 'custom', title: 'Custom window', detail: 'Choose the words and timing' },
   ];
+  const beginSetup = (template: SafetyWindowTemplate, title: string) => {
+    const startsAt = new Date(Date.now() + 15 * 60_000);
+    const expectedBy = new Date(startsAt.getTime() + 30 * 60_000);
+    setSelectedTemplate(template);
+    setFormError(null);
+    setForm({
+      title: template === 'custom' ? 'My Safety Window' : title,
+      startsAt: formatResidentDateTimeInput(startsAt, state.resident.timezone),
+      expectedBy: formatResidentDateTimeInput(expectedBy, state.resident.timezone),
+      graceMinutes: '10',
+    });
+  };
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedTemplate) return;
+    setFormError(null);
+    try {
+      const created = await onCreate({
+        title: form.title,
+        template: selectedTemplate,
+        startsAt: residentDateTimeToUtc(form.startsAt, state.resident.timezone),
+        expectedBy: residentDateTimeToUtc(form.expectedBy, state.resident.timezone),
+        graceMinutes: Number(form.graceMinutes),
+        escalationMemberIds: ['member-maya', 'member-tom', 'member-james'],
+      });
+      if (created) setSelectedTemplate(null);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Choose another local time.');
+    }
+  };
   return (
     <>
       <PageIntro
@@ -1570,13 +1687,21 @@ function WindowsSurface({
         <div className="window-clock">
           <Clock3 />
           <span>
-            {window.expectedBy.slice(11, 16)}
-            <small>UTC</small>
+            {residentTime(window.expectedBy, state.resident.timezone)}
+            <small>{state.resident.timezone.replaceAll('_', ' ')}</small>
           </span>
         </div>
         <div>
-          <span className="eyebrow">MORNING CHECK-IN · {window.state.replaceAll('-', ' ')}</span>
-          <h2>{demoStep >= 2 ? 'Sarah’s Circle plan is active' : 'Open until 6:30 AM'}</h2>
+          <span className="eyebrow">
+            {window.title.toUpperCase()} · {window.state.replaceAll('-', ' ')}
+          </span>
+          <h2>
+            {demoStep >= 2
+              ? 'Sarah’s Circle plan is active'
+              : window.state === 'scheduled'
+                ? `Starts at ${residentTime(window.startsAt, state.resident.timezone)}`
+                : `Open until ${residentTime(window.expectedBy, state.resident.timezone)}`}
+          </h2>
           <p>
             {window.checkAttempts === 0
               ? 'Say “I’m okay,” tap the check, or close early.'
@@ -1585,7 +1710,7 @@ function WindowsSurface({
         </div>
         <button
           className="secondary-button"
-          onClick={() => onAction('check-in')}
+          onClick={() => onAction('check-in', window.id)}
           disabled={pending || !['open', 'first-check-missed', 'grace'].includes(window.state)}
         >
           <Check /> I’m okay
@@ -1594,14 +1719,14 @@ function WindowsSurface({
       <div className="window-secondary-actions" aria-label="Safety Window actions">
         <button
           className="text-button"
-          onClick={() => onAction('close-early')}
+          onClick={() => onAction('close-early', window.id)}
           disabled={pending || window.state !== 'open'}
         >
           Close this window early
         </button>
         <button
           className="text-button destructive-text"
-          onClick={() => onAction('cancel')}
+          onClick={() => onAction('cancel', window.id)}
           disabled={
             pending || !['scheduled', 'open', 'first-check-missed', 'grace'].includes(window.state)
           }
@@ -1617,24 +1742,121 @@ function WindowsSurface({
           </div>
           <span className="version-pill">v{window.version}</span>
         </div>
-        <Timeline events={window.timeline} />
+        <Timeline events={window.timeline} timezone={state.resident.timezone} />
       </section>
       <div className="section-heading">
         <div>
           <span className="eyebrow">TEMPLATES</span>
           <h2>Build a familiar rhythm</h2>
         </div>
-        <button className="text-button">
+        <button className="text-button" onClick={() => beginSetup('custom', 'My Safety Window')}>
           <Plus /> New window
         </button>
       </div>
+      {selectedTemplate && (
+        <form className="panel-card window-form" onSubmit={(event) => void submit(event)}>
+          <div className="section-heading compact">
+            <div>
+              <span className="eyebrow">NEW SAFETY WINDOW</span>
+              <h2>Choose the moment Sarah expects a check-in</h2>
+            </div>
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => setSelectedTemplate(null)}
+              disabled={pending}
+            >
+              Close
+            </button>
+          </div>
+          <div>
+            <label htmlFor="window-title">Window name</label>
+            <input
+              id="window-title"
+              value={form.title}
+              maxLength={120}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, title: event.target.value }))
+              }
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="window-start">Starts</label>
+            <input
+              id="window-start"
+              type="datetime-local"
+              value={form.startsAt}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, startsAt: event.target.value }))
+              }
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="window-expected">Check in by</label>
+            <input
+              id="window-expected"
+              type="datetime-local"
+              value={form.expectedBy}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, expectedBy: event.target.value }))
+              }
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="window-grace">Grace after the first missed check</label>
+            <select
+              id="window-grace"
+              value={form.graceMinutes}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, graceMinutes: event.target.value }))
+              }
+            >
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+          </div>
+          <p className="window-plan-note">
+            Times use Sarah’s profile timezone: {state.resident.timezone.replaceAll('_', ' ')}.
+            <br />
+            If both checks are missed, STAY follows Sarah’s saved order: Maya, then Tom, then James.
+            Changing that order requires a separate explicit confirmation.
+          </p>
+          {formError && (
+            <p className="error-banner window-form-error" role="alert">
+              {formError}
+            </p>
+          )}
+          <div className="form-actions">
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => setSelectedTemplate(null)}
+              disabled={pending}
+            >
+              Cancel
+            </button>
+            <button className="primary-button" type="submit" disabled={pending}>
+              <Clock3 /> {pending ? 'Scheduling…' : 'Schedule window'}
+            </button>
+          </div>
+        </form>
+      )}
       <div className="template-grid">
-        {templates.map(([title, detail]) => (
-          <article className="template-card" key={title}>
+        {templates.map((template) => (
+          <article className="template-card" key={template.id}>
             <Clock3 />
-            <h3>{title}</h3>
-            <p>{detail}</p>
-            <button aria-label={`Set up ${title}`}>
+            <h3>{template.title}</h3>
+            <p>{template.detail}</p>
+            <button
+              aria-label={`Set up ${template.title}`}
+              onClick={() => beginSetup(template.id, template.title)}
+              disabled={pending}
+            >
               <ChevronRight />
             </button>
           </article>
@@ -1888,7 +2110,7 @@ function Incidents({
         <div className="incident-bar">
           <span className="pulse-ring" />
           <span>{incident.state}</span>
-          <small>Opened {incident.createdAt.slice(11, 16)} UTC</small>
+          <small>Opened {residentTime(incident.createdAt, state.resident.timezone)}</small>
         </div>
         <div className="incident-heading">
           <div>
@@ -1911,7 +2133,7 @@ function Incidents({
             </div>
           )}
         </div>
-        <Timeline events={incident.timeline} />
+        <Timeline events={incident.timeline} timezone={state.resident.timezone} />
         <div className="incident-actions">
           <button
             className="secondary-button"
@@ -2339,7 +2561,13 @@ function PersonRow({
   );
 }
 
-function Timeline({ events }: { events: HomeState['safetyWindows'][number]['timeline'] }) {
+function Timeline({
+  events,
+  timezone,
+}: {
+  events: HomeState['safetyWindows'][number]['timeline'];
+  timezone: string;
+}) {
   return (
     <div className="timeline">
       {[...events].reverse().map((event, index) => (
@@ -2349,7 +2577,7 @@ function Timeline({ events }: { events: HomeState['safetyWindows'][number]['time
             <strong>{event.title}</strong>
             <small>{event.detail}</small>
           </span>
-          <time>{event.at.slice(11, 16)}</time>
+          <time dateTime={event.at}>{residentTime(event.at, timezone)}</time>
         </div>
       ))}
     </div>

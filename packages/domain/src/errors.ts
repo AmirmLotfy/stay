@@ -7,7 +7,8 @@ export class StayDomainError extends Error {
       | 'CONFLICT'
       | 'STALE_VERSION'
       | 'IDEMPOTENCY_REQUIRED'
-      | 'CONFIRMATION_REQUIRED',
+      | 'CONFIRMATION_REQUIRED'
+      | 'PROVIDER_UNAVAILABLE',
     message: string,
   ) {
     super(message);
