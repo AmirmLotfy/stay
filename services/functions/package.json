@@ -19,6 +19,7 @@
     "@aws-sdk/util-dynamodb": "3.996.9",
     "@stay/contracts": "workspace:*",
     "@stay/domain": "workspace:*",
+    "@stay/persistence": "workspace:*",
     "zod": "4.5.4"
   },
   "devDependencies": {

@@ -25,6 +25,8 @@ flowchart LR
 
 Bedrock cannot select escalation order, mutate policy, reveal protected data, assign responders, or resolve incidents. If it fails, every solid-line path remains available.
 
+The MCP HTTP transport is stateless, but product state is not Lambda-memory state. Each AWS tool call loads the authorized household’s current aggregates from DynamoDB and persists commands through the shared transaction repository. The household-scoped in-memory engine exists only when `TABLE_NAME` is absent for local protocol tests.
+
 ## DynamoDB item families
 
 The table uses `PK = HOUSEHOLD#{householdId}` and typed sort keys. Incidents are independent aggregates, not nested household blobs.

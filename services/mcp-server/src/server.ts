@@ -7,15 +7,61 @@ import {
   type McpRequestContext,
 } from '@modelcontextprotocol/server';
 import { SimulatedHomeContextProvider } from '@stay/adapters';
-import type { ActorContext, McpToolName, SourceProvenance } from '@stay/contracts';
-import { StayDomainError, StayEngine } from '@stay/domain';
+import type {
+  ActorContext,
+  CommandResult,
+  HelpRequest,
+  Incident,
+  McpToolName,
+  Playbook,
+  SafetyWindow,
+  SourceProvenance,
+} from '@stay/contracts';
+import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
+import { DynamoStayRepository, type VersionedEntity } from '@stay/persistence';
 import { z } from 'zod';
 
 const householdEngines = new Map<string, StayEngine>();
 const providers = new SimulatedHomeContextProvider();
+const repository = process.env.TABLE_NAME ? new DynamoStayRepository(process.env.TABLE_NAME) : null;
 
-function engineFor(context: McpRequestContext): StayEngine {
-  const householdId = context.authInfo?.extra?.householdId?.toString() ?? 'demo-household-sarah';
+function householdIdFor(context: McpRequestContext): string {
+  return context.authInfo?.extra?.householdId?.toString() ?? 'demo-household-sarah';
+}
+
+function mergeById<T extends { id: string }>(stored: T[], fallback: T[]): T[] {
+  return [...stored, ...fallback.filter((item) => !stored.some((saved) => saved.id === item.id))];
+}
+
+async function engineFor(context: McpRequestContext): Promise<StayEngine> {
+  const householdId = householdIdFor(context);
+  if (repository) {
+    const residentId = context.authInfo?.extra?.residentId?.toString() ?? 'resident-sarah';
+    const state = createDemoState();
+    state.householdId = householdId;
+    state.resident.id = residentId;
+    state.access.id = `access-${residentId}`;
+    state.privacy.id = `privacy-${residentId}`;
+    const [task, access, privacy, windows, help, incidents, playbooks, memory] = await Promise.all([
+      repository.get<HomeState['oneThing']>(householdId, 'task', state.oneThing.id),
+      repository.get<HomeState['access']>(householdId, 'access', state.access.id),
+      repository.get<HomeState['privacy']>(householdId, 'privacy', state.privacy.id),
+      repository.list<SafetyWindow>(householdId, 'safety-window'),
+      repository.list<HelpRequest>(householdId, 'help-request'),
+      repository.list<Incident>(householdId, 'incident'),
+      repository.list<Playbook>(householdId, 'playbook'),
+      repository.list<HomeState['houseMemory'][number]>(householdId, 'house-memory'),
+    ]);
+    if (task) state.oneThing = task;
+    if (access) state.access = access;
+    if (privacy) state.privacy = privacy;
+    state.safetyWindows = mergeById(windows, state.safetyWindows);
+    state.helpRequests = mergeById(help, state.helpRequests);
+    state.incidents = mergeById(incidents, state.incidents);
+    state.playbooks = mergeById(playbooks, state.playbooks);
+    state.houseMemory = mergeById(memory, state.houseMemory);
+    return new StayEngine(state);
+  }
   const existing = householdEngines.get(householdId);
   if (existing) return existing;
   if (householdEngines.size >= 100) {
@@ -25,6 +71,49 @@ function engineFor(context: McpRequestContext): StayEngine {
   const engine = new StayEngine();
   householdEngines.set(householdId, engine);
   return engine;
+}
+
+async function executeCommand<T extends VersionedEntity>(
+  context: McpRequestContext,
+  input: {
+    aggregateType: string;
+    idempotencyKey: string;
+    expectedVersion: number;
+    create?: boolean;
+  },
+  operation: (engine: StayEngine) => CommandResult<T>,
+): Promise<CommandResult<T>> {
+  const householdId = householdIdFor(context);
+  if (repository) {
+    const prior = await repository.getIdempotency(householdId, input.idempotencyKey);
+    if (prior) {
+      const entity = await repository.get<T>(householdId, prior.aggregateType, prior.aggregateId);
+      if (entity) {
+        return {
+          entity,
+          version: entity.version,
+          emittedEvents: [],
+          confirmationRequired: null,
+          provenance: liveProvenance(),
+        };
+      }
+    }
+  }
+  const engine = await engineFor(context);
+  const result = operation(engine);
+  const event = result.emittedEvents[0];
+  if (repository && event) {
+    await repository.write({
+      householdId,
+      aggregateType: input.aggregateType,
+      entity: result.entity,
+      expectedVersion: input.create ? 0 : input.expectedVersion,
+      idempotencyKey: input.idempotencyKey,
+      idempotencyExpiresAt: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+      event,
+    });
+  }
+  return result;
 }
 
 const EntityActionSchema = z.object({
@@ -113,7 +202,6 @@ function liveProvenance(): SourceProvenance {
 }
 
 function registerTools(server: McpServer, context: McpRequestContext): void {
-  const engine = engineFor(context);
   server.registerTool(
     'get_home_overview',
     {
@@ -124,6 +212,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async () => {
+      const engine = await engineFor(context);
       const state = engine.snapshot();
       const weather = await providers.getWeather();
       return toolResult(
@@ -153,11 +242,16 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       const taskAction = z
         .enum(['start', 'pause', 'resume', 'complete', 'cancel', 'reset'])
         .parse(action);
-      const result = engine.manageTaskSession(taskAction, {
-        actor: actor(context),
-        idempotencyKey,
-        expectedVersion,
-      });
+      const result = await executeCommand(
+        context,
+        { aggregateType: 'task', idempotencyKey, expectedVersion },
+        (engine) =>
+          engine.manageTaskSession(taskAction, {
+            actor: actor(context),
+            idempotencyKey,
+            expectedVersion,
+          }),
+      );
       return toolResult(
         'manage_task_session',
         `One Thing task is ${result.entity.state}.`,
@@ -178,6 +272,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     },
     async ({ action, entityId = 'window-morning', expectedVersion = 1, idempotencyKey }) => {
       if (action === 'read') {
+        const engine = await engineFor(context);
         const window = engine.snapshot().safetyWindows.find((item) => item.id === entityId);
         return toolResult(
           'manage_safety_window',
@@ -186,28 +281,32 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
           liveProvenance(),
         );
       }
-      const result =
-        action === 'record-missed-check'
-          ? engine.markSafetyWindowMissed(entityId, {
-              actor: actor(context),
-              idempotencyKey,
-              expectedVersion,
-            })
-          : ['check-in', 'close-early'].includes(action)
-            ? engine.checkInSafetyWindow(
-                entityId,
-                { actor: actor(context), idempotencyKey, expectedVersion },
-                action === 'close-early',
-              )
-            : action === 'cancel'
-              ? engine.cancelSafetyWindow(entityId, {
-                  actor: actor(context),
-                  idempotencyKey,
-                  expectedVersion,
-                })
-              : (() => {
-                  throw new StayDomainError('BAD_REQUEST', 'Unsupported Safety Window action.');
-                })();
+      const result = await executeCommand(
+        context,
+        { aggregateType: 'safety-window', idempotencyKey, expectedVersion },
+        (engine) =>
+          action === 'record-missed-check'
+            ? engine.markSafetyWindowMissed(entityId, {
+                actor: actor(context),
+                idempotencyKey,
+                expectedVersion,
+              })
+            : ['check-in', 'close-early'].includes(action)
+              ? engine.checkInSafetyWindow(
+                  entityId,
+                  { actor: actor(context), idempotencyKey, expectedVersion },
+                  action === 'close-early',
+                )
+              : action === 'cancel'
+                ? engine.cancelSafetyWindow(entityId, {
+                    actor: actor(context),
+                    idempotencyKey,
+                    expectedVersion,
+                  })
+                : (() => {
+                    throw new StayDomainError('BAD_REQUEST', 'Unsupported Safety Window action.');
+                  })(),
+      );
       return toolResult(
         'manage_safety_window',
         `${result.entity.title}: ${result.entity.state.replaceAll('-', ' ')}.`,
@@ -226,9 +325,11 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       annotations: { idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     async ({ title, detail, urgency, idempotencyKey }) => {
-      const result = engine.requestHelp(
-        { title, detail, urgency },
-        { actor: actor(context), idempotencyKey },
+      const result = await executeCommand(
+        context,
+        { aggregateType: 'help-request', idempotencyKey, expectedVersion: 0, create: true },
+        (engine) =>
+          engine.requestHelp({ title, detail, urgency }, { actor: actor(context), idempotencyKey }),
       );
       return toolResult(
         'request_help',
@@ -249,6 +350,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async () => {
+      const engine = await engineFor(context);
       const circle = engine
         .snapshot()
         .circle.map(({ id, name, role, availability, responseMinutes }) => ({
@@ -278,38 +380,48 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     },
     async ({ action, entityId, memberId, expectedVersion = 1, idempotencyKey }) => {
       if (!entityId) throw new StayDomainError('BAD_REQUEST', 'entityId is required.');
-      let result;
-      if (action === 'activate-from-window')
-        result = engine.activateMissedWindowIncident(entityId, {
-          actor: actor(context),
+      const result = await executeCommand(
+        context,
+        {
+          aggregateType: 'incident',
           idempotencyKey,
           expectedVersion,
-        });
-      else if (action === 'ask-responder' && memberId)
-        result = engine.offerIncidentToMember(entityId, memberId, {
-          actor: actor(context),
-          idempotencyKey,
-          expectedVersion,
-        });
-      else if (action === 'accept' && memberId)
-        result = engine.acceptIncident(entityId, memberId, {
-          actor: actor(context),
-          idempotencyKey,
-          expectedVersion,
-        });
-      else if (action === 'resolve')
-        result = engine.resolveIncident(entityId, {
-          actor: actor(context),
-          idempotencyKey,
-          expectedVersion,
-        });
-      else if (action === 'escalate')
-        result = engine.escalateIncident(entityId, {
-          actor: actor(context),
-          idempotencyKey,
-          expectedVersion,
-        });
-      else throw new StayDomainError('BAD_REQUEST', 'Unsupported incident action.');
+          create: action === 'activate-from-window',
+        },
+        (engine) => {
+          if (action === 'activate-from-window')
+            return engine.activateMissedWindowIncident(entityId, {
+              actor: actor(context),
+              idempotencyKey,
+              expectedVersion,
+            });
+          if (action === 'ask-responder' && memberId)
+            return engine.offerIncidentToMember(entityId, memberId, {
+              actor: actor(context),
+              idempotencyKey,
+              expectedVersion,
+            });
+          if (action === 'accept' && memberId)
+            return engine.acceptIncident(entityId, memberId, {
+              actor: actor(context),
+              idempotencyKey,
+              expectedVersion,
+            });
+          if (action === 'resolve')
+            return engine.resolveIncident(entityId, {
+              actor: actor(context),
+              idempotencyKey,
+              expectedVersion,
+            });
+          if (action === 'escalate')
+            return engine.escalateIncident(entityId, {
+              actor: actor(context),
+              idempotencyKey,
+              expectedVersion,
+            });
+          throw new StayDomainError('BAD_REQUEST', 'Unsupported incident action.');
+        },
+      );
       const last = result.entity.timeline.at(-1)?.title ?? result.entity.state;
       return toolResult(
         'manage_incident',
@@ -347,6 +459,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       category,
       sensitivity,
     }) => {
+      const engine = await engineFor(context);
       const visible = engine
         .snapshot()
         .houseMemory.filter((item) => item.sensitivity === 'routine');
@@ -366,18 +479,27 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
         );
       }
       const input = { label, value, category, sensitivity };
-      const result =
-        action === 'add'
-          ? engine.addHouseMemory(input, { actor: actor(context), idempotencyKey })
-          : action === 'update' && entityId
-            ? engine.updateHouseMemory(entityId, input, {
-                actor: actor(context),
-                idempotencyKey,
-                expectedVersion,
-              })
-            : (() => {
-                throw new StayDomainError('BAD_REQUEST', 'Unsupported House Memory action.');
-              })();
+      const result = await executeCommand(
+        context,
+        {
+          aggregateType: 'house-memory',
+          idempotencyKey,
+          expectedVersion,
+          create: action === 'add',
+        },
+        (current) =>
+          action === 'add'
+            ? current.addHouseMemory(input, { actor: actor(context), idempotencyKey })
+            : action === 'update' && entityId
+              ? current.updateHouseMemory(entityId, input, {
+                  actor: actor(context),
+                  idempotencyKey,
+                  expectedVersion,
+                })
+              : (() => {
+                  throw new StayDomainError('BAD_REQUEST', 'Unsupported House Memory action.');
+                })(),
+      );
       return toolResult(
         'manage_house_memory',
         `${result.entity.label} was saved as a routine house detail.`,
@@ -399,11 +521,16 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     },
     async ({ entityId, expectedVersion = 1, idempotencyKey }) => {
       if (!entityId) throw new StayDomainError('BAD_REQUEST', 'entityId is required.');
-      const result = engine.executePlaybook(entityId, {
-        actor: actor(context),
-        idempotencyKey,
-        expectedVersion,
-      });
+      const result = await executeCommand(
+        context,
+        { aggregateType: 'playbook', idempotencyKey, expectedVersion },
+        (engine) =>
+          engine.executePlaybook(entityId, {
+            actor: actor(context),
+            idempotencyKey,
+            expectedVersion,
+          }),
+      );
       return toolResult(
         'execute_playbook',
         `${result.entity.title}: ${result.entity.state}. Provider observations are ${result.provenance.mode}.`,
@@ -428,6 +555,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       annotations: { idempotentHint: false, destructiveHint: true, openWorldHint: false },
     },
     async ({ action, expectedVersion = 1, idempotencyKey, temporaryPrivateUntil }) => {
+      const engine = await engineFor(context);
       const privacy = engine.snapshot().privacy;
       if (action === 'private-for-two-hours') {
         if (!idempotencyKey || !temporaryPrivateUntil) {
@@ -436,9 +564,14 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
             'idempotencyKey and temporaryPrivateUntil are required.',
           );
         }
-        const result = engine.updatePrivacy(
-          { temporaryPrivateUntil },
-          { actor: actor(context), idempotencyKey, expectedVersion },
+        const result = await executeCommand(
+          context,
+          { aggregateType: 'privacy', idempotencyKey, expectedVersion },
+          (current) =>
+            current.updatePrivacy(
+              { temporaryPrivateUntil },
+              { actor: actor(context), idempotencyKey, expectedVersion },
+            ),
         );
         return toolResult(
           'manage_privacy',

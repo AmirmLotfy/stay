@@ -53,6 +53,7 @@ packages/
   adapters/            Simulated/unavailable edge provider interfaces
   design-system/       STAY color, typography, target, and motion tokens
   i18n/                English copy and RTL-ready direction helpers
+  persistence/         DynamoDB aggregates, outbox, idempotency, confirmations
   test-fixtures/       Isolated Sarah/Tom fixtures
 services/
   functions/           REST, scheduler, outbox, email, WebSocket entrypoints
@@ -87,7 +88,7 @@ The MCP endpoint defines these goal-level tools:
 - `manage_privacy`
 - `perform_home_action`
 
-Every result contains accessible text, typed `structuredContent`, provenance, and a hashed `ui://stay/...` widget URI. The official MCP SDK serves current protocol traffic and a stateless legacy 2025 path from the same registration factory so tool definitions cannot drift.
+Every result contains accessible text, typed `structuredContent`, provenance, and a hashed `ui://stay/...` widget URI. The official MCP SDK serves current protocol traffic and a stateless legacy 2025 path from the same registration factory so tool definitions cannot drift. In AWS, each tool request reconciles versioned state from DynamoDB and writes through the same aggregate/outbox/idempotency transaction as REST; local tests use a household-scoped in-memory substitute only.
 
 ## Bedrock boundary
 

@@ -15,6 +15,7 @@
     "@stay/adapters": "workspace:*",
     "@stay/contracts": "workspace:*",
     "@stay/domain": "workspace:*",
+    "@stay/persistence": "workspace:*",
     "zod": "4.5.4"
   },
   "devDependencies": {
