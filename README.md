@@ -21,7 +21,7 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 | Streamable HTTP MCP server and ten tools                          | Deployed and verified | OAuth authorization code + PKCE and authenticated MCP `2025-11-25` initialize passed live                                    |
 | Strands + Amazon Bedrock intent layer                             | Provider-limited      | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off           |
 | AWS topology                                                      | Deployed              | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; stack termination and stateful-resource deletion protection are enabled |
-| SES delivery                                                      | Verified, sandboxed   | One minimal application email was delivered to the verified demo identity; SES production access remains disabled            |
+| SES delivery                                                      | Verified, sandboxed   | SES accepted an authenticated test from `STAY <updates@saystay.site>`; inbox confirmation is still required                  |
 | Real Alexa+ device/add-on                                         | Unavailable           | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                                 |
 | Simulated edge providers                                          | Implemented           | Every observation includes mode, provider, timestamp, and reason                                                             |
 | Payments                                                          | Not implemented       | Monetization is documentation-only                                                                                           |
@@ -122,7 +122,7 @@ https://saystay.site
 
 The secure fallback serves the static PWA from a private KMS-encrypted S3 bucket through API Gateway and a Lambda reader because AWS has not yet verified this account for new CloudFront distributions. The CloudFront/private-S3 topology remains in CDK as a separately gated upgrade; no public S3 fallback is used.
 
-The deployed MCP endpoint is `https://saystay.site/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, SES, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
+The deployed MCP endpoint is `https://saystay.site/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, authenticated SES delivery from `STAY <updates@saystay.site>`, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
 
 For a reviewed redeployment:
 

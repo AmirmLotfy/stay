@@ -111,7 +111,7 @@ export async function handler(
       }
       await client.send(
         new SendEmailCommand({
-          FromEmailAddress: process.env.SES_FROM_EMAIL,
+          FromEmailAddress: `STAY <${process.env.SES_FROM_EMAIL}>`,
           Destination: { ToAddresses: [delivery.recipientEmail] },
           Content: {
             Simple: {

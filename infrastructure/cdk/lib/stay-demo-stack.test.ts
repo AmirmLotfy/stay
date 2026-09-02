@@ -25,6 +25,7 @@ describe('StayDemoStack', () => {
     });
     template.resourceCountIs('AWS::Lambda::EventSourceMapping', 3);
     template.resourceCountIs('AWS::Route53::HostedZone', 1);
+    template.resourceCountIs('AWS::SES::EmailIdentity', 0);
     template.resourceCountIs('AWS::CloudFront::Distribution', 1);
     template.hasResource('AWS::DynamoDB::Table', {
       DeletionPolicy: 'RetainExceptOnCreate',
@@ -204,7 +205,6 @@ describe('StayDemoStack', () => {
     template.resourceCountIs('AWS::CloudFront::Distribution', 0);
     template.resourceCountIs('AWS::ApiGatewayV2::DomainName', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::ApiMapping', 1);
-    template.resourceCountIs('AWS::Route53::RecordSet', 2);
     template.hasResourceProperties('AWS::ApiGatewayV2::DomainName', {
       DomainName: 'saystay.site',
       DomainNameConfigurations: Match.arrayWith([
@@ -213,6 +213,20 @@ describe('StayDemoStack', () => {
     });
     template.hasOutput('DemoUrl', { Value: 'https://saystay.site' });
     template.hasOutput('ApiUrl', { Value: 'https://saystay.site' });
+    template.resourceCountIs('AWS::SES::EmailIdentity', 1);
+    template.hasResourceProperties('AWS::SES::EmailIdentity', {
+      EmailIdentity: 'saystay.site',
+      DkimSigningAttributes: { NextSigningKeyLength: 'RSA_2048_BIT' },
+      MailFromAttributes: {
+        BehaviorOnMxFailure: 'REJECT_MESSAGE',
+        MailFromDomain: 'mail.saystay.site',
+      },
+    });
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: '_dmarc.saystay.site.',
+      Type: 'TXT',
+      ResourceRecords: ['"v=DMARC1; p=none; pct=100; adkim=r; aspf=r"'],
+    });
   }, 30_000);
 
   it('adds the saystay.site certificate and aliases only after the activation gate', () => {
@@ -225,7 +239,6 @@ describe('StayDemoStack', () => {
     const template = Template.fromStack(stack);
 
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
-    template.resourceCountIs('AWS::Route53::RecordSet', 2);
     template.hasResourceProperties('AWS::CertificateManager::Certificate', {
       DomainName: 'saystay.site',
       ValidationMethod: 'DNS',

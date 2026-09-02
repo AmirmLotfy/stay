@@ -75,7 +75,7 @@ Do not infer CloudFormation termination protection from the `DeletionProtectionS
 
 ## 5. Maintain or redeploy `saystay.site`
 
-The domain is purchased, delegated, and active. The deployed stack contains the original Route 53 public hosted zone, DNS-validated ACM certificate, regional API Gateway custom domain, apex A/AAAA aliases, and custom Cognito callback/logout URLs. The API Gateway URL remains the public fallback.
+The domain is purchased, delegated, and active. The deployed stack contains the original Route 53 public hosted zone, DNS-validated ACM certificate, regional API Gateway custom domain, apex A/AAAA aliases, custom Cognito callback/logout URLs, and the SES domain identity. Transactional mail uses `STAY <updates@saystay.site>`, Easy DKIM with 2048-bit keys, the `mail.saystay.site` custom MAIL FROM domain with SPF, and a `_dmarc.saystay.site` DMARC record. The API Gateway URL remains the public fallback.
 
 1. Use these authoritative nameservers for the existing STAY hosted zone:
 
@@ -111,12 +111,12 @@ The domain is purchased, delegated, and active. The deployed stack contains the 
      -c enableDeletionProtection=true \
      -c enableCustomDomain=true \
      --parameters StayDemoStack:AlertEmail=ALERT_EMAIL \
-     --parameters StayDemoStack:SesFromEmail=VERIFIED_SES_SENDER \
+     --parameters StayDemoStack:SesFromEmail=updates@saystay.site \
      --parameters StayDemoStack:SesRecipientEmail=APPROVED_SES_RECIPIENT \
      --parameters StayDemoStack:BedrockModelId=
    ```
 
-The custom-domain update preserves the DNS-validated ACM certificate in `us-east-1`, maps `saystay.site` to the regional HTTP API, preserves apex A/AAAA aliases, and keeps the custom URL in Cognito, CORS, MCP Origin validation, and the deployed web configuration. The API Gateway hostname remains the tested fallback. Route 53 hosted-zone and domain-registration charges are separate.
+The custom-domain update preserves the DNS-validated ACM certificate in `us-east-1`, maps `saystay.site` to the regional HTTP API, preserves apex A/AAAA aliases, and keeps the custom URL in Cognito, CORS, MCP Origin validation, and the deployed web configuration. CDK also owns the SES identity and authentication DNS records; do not replace them with manually managed duplicates. The API Gateway hostname remains the tested fallback. Route 53 hosted-zone and domain-registration charges are separate.
 
 CloudFront is a separate upgrade because AWS currently blocks distribution creation for this account pending account verification. After AWS clears that provider gate, review a new diff with `enableCloudFront=true`; never make the S3 bucket public as a workaround.
 
@@ -127,7 +127,8 @@ CloudFront is a separate upgrade because AWS currently blocks distribution creat
 - Run duplicate and stale REST writes.
 - Let a real EventBridge Scheduler transition fire; inspect the audit no-op for a duplicate.
 - Disconnect/reconnect WebSocket and reconcile by REST.
-- Prove one SES delivery to a verified address. The current verified demo identity passed this check; SES remains sandbox-limited.
+- Confirm the SES identity reports `VerifiedForSendingStatus=true`, DKIM `SUCCESS`, and custom MAIL FROM `SUCCESS`.
+- Prove one delivery from `STAY <updates@saystay.site>` to a verified address. SES accepted the 2026-09-03 test; confirm it in the recipient inbox before upgrading this evidence to delivered. SES remains sandbox-limited, so unverified recipients are blocked until production access is approved.
 - Inspect DLQs, logs, X-Ray, metrics, and alarms.
 - Run MCP initialize/list/call from the deployed URL with allowed and denied origins/scopes.
 - Confirm every simulated adapter label and timestamp.

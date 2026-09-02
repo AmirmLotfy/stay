@@ -38,6 +38,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ses from 'aws-cdk-lib/aws-ses';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as nodeLambda from 'aws-cdk-lib/aws-lambda-nodejs';
 import type { Construct } from 'constructs';
@@ -161,6 +162,23 @@ export class StayDemoStack extends Stack {
           validation: acm.CertificateValidation.fromDns(hostedZone),
         })
       : undefined;
+    const sesDomainIdentity = enableCustomDomain
+      ? new ses.EmailIdentity(this, 'SesDomainIdentity', {
+          identity: ses.Identity.publicHostedZone(hostedZone),
+          dkimIdentity: ses.DkimIdentity.easyDkim(ses.EasyDkimSigningKeyLength.RSA_2048_BIT),
+          dkimSigning: true,
+          feedbackForwarding: true,
+          mailFromDomain: `mail.${customDomainName}`,
+          mailFromBehaviorOnMxFailure: ses.MailFromBehaviorOnMxFailure.REJECT_MESSAGE,
+        })
+      : undefined;
+    if (enableCustomDomain) {
+      new route53.TxtRecord(this, 'DmarcRecord', {
+        zone: hostedZone,
+        recordName: '_dmarc',
+        values: ['v=DMARC1; p=none; pct=100; adkim=r; aspf=r'],
+      });
+    }
 
     const websiteLogs = new s3.Bucket(this, 'WebsiteAccessLogs', {
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -568,9 +586,13 @@ export class StayDemoStack extends Stack {
         conditions: { StringEquals: { 'cloudwatch:namespace': 'STAY/Demo' } },
       }),
     );
-    notificationFunction.addToRolePolicy(
-      new iam.PolicyStatement({ actions: ['ses:SendEmail'], resources: ['*'] }),
-    );
+    if (sesDomainIdentity) {
+      sesDomainIdentity.grantSendEmail(notificationFunction);
+    } else {
+      notificationFunction.addToRolePolicy(
+        new iam.PolicyStatement({ actions: ['ses:SendEmail'], resources: ['*'] }),
+      );
+    }
     const bedrockInvokePolicy = new iam.CfnPolicy(this, 'BedrockInvokePolicy', {
       policyName: 'stay-demo-bedrock-invoke',
       roles: [apiFunction.role!.roleName],
@@ -884,11 +906,13 @@ export class StayDemoStack extends Stack {
       }),
     );
 
-    Validations.of(notificationFunction).acknowledge({
-      id: 'AwsSolutions-IAM5',
-      reason:
-        'SES SendEmail does not support identity resource scoping until the verified identity ARN is supplied at deployment.',
-    });
+    if (!sesDomainIdentity) {
+      Validations.of(notificationFunction).acknowledge({
+        id: 'AwsSolutions-IAM5',
+        reason:
+          'Before the custom-domain gate is active, SES uses the separately verified sender parameter. The active saystay.site path grants only its identity ARN.',
+      });
+    }
     Validations.of(deploymentRole).acknowledge({
       id: 'AwsSolutions-IAM5',
       reason:
@@ -1049,6 +1073,15 @@ export class StayDemoStack extends Stack {
       value: enableDeletionProtection ? 'ENABLED' : 'STAGED_INITIAL_DEPLOY_ONLY',
     });
     new CfnOutput(this, 'CustomDomainName', { value: customDomainName });
+    new CfnOutput(this, 'TransactionalSender', {
+      value: sesFromEmail.valueAsString,
+      description: 'Verified address used for minimal STAY Circle notification email.',
+    });
+    new CfnOutput(this, 'SesDomainAuthentication', {
+      value: enableCustomDomain
+        ? 'saystay.site Easy DKIM 2048 + mail.saystay.site SPF + DMARC'
+        : 'EMAIL_IDENTITY_FALLBACK',
+    });
     new CfnOutput(this, 'DomainDelegationNameServers', {
       value: Fn.join(',', hostedZone.hostedZoneNameServers ?? []),
       description:
