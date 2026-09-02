@@ -15,8 +15,8 @@
   "project": {
     "name": "STAY",
     "summary": "Adaptive Independent Living + Crisis Coordination for Alexa+",
-    "ai_usage": "",
-    "codex_usage": ""
+    "ai_usage": "The optional Strands and Amazon Bedrock/Nova layer interprets only a redacted intent envelope and cannot execute actions or control safety policy. The deployed account is not authorized for Nova Micro invocation, so the live AI gate is off and all safety workflows remain deterministic.",
+    "codex_usage": "Codex helped translate the brief into contracts, state machines, MCP and AWS entrypoints, CDK, accessible UI, tests, deployment evidence, and submission assets. Provider actions stayed behind explicit approval gates, and local, CI, AWS, simulator, and unavailable-provider evidence remain separate."
   },
   "current_stage": "prepare-submission",
   "completed_stages": ["start-hackathon", "review", "resources"],

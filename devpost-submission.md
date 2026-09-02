@@ -2,6 +2,8 @@
 
 > Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment fields are final; only the YouTube URL and participant assertions remain bracketed.
 
+Official requirements were rechecked on 2026-09-02 against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
+
 ## Project fields
 
 ### Title
@@ -121,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for deployed release commit `c353f7a`: https://github.com/AmirmLotfy/stay/actions/runs/33623850717
+Public CI evidence for current `main` commit `10be747`: https://github.com/AmirmLotfy/stay/actions/runs/33627226642
 
 ## Screenshot Shot List
 
@@ -282,14 +284,16 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 - **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-02T07:11Z).
 - **Official deadline:** 2026-10-23T19:00:00Z.
+- **Optional AWS credit deadline:** registered individuals may use the [official credit request form](https://forms.gle/5hyhr1u6x3fuV2aW7) to request the advertised $150 AWS promotional credit by 2026-10-21 at 12:00 PM Pacific Time while supplies last; this is not required for submission and has not been requested.
+- **Judging availability:** keep the public repository, public video, and free judge demo available without restriction through 2026-11-20T20:00:00Z.
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; current `main` CI green.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; current `main` CI green with 20/20 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** six tracked screenshots recaptured from the public AWS demo, a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`; the current hosting mode is the secure API Gateway/private-S3 fallback.
 - **Video:** 170-second picture-only candidate exists; final approved Higgsfield voice/audio and the user's public YouTube upload remain.
-- **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits were explicitly approved but not generated; the skill bundle is present while the underlying Higgsfield app connection reports `not_installed`, so no plugin generation action is callable and no credits were spent. Native Higgsfield music generation was unavailable in the authenticated Audio surface.
+- **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits were explicitly approved but not generated; the skill bundle is present, but the current tool inventory exposes no Higgsfield generation action, so no plugin job can be dispatched and no credits were spent. Native Higgsfield music generation was unavailable in the authenticated Audio surface.
 - **Participant assertions:** submitter type, organization, country, Canadian province, age, eligible jurisdiction, and employee status require Amir’s explicit confirmation.
 - **Final action:** do not submit without the dedicated final confirmation.

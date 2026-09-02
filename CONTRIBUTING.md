@@ -9,4 +9,4 @@ STAY is safety-adjacent coordination software. Changes must preserve resident co
 5. Run `pnpm verify`; run `pnpm test:e2e` when behavior or UI changes.
 6. Do not deploy or submit from a pull request. Those actions require their dedicated review gates.
 
-Security issues should not be filed publicly. Use GitHub’s private vulnerability reporting after the public repository is enabled.
+Security issues should not be filed publicly. Follow [SECURITY.md](SECURITY.md) and use GitHub's private vulnerability reporting.

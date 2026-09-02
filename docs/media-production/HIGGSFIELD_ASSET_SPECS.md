@@ -1,6 +1,6 @@
 # Higgsfield asset specifications
 
-These specifications are the approved-source candidates for STAY submission media. The user approved HF-LOGO-001 and HF-VO-001 on 2026-09-02 with a combined ceiling of 15.1 credits. No job has been dispatched because the Higgsfield skill bundle is installed but the underlying Higgsfield app connection currently reports `not_installed`, leaving no callable generation action. Every changed provider/model/cost still requires a fresh visible preflight before dispatch.
+These specifications are the approved-source candidates for STAY submission media. The user approved HF-LOGO-001 and HF-VO-001 on 2026-09-02 with a combined ceiling of 15.1 credits. No job has been dispatched because the Higgsfield skill bundle is installed but the current tool inventory exposes no callable Higgsfield generation action. Every changed provider/model/cost still requires a fresh visible preflight before dispatch.
 
 ## Brand mark candidate HF-LOGO-001
 

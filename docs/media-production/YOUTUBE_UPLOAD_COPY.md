@@ -43,7 +43,7 @@ Built for the Alexa+ primary track and the AWS Builder and Open Source mini-chal
 - Category: Science & Technology.
 - Language: English.
 - Captions: upload `assets/submission/video/STAY_DEMO.en.srt`, then manually compare every cue with the mixed master.
-- Thumbnail: use the approved STAY logo with the “Tom is on the way.” product frame; do not add Alexa device imagery or emergency-service claims.
+- Thumbnail: use the final provenance-approved STAY mark with the “Tom is on the way.” product frame; do not add Alexa device imagery or emergency-service claims. The current repository-native mark is provisional and may be used for a draft thumbnail only until HF-LOGO-001 is generated and approved.
 - Embedding: enabled so Devpost judges can watch in place.
 - License: Standard YouTube License unless the entrant deliberately chooses otherwise.
 

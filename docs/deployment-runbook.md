@@ -2,6 +2,8 @@
 
 Deployment is a reviewed operation. `StayDemoStack` is currently deployed in `us-east-1` with CloudFormation termination protection and stateful-resource deletion protection enabled, plus the secure API Gateway/private-S3 hosting fallback active.
 
+The official rules require the Project to remain free and available for judging. Do not tear down the repository, public video, or `StayDemoStack` before the judging period ends on November 20, 2026 at 12:00 PM Pacific Time / 20:00 UTC unless the Sponsor or Devpost provides different written instructions.
+
 ## 1. Identity and target
 
 ```bash

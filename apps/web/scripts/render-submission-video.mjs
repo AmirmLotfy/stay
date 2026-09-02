@@ -25,6 +25,41 @@ async function exists(file) {
   }
 }
 
+function verifyFinalMaster(file) {
+  const probe = JSON.parse(
+    execFileSync(
+      'ffprobe',
+      [
+        '-v',
+        'error',
+        '-show_entries',
+        'format=duration:stream=codec_name,codec_type,width,height,r_frame_rate,sample_rate',
+        '-of',
+        'json',
+        file,
+      ],
+      { encoding: 'utf8' },
+    ),
+  );
+  const video = probe.streams.find((stream) => stream.codec_type === 'video');
+  const audio = probe.streams.find((stream) => stream.codec_type === 'audio');
+  const duration = Number(probe.format.duration);
+  const failures = [];
+
+  if (video?.codec_name !== 'h264') failures.push('video codec is not H.264');
+  if (video?.width !== 1920 || video?.height !== 1080) failures.push('frame is not 1920×1080');
+  if (video?.r_frame_rate !== '30/1') failures.push('frame rate is not 30 fps');
+  if (audio?.codec_name !== 'aac') failures.push('audio codec is not AAC');
+  if (audio?.sample_rate !== '48000') failures.push('audio sample rate is not 48 kHz');
+  if (!Number.isFinite(duration) || duration >= 179) failures.push('runtime is not below 2:59');
+
+  if (failures.length > 0) {
+    throw new Error(`Final master verification failed: ${failures.join('; ')}`);
+  }
+
+  return duration;
+}
+
 await mkdir(videoDir, { recursive: true });
 
 const videoInputs = [
@@ -80,21 +115,33 @@ execFileSync(
   { stdio: 'inherit' },
 );
 
-if ((await exists(voiceOver)) && (await exists(tonalBed))) {
+const hasVoiceOver = await exists(voiceOver);
+const hasTonalBed = await exists(tonalBed);
+
+if (hasVoiceOver) {
+  const audioInputs = ['-i', voiceOver];
+  const audioFilter = hasTonalBed
+    ? [
+        '[1:a]adelay=4000|4000,loudnorm=I=-16:TP=-1.5:LRA=8,apad=whole_dur=170,asplit=2[voice_mix][voice_key]',
+        '[2:a]atrim=0:170,volume=0.11[bed]',
+        '[bed][voice_key]sidechaincompress=threshold=0.015:ratio=8:attack=25:release=450[ducked]',
+        '[voice_mix][ducked]amix=inputs=2:duration=longest:dropout_transition=2,loudnorm=I=-14:TP=-1:LRA=11[a]',
+      ].join(';')
+    : '[1:a]adelay=4000|4000,loudnorm=I=-14:TP=-1:LRA=11,apad=whole_dur=170[a]';
+
+  if (hasTonalBed) {
+    audioInputs.push('-stream_loop', '-1', '-i', tonalBed);
+  }
+
   execFileSync(
     'ffmpeg',
     [
       '-y',
       '-i',
       pictureMaster,
-      '-i',
-      voiceOver,
-      '-stream_loop',
-      '-1',
-      '-i',
-      tonalBed,
+      ...audioInputs,
       '-filter_complex',
-      '[1:a]adelay=4000|4000,loudnorm=I=-16:TP=-1.5:LRA=8[voice];[2:a]atrim=0:170,volume=0.11[music];[voice][music]amix=inputs=2:duration=longest:dropout_transition=2,loudnorm=I=-14:TP=-1:LRA=11[a]',
+      audioFilter,
       '-map',
       '0:v',
       '-map',
@@ -115,10 +162,13 @@ if ((await exists(voiceOver)) && (await exists(tonalBed))) {
     ],
     { stdio: 'inherit' },
   );
+  const duration = verifyFinalMaster(finalMaster);
   await copyFile(finalMaster, uploadCopy);
-  process.stdout.write(`Rendered final master and upload copy in ${videoDir}\n`);
+  process.stdout.write(
+    `Rendered and verified ${duration.toFixed(2)}s final master and upload copy in ${videoDir}${hasTonalBed ? ' with the approved tonal bed' : ' with approved voice only; no music source was used'}\n`,
+  );
 } else {
   process.stdout.write(
-    `Rendered picture master only. Add approved Higgsfield voice and music to ${audioDir} to render the final master.\n`,
+    `Rendered picture master only. Add ${voiceOver} to render an audible final master; ${tonalBed} is optional only while the plugin-native music provider remains unavailable.\n`,
   );
 }
