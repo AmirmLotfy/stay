@@ -160,7 +160,7 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 - Weather, outage, maintenance, Ring, Smart Properties, smart-home devices, and travel estimates are simulated adapters.
 - STAY does not contact an emergency provider and is not a medical device or fall detector.
 - Nova Micro is regionally available but the AWS account remains `NOT_AUTHORIZED`, so the optional Bedrock intent layer is disabled with no silent model fallback.
-- SES is domain-authenticated for `STAY <updates@saystay.site>` with DKIM, custom MAIL FROM/SPF, and DMARC. SES accepted the live sender test and the truthful transactional production-access request, but AWS review and inbox confirmation remain separate; the account is still in the SES sandbox.
+- SES is domain-authenticated for `STAY <updates@saystay.site>` with DKIM, custom MAIL FROM/SPF, and DMARC. SES accepted the live sender test and opened the transactional production-access review; AWS requested additional process details and the account remains in the SES sandbox.
 - CloudFront creation is account-provider blocked; the judge demo uses the deployed API Gateway/private-S3 fallback until AWS clears that gate.
 - Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
 - Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.

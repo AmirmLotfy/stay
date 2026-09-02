@@ -143,6 +143,32 @@ The shared account-verification cause for the two services is an inference until
 - Run MCP initialize/list/call from the deployed URL with allowed and denied origins/scopes.
 - Confirm every simulated adapter label and timestamp.
 
+### SES production-access follow-up
+
+AWS requested more detail in Support case `178838582000594`. Keep the current demo limitation explicit; do not imply that public visitors can configure email recipients. The reviewed reply is:
+
+> Hello,
+>
+> STAY sends low-volume transactional coordination updates only. A send is triggered when a resident opens a help request, a configured Safety Window activates Circle coordination, or a Circle member accepts a response. There are no newsletters, promotions, scheduled campaigns, or bulk sends. During the hackathon demo we expect 0–20 messages on an ordinary day and fewer than 100 on a heavy test day.
+>
+> The currently deployed public demo routes all SES mail to one verified recipient controlled by the account owner. Public demo visitors cannot add or change email destinations. We do not import, purchase, scrape, rent, or share recipient lists. Before any post-demo household is allowed to notify a real Circle contact, that contact must be explicitly provided for that household and the product must expose a contact-level notification preference; broader sending will remain disabled until that control is deployed. An address will be removed or disabled immediately on request.
+>
+> The SES account-level suppression list is enabled for both BOUNCE and COMPLAINT. Application send attempts are idempotently recorded in DynamoDB. Transient send failures retry through SQS, repeated failures enter a DLQ, and CloudWatch alarms require operator review. We review SES suppression and delivery metrics and remove any invalid or complaining recipient before another send. Because the service sends only event-triggered transactional coordination—not subscription or marketing email—there is no marketing unsubscribe list. Any request to stop messages is handled by disabling that recipient before the next event.
+>
+> The sending identity is the verified `saystay.site` domain. Easy DKIM 2048 is `SUCCESS`, the custom `mail.saystay.site` MAIL FROM domain is `SUCCESS` with SPF, and DMARC is published. Mail is sent as `STAY <updates@saystay.site>` with subject `A STAY Circle update`.
+>
+> Example bodies are:
+>
+> 1. `Sarah asked their Circle for help. Sign in to STAY to view and respond.`
+> 2. `A Circle member accepted Sarah’s request. Sign in to STAY for the current update.`
+> 3. `Sarah’s Circle plan has an update. Sign in to STAY to view authorized details.`
+>
+> Every message ends with: `STAY never includes addresses, access instructions, keys, or location in email.`
+>
+> Thank you for reviewing the request.
+
+Sending this reply is an external communication and requires action-time confirmation. After it is sent, record AWS's next response and continue to report the account as sandbox-limited until `ProductionAccessEnabled=true` is observed through the SES API.
+
 Current public endpoints:
 
 - Demo/API: `https://saystay.site`
