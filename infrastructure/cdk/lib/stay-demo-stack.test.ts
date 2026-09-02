@@ -17,6 +17,8 @@ describe('StayDemoStack', () => {
     template.resourceCountIs('AWS::Events::EventBus', 1);
     template.resourceCountIs('AWS::Scheduler::ScheduleGroup', 1);
     template.resourceCountIs('AWS::Budgets::Budget', 1);
+    template.resourceCountIs('AWS::SQS::Queue', 5);
+    template.resourceCountIs('AWS::Lambda::EventSourceMapping', 3);
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'stay-demo-api',
       Environment: {
@@ -26,6 +28,12 @@ describe('StayDemoStack', () => {
           SAFETY_WINDOW_SCHEDULER_ROLE_ARN: Match.anyValue(),
         }),
       },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-demo-metrics',
+    });
+    template.hasResourceProperties('AWS::Events::Rule', {
+      EventPattern: { source: ['stay.domain'] },
     });
     expect(template.toJSON()).toBeTruthy();
   }, 30_000);

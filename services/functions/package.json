@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "3.1124.0",
+    "@aws-sdk/client-cloudwatch": "3.1124.0",
     "@aws-sdk/client-dynamodb": "3.1124.0",
     "@aws-sdk/client-eventbridge": "3.1124.0",
     "@aws-sdk/client-scheduler": "3.1124.0",

@@ -30,6 +30,7 @@ minimumReleaseAgeExclude:
   - '@aws-sdk/lib-dynamodb@3.1124.0'
   - '@aws-sdk/token-providers@3.1124.0'
   - '@aws-sdk/client-scheduler@3.1124.0'
+  - '@aws-sdk/client-cloudwatch@3.1124.0'
 
 onlyBuiltDependencies:
   - '@parcel/watcher'

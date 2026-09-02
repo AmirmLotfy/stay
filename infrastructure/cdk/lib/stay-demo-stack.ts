@@ -248,6 +248,17 @@ export class StayDemoStack extends Stack {
       visibilityTimeout: Duration.seconds(90),
       deadLetterQueue: { queue: notificationDlq, maxReceiveCount: 4 },
     });
+    const metricsDlq = new sqs.Queue(this, 'MetricsDlq', {
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      enforceSSL: true,
+      retentionPeriod: Duration.days(14),
+    });
+    const metricsQueue = new sqs.Queue(this, 'MetricsQueue', {
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      enforceSSL: true,
+      visibilityTimeout: Duration.seconds(90),
+      deadLetterQueue: { queue: metricsDlq, maxReceiveCount: 4 },
+    });
 
     const functionDefaults = {
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -310,6 +321,7 @@ export class StayDemoStack extends Stack {
         },
       },
     );
+    const metricsFunction = fn('MetricsFunction', 'services/functions/src/metrics-worker.ts');
     const websocketFunction = fn('WebsocketFunction', 'services/functions/src/websocket.ts');
 
     for (const functionItem of [
@@ -317,6 +329,7 @@ export class StayDemoStack extends Stack {
       mcpFunction,
       schedulerFunction,
       notificationFunction,
+      metricsFunction,
       websocketFunction,
     ]) {
       table.grantReadWriteData(functionItem);
@@ -341,6 +354,19 @@ export class StayDemoStack extends Stack {
       new lambdaEventSources.SqsEventSource(notificationQueue, {
         batchSize: 10,
         reportBatchItemFailures: true,
+      }),
+    );
+    metricsFunction.addEventSource(
+      new lambdaEventSources.SqsEventSource(metricsQueue, {
+        batchSize: 10,
+        reportBatchItemFailures: true,
+      }),
+    );
+    metricsFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['cloudwatch:PutMetricData'],
+        resources: ['*'],
+        conditions: { StringEquals: { 'cloudwatch:namespace': 'STAY/Demo' } },
       }),
     );
     notificationFunction.addToRolePolicy(
@@ -509,6 +535,16 @@ export class StayDemoStack extends Stack {
         }),
       ],
     });
+    new events.Rule(this, 'MetricsRule', {
+      eventBus: bus,
+      eventPattern: { source: ['stay.domain'] },
+      targets: [
+        new eventTargets.SqsQueue(metricsQueue, {
+          deadLetterQueue: domainDlq,
+          retryAttempts: 3,
+        }),
+      ],
+    });
 
     const dlqAlarm = new cloudwatch.Alarm(this, 'DeadLetterAlarm', {
       metric: notificationDlq.metricApproximateNumberOfMessagesVisible({
@@ -526,8 +562,18 @@ export class StayDemoStack extends Stack {
       alarmDescription: 'STAY API errors exceeded the demo tolerance.',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    const metricsDlqAlarm = new cloudwatch.Alarm(this, 'MetricsDeadLetterAlarm', {
+      metric: metricsDlq.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'STAY domain metrics require replay or investigation.',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
     void dlqAlarm;
     void apiErrorAlarm;
+    void metricsDlqAlarm;
 
     new budgets.CfnBudget(this, 'MonthlyAlertBudget', {
       budget: {
