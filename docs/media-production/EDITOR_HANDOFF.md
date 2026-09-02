@@ -7,7 +7,7 @@
 - Voice-over: `assets/submission/audio/stay-voiceover-approved.wav`
 - Approved Higgsfield tonal bed: `assets/submission/audio/stay-tonal-bed-approved.wav`
 - Voice/music provenance: `AUDIO_PROVENANCE.csv`
-- Captions: `STAY_DEMO.en.srt`
+- Captions: `assets/submission/video/STAY_DEMO.en.srt`
 
 ## Edit rules
 

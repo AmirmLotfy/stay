@@ -10,8 +10,8 @@
 - [ ] Manually QA captions against the mixed master.
 - [x] Verify 1920×1080, 30 fps, H.264/AAC, 48 kHz stereo, and 170-second runtime below 02:59.
 - [ ] Confirm speech is comfortably audible on the user's laptop speakers.
-- [x] Verify the picture-only master and every current copy field stay within `docs/release-evidence.md`; repeat after final audio is added.
-- [x] Add `pnpm verify:submission --allow-pending` for current-state auditing; the same command without `--allow-pending` must exit successfully before final upload.
+- [x] Verify the final audible master and every current copy field stay within `docs/release-evidence.md`.
+- [x] Add `pnpm verify:submission --allow-pending` for current-state auditing; after the public video URL is recorded, the same command without `--allow-pending` must exit successfully before the final Devpost handoff.
 - [ ] Watch the final file from start to finish before YouTube upload.
 - [ ] Confirm no YouTube copyright claim appears after processing.
 - [ ] Record the public YouTube URL in the README, Devpost draft, and final link manifest.
