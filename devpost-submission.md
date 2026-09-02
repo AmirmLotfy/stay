@@ -1,62 +1,281 @@
-# STAY — Devpost submission draft
+# STAY — Devpost submission copy pack
 
-> Draft only. Do not submit until the dedicated final confirmation and live evidence gates pass.
+> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. Replace only the bracketed evidence placeholders after deployment, YouTube upload, and participant confirmation.
 
-## Tagline
+## Project fields
+
+### Title
+
+STAY
+
+### One-line Summary / Tagline
 
 Help that keeps you at home, connected, and in control.
 
-## Inspiration
+### Built with
 
-Independent living is often lost in the space between “everything is fine” and “this is an emergency”: a missed check-in, a small household problem, or a favor nobody clearly owns. STAY gives a resident one calm place to manage that middle ground with people they already trust.
+Alexa+, MCP, TypeScript, React, Next.js, Amazon Cognito, AWS Lambda, Amazon DynamoDB, Amazon EventBridge, Amazon EventBridge Scheduler, Amazon SQS, Amazon SES, Amazon CloudFront, Amazon S3, AWS KMS, Amazon CloudWatch, AWS X-Ray, Amazon Bedrock, Amazon Nova, Strands Agents SDK, AWS CDK, Zod, Vitest, Playwright, axe
 
-## What it does
+### Public Repository Link
 
-STAY combines an accessible resident home, a scoped Circle coordination space, deterministic Safety Windows, ordinary Help Requests, house playbooks, incident ownership, and privacy-controlled House Memory. The centerpiece is a missed Morning Window: two deterministic checks happen before Sarah’s saved plan activates; Sarah asks nearby helper Tom; Tom accepts; everyone sees “Tom is on the way.”
+https://github.com/AmirmLotfy/stay
 
-STAY does not contact emergency services, diagnose conditions, detect falls, or replace Alexa Emergency Assist. It coordinates only the resident’s preconfigured Circle. Weather, utility, device, maintenance, and travel estimates are visibly simulated.
+### Public Demo Link
 
-## How we built it
+`[DEPLOYED_HTTPS_URL]`
 
-The public Alexa+ route is a self-hosted Streamable HTTP MCP server plus a polished web simulator. Ten goal-level tools return accessible text, typed structured content, provenance, and hashed widget resources. Cognito OAuth metadata and scopes are prepared for account linking.
+### Demo Video
 
-The safety plane is deterministic TypeScript. Versioned DynamoDB transactions update aggregates and append outbox events; Streams publish to EventBridge; idempotent consumers update WebSockets, minimal SES email, metrics, and DLQs. EventBridge Scheduler carries expected versions so duplicate or stale checks are no-ops.
+`[PUBLIC_YOUTUBE_URL]`
 
-Strands with Amazon Bedrock/Nova is limited to redacted intent interpretation and concise explanations. The application validates and executes every command. If Bedrock is unavailable, Safety Windows, Circle coordination, scheduler transitions, and touch forms continue to work.
+Required format: public English YouTube or Vimeo video, under three minutes. The current picture-only candidate is 170 seconds at 1920×1080, H.264, 30 fps; final voice, audio, and deployed URL remain gated.
 
-## Challenges
+## Problem
 
-- Supporting both the hackathon’s MCP requirement and Alexa’s currently documented legacy initialization without duplicating tool definitions.
-- Treating unreliable delivery, duplicate events, and concurrent responders as core domain behavior rather than demo exceptions.
-- Creating an interface that feels like a quiet home tool rather than a monitoring dashboard.
-- Preserving a truthful boundary between implemented core workflows and simulated provider edges.
+Independent living is often lost in the space between “everything is fine” and an emergency: a missed check-in, a small household problem, or a favor nobody clearly owns. Existing safety products can turn a resident’s life into monitoring, while ordinary home tools rarely coordinate the people a resident already trusts.
 
-## Accomplishments
+## Solution
 
-- Complete touch-only and voice-simulator protected flow with no model dependency.
-- Optimistic concurrency, idempotency, append-only timelines, privacy invariants, reconnect reconciliation, and provider provenance.
-- Resident/Circle surfaces, all planned playbook types, accessibility preferences, and isolated public demo sessions.
-- Reproducible Node 22/pnpm monorepo, strict contracts, OpenAPI/client generation, tests, CDK, cdk-nag, and open-source documentation.
+STAY gives an older adult one calm, accessible home for that middle ground. It combines a focused daily view, adaptive access preferences, resident-defined Safety Windows, ordinary Help Requests, household playbooks, a trusted Circle, privacy-filtered House Memory, and incident ownership.
 
-## What we learned
+The protected demonstration is deliberately deterministic: Sarah misses two Morning Safety Window checks; her saved plan opens Circle coordination; Sarah asks nearby helper Tom; Tom accepts; and every surface shows **“Tom is on the way.”** Bedrock does not decide the escalation order, disclose protected details, or close the incident.
 
-[Summarize the strongest friction-log observations after the deployed release candidate is verified.]
+STAY never claims to contact emergency services, diagnose a condition, detect a fall, or replace Alexa Emergency Assist. Weather, utility, device, maintenance, Ring, Smart Properties, and travel observations are visibly labeled simulations.
 
-## What’s next
+## Why This Matters
 
-If Alexa+ partner access arrives, add live account linking, Local Inspector, and device testing without changing domain contracts. Production follow-up includes manual assistive-technology testing, CloudFront WAF, live provider qualification, SES production access, operational game days, and household research.
+Independence is sustained by small, reliable acts: remembering one task, knowing that a path is lit, asking for ordinary help early, and making sure one trusted person owns a response. STAY supports those acts without continuous tracking or opaque automated escalation. The resident chooses the Circle, the order, and the disclosure boundary; the system makes that plan dependable.
 
-## Built with
+## How We Used AI
 
-Alexa+, MCP, TypeScript, React, Next.js, AWS CDK, Amazon Cognito, AWS Lambda, Amazon DynamoDB, Amazon EventBridge, Amazon SQS, Amazon SES, Amazon CloudFront, Amazon S3, AWS KMS, Amazon CloudWatch, AWS X-Ray, Amazon Bedrock, Amazon Nova, Strands Agents SDK, Zod, Vitest, Playwright, axe.
+STAY uses AI only in its convenience plane. The implemented Strands agent is feature-gated until deployment verifies the exact Amazon Nova model or inference profile in `us-east-1`; when enabled, it calls Amazon Bedrock Converse to interpret a short redacted intent envelope and produce concise, non-critical guidance. Contact details, addresses, access instructions, location, and unrestricted House Memory are excluded. Every model-produced argument is schema-validated, and the deterministic application—not the model—executes commands.
 
-## Links
+There is no silent model fallback. If Bedrock is unavailable, Safety Windows, scheduled checks, Help Requests, Circle assignment, touch forms, privacy controls, and incident state machines continue to work. The submitted Alexa+ route is a self-hosted Streamable HTTP MCP server plus a web simulator; ten goal-level tools return accessible text, typed structured content, provenance, and hashed widget resources.
 
-- Source: https://github.com/AmirmLotfy/stay
-- Demo: `[DEPLOYED_URL]`
-- Video: `[PUBLIC_ENGLISH_VIDEO_UNDER_3_MINUTES]`
+## How We Used Codex
 
-## Tracks
+Codex was the implementation partner across the monorepo: translating the product brief into strict domain contracts, building and testing state machines, generating OpenAPI and client types, wiring the MCP server and AWS entrypoints, authoring CDK, and running local and public-CI verification. It also helped inspect rendered layouts at desktop, mobile, Echo Show 8, and Echo Show 15 sizes; remove inert controls and generic AI-dashboard motifs; strengthen safety copy; and maintain separate evidence for local, CI, AWS, Alexa-device, and simulated-provider claims.
 
-- Primary: Alexa+
-- Mini-challenges: AWS Builder, Open Source
+The build process used short evidence loops: implement one vertical slice, run strict types and focused tests, exercise the rendered workflow, then run format, lint, unit/contract, production build, Playwright/axe, and strict CDK synth gates. Provider actions remained behind explicit approval gates.
+
+## Key Features
+
+- **HOME:** One Thing Mode, home check, path lighting, calendar context, ordinary Help Requests, and House Memory.
+- **ACCESS:** voice-first, touch-first, captions, extra response time, repeated information, high legibility, contrast, reduced load, and reduced motion.
+- **WINDOWS:** resident-created templates, two deterministic checks, grace periods, early closure, cancellation, resolution, versioned scheduling, and an audit trail.
+- **CIRCLE:** scoped roles, priorities, availability, acceptance/decline, response ownership, incident-limited protected details, Help Board, and privacy settings.
+- **PLAYBOOKS:** Power Outage, Water Leak, Extreme Heat, Severe Weather, and resident-authored offline plans, with every provider visibly marked live, simulated, or unavailable.
+- **INCIDENTS:** activation, verification, assignment, response, escalation, resolution, and an append-only timeline.
+- **ALEXA+ MCP:** ten goal-level tools over Streamable HTTP MCP `2025-11-25`, with a legacy initialization compatibility path and accessible widget resources.
+- **PUBLIC DEMO:** four-hour browser- or DynamoDB-scoped synthetic sessions that cannot address authenticated household partitions.
+
+## Architecture
+
+The safety plane is deterministic TypeScript. Every write requires an idempotency key and expected version. A DynamoDB transaction updates the aggregate, reserves the idempotency key, and appends an outbox event. DynamoDB Streams publish to a dedicated EventBridge bus; SQS-backed consumers deliver WebSocket hints, minimal SES email, and metrics with DLQs. WebSocket clients reconcile through REST after reconnect.
+
+EventBridge Scheduler creates named one-time open, first-check, and grace-expiry invocations carrying the expected aggregate version. A resident check-in, cancellation, duplicate delivery, delayed delivery, or retry therefore becomes a logged no-op when no longer current.
+
+Cognito uses authorization code plus PKCE for the public PWA client, a confidential account-linking client, token revocation, refresh rotation, and no identity pool. CloudFront serves a private encrypted S3 origin. DynamoDB uses KMS, PITR, TTL, on-demand capacity, and Streams. Lambda uses Node 22, ARM64, X-Ray, structured logs, bounded timeouts, and adaptive AWS SDK retries. CloudWatch alarms and a $25 alert-only budget surface failures.
+
+## Testing Instructions
+
+Requirements: Node 22, Corepack, pnpm 11, and Chromium.
+
+```bash
+git clone https://github.com/AmirmLotfy/stay.git
+cd stay
+corepack enable
+pnpm install --frozen-lockfile
+pnpm build
+pnpm --filter @stay/web dev
+```
+
+Open `http://localhost:3000`, then run the protected flow:
+
+1. Select **Miss the first check**.
+2. Select **Miss the second check**.
+3. Select **Sarah asks Tom**.
+4. Select **Tom accepts**.
+5. Confirm **“Tom is on the way.”** and resolve the incident.
+
+Run the verification gates:
+
+```bash
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:e2e
+pnpm cdk:synth
+```
+
+Public CI evidence: https://github.com/AmirmLotfy/stay/actions/runs/33586083412
+
+## Screenshot Shot List
+
+1. `assets/submission/screenshots/01-home-desktop.png` — Today, One Thing, home status, calendar, and simulator.
+2. `assets/submission/screenshots/02-access-desktop.png` — adaptive access preferences.
+3. `assets/submission/screenshots/03-privacy-desktop.png` — resident-controlled sharing boundaries.
+4. `assets/submission/screenshots/04-tom-on-the-way-desktop.png` — protected hero moment and response ownership.
+5. `assets/submission/screenshots/05-emergency-boundary-desktop.png` — explicit supplementary-service boundary.
+6. `assets/submission/screenshots/06-home-mobile.png` — responsive resident home.
+
+Recommended Devpost gallery order: 04, 01, 02, 03, 05, 06.
+
+## Demo Video Outline
+
+- **0:00–0:28:** ordinary day, One Thing, home check, calendar, simulated labels.
+- **0:28–0:54:** adaptive access and privacy.
+- **0:54–2:00:** two missed checks → Sarah asks Tom → Tom accepts → “Tom is on the way.”
+- **2:00–2:35:** Help Board, playbooks, House Memory, and Alexa+ simulator.
+- **2:35–2:48:** MCP/AWS architecture and public CI proof.
+- **2:48–2:50:** close: stay at home, connected, and in control.
+
+## Challenges and What We Learned
+
+The hardest problem was not generating language; it was making safety coordination coherent under duplicates, stale schedules, concurrent responders, disconnected clients, expired tokens, and unavailable providers. That led to a strict separation between deterministic safety policy and generative intent interpretation.
+
+Alexa+ partner access is not generally available, and current Alexa examples reference a legacy initialization path while the track requires MCP `2025-11-25` or later. STAY therefore registers tools once and serves both protocol eras, and it submits the explicitly permitted simulator path without representing it as device evidence.
+
+We also learned that accessibility settings cannot be a cosmetic preference panel. They must change the actual interaction model while leaving safety policy invariant. The same protected flow is therefore tested touch-only, keyboard-first, and at desktop, mobile, Echo Show 8, and Echo Show 15 dimensions.
+
+## Known Limitations
+
+- Real Alexa+ add-on deployment, Local Inspector, account linking, and device tests require partner access and remain unavailable unless granted.
+- Weather, outage, maintenance, Ring, Smart Properties, smart-home devices, and travel estimates are simulated adapters.
+- STAY does not contact an emergency provider and is not a medical device or fall detector.
+- Bedrock model access, AWS integration behavior, SES delivery, and the public judge URL remain unverified until the reviewed deployment gate passes.
+- Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
+- Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.
+
+## Official Form Fields — Copy Pack
+
+Official requirements fetched from Devpost on 2026-09-02. Do not submit the bracketed participant assertions without Amir’s confirmation.
+
+### 28285 — Submitter Type
+
+`[CONFIRM: Individual]`
+
+### 28286 — Organization Name (if applicable)
+
+`[CONFIRM: N/A]`
+
+### 28287 — Submitter Country of Residence
+
+`[CONFIRM COUNTRY]`
+
+### 28288 — Canadian province
+
+`[CONFIRM: N/A]`
+
+### 28289 — Primary Track(s)
+
+Alexa+
+
+### 28290 — Public code repository
+
+https://github.com/AmirmLotfy/stay
+
+### 28291 — New or existing before August 31, 2026
+
+New
+
+Evidence: the public repository was created on 2026-09-01T23:30:20Z and its first commit is dated 2026-09-02T02:30:08+03:00.
+
+### 28292 — Existing-project updates
+
+N/A — STAY is a new project created during the submission period.
+
+### 28293 — AWS Builder Mini Challenge
+
+Yes
+
+### 28294 — AWS services and how they were incorporated
+
+STAY uses Amazon Bedrock Converse with Amazon Nova through the Strands Agents SDK for redacted, non-critical intent interpretation; the deterministic application validates and executes every command. Amazon Cognito provides OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email, WebSocket, and metric delivery. Amazon SES sends minimal transactional email. API Gateway provides HTTP and WebSocket APIs. CloudFront and a private encrypted S3 origin host the PWA. AWS KMS, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The $25 budget is alert-only, and simulated providers remain visibly labeled.
+
+### 28295 — Open Source Mini Challenge
+
+Yes
+
+### 28296 — Contribution URL
+
+https://github.com/AmirmLotfy/stay/commit/d03c59e05ec3359c33bdcdfcaf44769922885c90
+
+### 28297 — Project Repository URL
+
+https://github.com/AmirmLotfy/stay
+
+### 28298 — GitHub Username
+
+AmirmLotfy
+
+### 28299 — Open-source contribution description
+
+I created STAY as a new Apache-2.0 open-source project during the hackathon window. It provides a reusable deterministic TypeScript domain for resident-defined Safety Windows, ordinary Help Requests, privacy-scoped Circle coordination, incident ownership, House Memory, and offline playbooks; a standards-based Streamable HTTP MCP server with ten goal-level tools and accessible widget resources; an isolated Alexa+ web simulator; and a deployable AWS CDK stack. The repository includes all source, tests, generated OpenAPI/client contracts, accessibility and safety documentation, deployment instructions, media-production evidence, and public CI. It matters because independent-living coordination needs auditable, failure-tolerant primitives that remain useful when a model or provider is unavailable.
+
+### 28300 — Optional Feature Requests
+
+**Critical — Alexa+ developer access visibility:** provide a public account-level endpoint showing MCP Toolkit/add-on eligibility, requested status, and supported testing surfaces. This would prevent teams from planning device evidence they cannot obtain.
+
+**Important — MCP compatibility matrix:** document which Alexa+ clients use current MCP `2025-11-25` Streamable HTTP initialization and which require legacy initialization/SSE behavior, with tested request/response examples.
+
+**Important — Bedrock model-access preflight:** provide one CLI/API command that resolves the correct regional model or inference profile and performs a minimal non-logging Converse access check.
+
+**Nice-to-have — local Alexa simulator fixtures:** publish accessible reference fixtures for screen sizes, captions, touch targets, and tool/widget response states.
+
+### 28301 — Optional Friction Log
+
+https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md
+
+### 28302 — Optional Project Testing Link
+
+`[DEPLOYED_HTTPS_URL]`
+
+### 28303 — Feedback 1: tools, APIs, and SDKs used
+
+I used the Model Context Protocol TypeScript SDK to implement ten Alexa+ goal-level tools over Streamable HTTP; the Strands Agents SDK with Amazon Bedrock Converse and Amazon Nova for redacted intent interpretation; AWS SDK for JavaScript v3 for DynamoDB, EventBridge Scheduler, EventBridge, SQS, SES, API Gateway Management API, Cognito-related verification, and Secrets Manager integrations; AWS CDK v2 and cdk-nag for infrastructure; Next.js 16 and React 19 for the PWA/simulator; Zod for domain, REST, MCP, and OpenAPI contracts; and Vitest, Playwright, and axe for deterministic, protocol, responsive, and accessibility testing.
+
+### 28304 — Feedback 2: what worked well
+
+The MCP SDK made it possible to register one typed tool catalog and serve current Streamable HTTP plus the required compatibility path without duplicating business logic. AWS SDK v3’s modular clients, explicit retry configuration, and typed service errors fit small Lambda handlers well. DynamoDB transactions plus Streams provided a strong foundation for aggregate versioning and the outbox pattern, while EventBridge Scheduler’s one-time schedules and delete-after-completion behavior mapped cleanly to Safety Windows. CDK made the HTTP API, WebSocket API, encrypted table, queues, bus, alarms, budget, and IAM relationships reviewable in one strict synth. Zod kept REST, MCP, generated OpenAPI, and client types aligned. Playwright projects made the same protected flow reproducible at desktop, mobile, Echo Show 8, and Echo Show 15 dimensions.
+
+### 28305 — Feedback 3: what needs work
+
+Alexa+ MCP Toolkit access is partner-limited, but the access state is difficult to verify programmatically; a public status endpoint and a simulator-first quickstart would make planning more reliable. Alexa documentation should provide an explicit compatibility table for the hackathon’s MCP `2025-11-25` requirement versus legacy initialization and SSE behavior. Bedrock model IDs and inference-profile access are region/account dependent, so a single official preflight command would reduce deployment drift. MCP SDK v2 documentation could more prominently explain when Streamable HTTP returns JSON versus SSE. CDK/cdk-nag’s granular finding IDs can contain `::`, which conflicts with the current acknowledgment API delimiter; structured finding identifiers would remove the workaround. Finally, SES sandbox and identity requirements should be surfaced earlier in serverless starter guidance.
+
+### 28306 — Feedback 4: onboarding experience
+
+The web and TypeScript foundations were fast: MCP schemas, Zod contracts, and AWS SDK v3 clients reached a local hello-world quickly. The slowest onboarding path was not writing code but reconciling account-specific access: Alexa+ partner availability, exact Bedrock model/profile access in `us-east-1`, and SES identity/sandbox state. CDK’s first synth was straightforward, but least-privilege IAM and cdk-nag acknowledgments required careful reading. A single Alexa+ simulator starter containing OAuth metadata, one MCP tool, one accessible widget, and a deployment/access checklist would materially shorten zero-to-demo time.
+
+### 28307 — Feedback 5: build again?
+
+Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, and AWS services map well to the reliability needs of resident-defined coordination: DynamoDB transactions for coherent state, Scheduler for exact future checks, EventBridge/SQS for durable fan-out, Cognito for scoped identity, and Bedrock/Strands for a deliberately limited convenience layer. I would build with them again, but I would begin with the account-access and provider-limit preflight even earlier.
+
+### 28308 — Age
+
+`[AMIR MUST CONFIRM TRUE IN THE FINAL DEVPOST FORM]`
+
+### 28309 — Eligible Jurisdiction
+
+`[AMIR MUST CONFIRM TRUE IN THE FINAL DEVPOST FORM]`
+
+### 28310 — Employee
+
+`[AMIR MUST CONFIRM TRUE IN THE FINAL DEVPOST FORM]`
+
+## Submission Readiness Notes
+
+- **Live Devpost state:** authenticated, registered, project ID `1412726`, slug `stay-ljbdk8`, draft, not submitted, project fields currently empty.
+- **Official deadline:** 2026-10-23T19:00:00Z.
+- **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
+- **Primary track:** Alexa+.
+- **Mini challenges:** AWS Builder and Open Source.
+- **Repository:** public; Apache-2.0 detected; current `main` CI green.
+- **Local product:** implemented and tested; provider edges are explicitly simulated.
+- **AWS/public demo:** prepared but not deployed; do not replace `[DEPLOYED_HTTPS_URL]` until fresh unauthenticated-browser evidence passes.
+- **Video:** 170-second picture-only candidate exists; final voice, audio decision, deployed URL, and public YouTube link remain.
+- **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits are preflighted but not generated; account warns that more than 90% of credits are used. Native Higgsfield music generation is currently unavailable in the authenticated Audio surface.
+- **Participant assertions:** submitter type, organization, country, Canadian province, age, eligible jurisdiction, and employee status require Amir’s explicit confirmation.
+- **Final action:** do not submit without the dedicated final confirmation.
