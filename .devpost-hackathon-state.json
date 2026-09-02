@@ -18,8 +18,8 @@
     "ai_usage": "",
     "codex_usage": ""
   },
-  "current_stage": "resources",
-  "completed_stages": ["start-hackathon", "review"],
+  "current_stage": "prepare-submission",
+  "completed_stages": ["start-hackathon", "review", "resources"],
   "rules_acknowledged": true,
   "learning": {
     "status": "not-started",
@@ -30,7 +30,7 @@
   },
   "submission": {
     "draft_file": "devpost-submission.md",
-    "status": "not-started"
+    "status": "drafting"
   },
-  "next_command": "resources"
+  "next_command": "prepare-submission"
 }

@@ -46,6 +46,13 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 Independence is sustained by small, reliable acts: remembering one task, knowing that a path is lit, asking for ordinary help early, and making sure one trusted person owns a response. STAY supports those acts without continuous tracking or opaque automated escalation. The resident chooses the Circle, the order, and the disclosure boundary; the system makes that plan dependable.
 
+## Judging Alignment
+
+- **Tech Implementation:** the public repository contains the working MCP SDK import and Streamable HTTP entrypoint, deterministic state machines, generated REST/OpenAPI contracts, DynamoDB transaction/outbox persistence, Strands/Nova intent boundary, deployable CDK, and executable tests—not README-only integration claims.
+- **Design:** one warm, coherent interaction system serves resident, Circle, and simulated Alexa+ surfaces with 48 px targets, adaptive access preferences, keyboard/touch coverage, reduced motion, and explicit provenance instead of a generic chatbot shell.
+- **Potential Impact:** STAY addresses the common middle ground between an ordinary day and an emergency while preserving resident choice, privacy, response ownership, and graceful operation when AI or providers fail.
+- **Quality of the Idea:** resident-authored Safety Windows and deterministic Circle coordination turn Alexa+ and MCP into a practical independent-living workflow rather than a prompt wrapper or opaque monitoring product.
+
 ## How We Used AI
 
 STAY uses AI only in its convenience plane. The implemented Strands agent is feature-gated until deployment verifies the exact Amazon Nova model or inference profile in `us-east-1`; when enabled, it calls Amazon Bedrock Converse to interpret a short redacted intent envelope and produce concise, non-critical guidance. Contact details, addresses, access instructions, location, and unrestricted House Memory are excluded. Every model-produced argument is schema-validated, and the deterministic application—not the model—executes commands.
@@ -149,7 +156,7 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 - Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
 - Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.
 
-## Official Form Fields — Copy Pack
+## TODO Official Form Fields — Copy Pack
 
 Official requirements fetched from Devpost on 2026-09-02. Do not submit the bracketed participant assertions without Amir’s confirmation.
 
@@ -267,13 +274,14 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 ## Submission Readiness Notes
 
-- **Live Devpost state:** authenticated, registered, project ID `1412726`, slug `stay-ljbdk8`, draft, not submitted, project fields currently empty.
+- **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-02T07:11Z).
 - **Official deadline:** 2026-10-23T19:00:00Z.
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected; current `main` CI green.
+- **Repository:** public; Apache-2.0 detected by GitHub; current `main` CI green.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
+- **Media evidence:** six tracked screenshots, a tracked 170-second 1080p picture master, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** prepared but not deployed; do not replace `[DEPLOYED_HTTPS_URL]` until fresh unauthenticated-browser evidence passes.
 - **Video:** 170-second picture-only candidate exists; final voice, audio decision, deployed URL, and public YouTube link remain.
 - **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits are preflighted but not generated; account warns that more than 90% of credits are used. Native Higgsfield music generation is currently unavailable in the authenticated Audio surface.
