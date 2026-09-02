@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { createDemoState } from '@stay/domain';
 import { expect, test } from '@playwright/test';
+import process from 'node:process';
 
 test('runs the protected missed-window flow with touch alone', async ({ page }) => {
   await page.goto('/');
@@ -141,6 +142,10 @@ test('makes adaptive access, routine help, and resident check-in controls functi
 test('uses the deployed TTL-isolated API session when runtime configuration is present', async ({
   page,
 }) => {
+  test.skip(
+    Boolean(process.env.STAY_E2E_BASE_URL),
+    'This route-mocked contract case runs against the local build; live tests exercise the real API.',
+  );
   const fixture = createDemoState();
   const commands: Array<Record<string, unknown>> = [];
   let safetyWindow = structuredClone(fixture.safetyWindows[0]!);

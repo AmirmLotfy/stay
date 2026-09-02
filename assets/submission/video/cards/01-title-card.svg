@@ -3,8 +3,7 @@
   <rect width="1920" height="1080" fill="#F3F0E8"/>
   <rect width="560" height="1080" fill="#1D3E37"/>
   <rect x="128" y="318" width="304" height="304" rx="66" fill="#F3F0E8"/>
-  <path d="M194 560V384h172v176h-49V439h-74v121Z" fill="#245248"/>
-  <path d="M277 439h40c0 26-22 38-22 61 0 22 20 33 37 60h-57c-13-18-27-33-27-58 0-29 20-45 29-63Z" fill="#A9503A"/>
+  <image href="../../stay-open-threshold-logo.svg" x="128" y="318" width="304" height="304"/>
   <g font-family="Atkinson Hyperlegible Next, Helvetica, sans-serif" fill="#1E2321">
     <text x="745" y="360" font-size="30" font-weight="700" fill="#245248">ALEXA+ · AWS · OPEN SOURCE</text>
     <text x="735" y="535" font-size="156" font-weight="700">STAY</text>

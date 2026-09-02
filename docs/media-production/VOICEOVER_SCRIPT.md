@@ -1,6 +1,6 @@
 # English voice-over script
 
-Target delivery: warm, grounded, precise, 135–145 words per minute. Avoid a promotional announcer voice. Estimated length: 02:32.
+Target delivery: warm, grounded, precise, 135–145 words per minute. Avoid a promotional announcer voice. Approved Higgsfield Faye take: 02:35.28, followed by a short music-only close.
 
 ## Script
 

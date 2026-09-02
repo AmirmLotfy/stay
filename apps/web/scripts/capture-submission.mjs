@@ -56,6 +56,11 @@ for (const label of [
   await desktop.getByRole('button', { name: label, exact: true }).click();
 }
 await desktop.getByRole('heading', { name: 'Tom is on the way.' }).first().waitFor();
+await desktop.waitForFunction(
+  () => globalThis.document.body.innerText.includes('Responding'),
+  undefined,
+  { timeout: 30_000 },
+);
 await shot(desktop, '04-tom-on-the-way-desktop.png');
 
 await desktop.getByLabel('Type an Alexa phrase').fill('I need emergency help');

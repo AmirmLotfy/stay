@@ -71,6 +71,25 @@ interface DemoCommand {
   temporaryPrivateUntil?: string | null;
 }
 
+interface VersionedEntity {
+  id: string;
+  version: number;
+}
+
+function preferNewestEntities<T extends VersionedEntity>(remote: T[], current: T[]): T[] {
+  const currentById = new Map(current.map((entity) => [entity.id, entity]));
+  const merged = remote.map((entity) => {
+    const local = currentById.get(entity.id);
+    currentById.delete(entity.id);
+    return local && local.version > entity.version ? local : entity;
+  });
+  return [...merged, ...currentById.values()];
+}
+
+function preferNewestEntity<T extends VersionedEntity>(remote: T, current: T): T {
+  return current.version > remote.version ? current : remote;
+}
+
 function parseStoredSession(raw: string | null): DemoSessionRecord | null {
   if (!raw) return null;
   try {
@@ -142,30 +161,50 @@ export async function hydrateDemoState(
   session: DemoSessionRecord,
   fallback: HomeState,
 ): Promise<HomeState> {
-  const [home, access, circle, safetyWindows, helpRequests, incidents, playbooks, privacy, memory] =
-    await Promise.all([
-      getDemoView<Pick<HomeState, 'resident' | 'oneThing' | 'calendar'>>(config, session, 'home'),
-      getDemoView<HomeState['access']>(config, session, 'access'),
-      getDemoView<HomeState['circle']>(config, session, 'circle'),
-      getDemoView<HomeState['safetyWindows']>(config, session, 'safety-windows'),
-      getDemoView<HomeState['helpRequests']>(config, session, 'help-requests'),
-      getDemoView<HomeState['incidents']>(config, session, 'incidents'),
-      getDemoView<HomeState['playbooks']>(config, session, 'playbooks'),
-      getDemoView<HomeState['privacy']>(config, session, 'privacy'),
-      getDemoView<HomeState['houseMemory']>(config, session, 'house-memory'),
-    ]);
-  return {
-    ...fallback,
-    householdId: `demo-household-${session.id}`,
-    ...home,
+  const [
+    home,
     access,
     circle,
     safetyWindows,
     helpRequests,
-    incidents,
+    remoteIncidents,
     playbooks,
     privacy,
-    houseMemory: memory,
+    memory,
+  ] = await Promise.all([
+    getDemoView<Pick<HomeState, 'resident' | 'oneThing' | 'calendar'>>(config, session, 'home'),
+    getDemoView<HomeState['access']>(config, session, 'access'),
+    getDemoView<HomeState['circle']>(config, session, 'circle'),
+    getDemoView<HomeState['safetyWindows']>(config, session, 'safety-windows'),
+    getDemoView<HomeState['helpRequests']>(config, session, 'help-requests'),
+    getDemoView<HomeState['incidents']>(config, session, 'incidents'),
+    getDemoView<HomeState['playbooks']>(config, session, 'playbooks'),
+    getDemoView<HomeState['privacy']>(config, session, 'privacy'),
+    getDemoView<HomeState['houseMemory']>(config, session, 'house-memory'),
+  ]);
+  const incidents = preferNewestEntities(remoteIncidents, fallback.incidents);
+  const respondingMemberIds = new Set(
+    incidents
+      .filter((incident) => incident.state === 'responding' && incident.assignedMemberId)
+      .map((incident) => incident.assignedMemberId as string),
+  );
+  return {
+    ...fallback,
+    householdId: `demo-household-${session.id}`,
+    ...home,
+    oneThing: preferNewestEntity(home.oneThing, fallback.oneThing),
+    access: preferNewestEntity(access, fallback.access),
+    circle: circle.map((member) =>
+      respondingMemberIds.has(member.id)
+        ? { ...member, availability: 'responding' as const }
+        : member,
+    ),
+    safetyWindows: preferNewestEntities(safetyWindows, fallback.safetyWindows),
+    helpRequests: preferNewestEntities(helpRequests, fallback.helpRequests),
+    incidents,
+    playbooks: preferNewestEntities(playbooks, fallback.playbooks),
+    privacy: preferNewestEntity(privacy, fallback.privacy),
+    houseMemory: preferNewestEntities(memory, fallback.houseMemory),
   };
 }
 

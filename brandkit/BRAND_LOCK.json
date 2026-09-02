@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "brand_context": {
+    "name": "STAY",
+    "offering": "Adaptive independent-living and trusted-Circle coordination across daily routines, help requests, Safety Windows, playbooks, and incidents.",
+    "industry": "Accessible independent living and household coordination",
+    "positioning": "Calm civic wayfinding that keeps the resident in control without surveillance or emergency-service claims.",
+    "audience": "Older adults, disabled residents, trusted family and helpers, and coordinators.",
+    "tone": ["calm", "grounded", "warm", "clear", "dependable", "non-clinical"]
+  },
+  "concept": {
+    "name": "A clear way home",
+    "visual_premise": "A protected threshold and an unmistakable route forward, rendered as civic wayfinding rather than a technology-startup badge.",
+    "research_principles": [
+      "The mark must remain legible at 24 pixels.",
+      "The silhouette must survive maskable-icon cropping.",
+      "The identity must avoid surveillance, medical, emergency-dispatch, and generic AI symbolism."
+    ],
+    "reference_preferences": [
+      "flat vector geometry",
+      "generous optical padding",
+      "slight human softness",
+      "one dominant silhouette"
+    ],
+    "avoid": [
+      "sparkles, stars, magic, glow, gradients, 3D, shadows, or generic AI motifs",
+      "hearts, hands, people, faces, shields, medical crosses, checkmarks, keys, pins, chat bubbles, brains, circuits, infinity loops, or roof outlines",
+      "letters, initials, wordmarks, taglines, borders, presentation boards, mockups, photography, or watermarks"
+    ]
+  },
+  "visual_axes": {
+    "restrained_expressive": 25,
+    "geometric_organic": 55,
+    "familiar_experimental": 50
+  },
+  "authoritative_assets": {
+    "logo": {
+      "origin": "brandkit_generated",
+      "source": "Higgsfield Recraft V4.1 selected from three 2K vector candidates",
+      "upload_or_job_id": "9bcd9a39-52a7-457c-96b2-d3e23ce242cc",
+      "variants": {
+        "color": "assets/submission/stay-open-threshold-logo.svg",
+        "black": "",
+        "white": ""
+      },
+      "status": "approved_and_deployed"
+    },
+    "fonts": [
+      {
+        "family": "Atkinson Hyperlegible Next",
+        "role": "product typography",
+        "status": "fixed",
+        "evidence": "source-declared"
+      }
+    ],
+    "references": []
+  },
+  "palette": {
+    "origin": "user_supplied",
+    "primary": ["#245248"],
+    "accent": ["#A9503A", "#B7D3C8", "#C49A3A"],
+    "neutral": ["#F3F0E8", "#1E2321"],
+    "semantic_roles": {
+      "background": "#F3F0E8",
+      "text": "#1E2321",
+      "primary": "#245248",
+      "support": "#B7D3C8",
+      "accent": "#A9503A",
+      "attention": "#C49A3A",
+      "emergency-only": "#A62E2E"
+    },
+    "forbidden": ["gradients", "emergency red in the core identity"]
+  },
+  "typography": {
+    "origin": "user_supplied",
+    "display": { "family": "Atkinson Hyperlegible Next", "weight": 700 },
+    "body": { "family": "Atkinson Hyperlegible Next", "weight": 400 },
+    "fallbacks": ["system-ui", "sans-serif"],
+    "font_links": [],
+    "specimen_svg": ""
+  },
+  "layout": {
+    "grid": "centered square icon field",
+    "margins": "generous optical padding and maskable safe area",
+    "spacing_scale": [],
+    "alignment": "optically centered",
+    "density": "low"
+  },
+  "shape_language": {
+    "corner_radii": ["slightly softened structural corners"],
+    "borders": ["none"],
+    "shadows": ["none"],
+    "forms": ["weight-bearing threshold forms", "clear negative-space passage"]
+  },
+  "graphic_devices": {
+    "motifs": ["threshold", "route home", "arrival"],
+    "patterns": [],
+    "textures": [],
+    "rules": ["one central mechanism", "no decorative satellites"]
+  },
+  "composition": {
+    "hierarchy": "one isolated symbol with a strong 24-pixel silhouette",
+    "logo_placement": ["centered", "maskable-safe"],
+    "image_behavior": "flat vector only",
+    "text_behavior": "no text in the symbol generation stage"
+  },
+  "applications": {
+    "app-icon": { "ratio": "1:1", "safe_area": "maskable" },
+    "favicon": { "minimum_test": "24px" },
+    "social-preview": { "placement": "deterministic reuse of selected mark" },
+    "video": { "placement": "opening/closing card and thumbnail only" }
+  },
+  "unknowns": []
+}

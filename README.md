@@ -2,7 +2,7 @@
 
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
-[Try the public demo](https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com) · [Current CI](https://github.com/AmirmLotfy/stay/actions/runs/33629021097) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)
+[Try the public demo](https://saystay.site) · [Current CI](https://github.com/AmirmLotfy/stay/actions/runs/33629021097) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)
 
 STAY helps an older adult manage an ordinary day, ask a trusted Circle for help, and run a resident-defined response plan when a Safety Window is missed. The product is designed around one promise: useful coordination without taking control away from the resident.
 
@@ -16,7 +16,7 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 | Capability                                                        | Status                | Evidence boundary                                                                                                            |
 | ----------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Deployed              | [Public isolated demo](https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com); direct deployed desktop/mobile captures      |
+| Resident/Circle PWA and Alexa-style simulator                     | Deployed              | [Public isolated demo](https://saystay.site); direct deployed desktop/mobile captures                                        |
 | Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog               |
 | Streamable HTTP MCP server and ten tools                          | Deployed and verified | OAuth authorization code + PKCE and authenticated MCP `2025-11-25` initialize passed live                                    |
 | Strands + Amazon Bedrock intent layer                             | Provider-limited      | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off           |
@@ -118,11 +118,11 @@ Playwright covers 20 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboa
 
 The current judge URL is:
 
-https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+https://saystay.site
 
 The secure fallback serves the static PWA from a private KMS-encrypted S3 bucket through API Gateway and a Lambda reader because AWS has not yet verified this account for new CloudFront distributions. The CloudFront/private-S3 topology remains in CDK as a separately gated upgrade; no public S3 fallback is used.
 
-The deployed MCP endpoint is `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, SES, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
+The deployed MCP endpoint is `https://saystay.site/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, SES, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
 
 For a reviewed redeployment:
 

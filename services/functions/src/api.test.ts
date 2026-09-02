@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { describe, expect, it } from 'vitest';
-import { handler } from './api.js';
+import { handler, persistedExpectedVersion } from './api.js';
 
 function event(
   path: string,
@@ -32,6 +32,12 @@ function event(
 }
 
 describe('REST API contract', () => {
+  it('preserves optimistic versions for help-request transitions', () => {
+    expect(persistedExpectedVersion('help-requests', 'create', undefined)).toBe(0);
+    expect(persistedExpectedVersion('help-requests', 'accept', 1)).toBe(1);
+    expect(persistedExpectedVersion('help-requests', 'complete', 2)).toBe(2);
+  });
+
   it('fails closed when an authenticated token omits partition claims', async () => {
     const request = event('/v1/home');
     const context = request.requestContext as typeof request.requestContext & {

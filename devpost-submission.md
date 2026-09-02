@@ -24,13 +24,13 @@ https://github.com/AmirmLotfy/stay
 
 ### Public Demo Link
 
-https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+https://saystay.site
 
 ### Demo Video
 
 `[PUBLIC_YOUTUBE_URL]`
 
-Required format: public English YouTube or Vimeo video, under three minutes. The current picture-only candidate is 170 seconds at 1920×1080, H.264, 30 fps and contains the verified public demo URL; final approved voice/audio and the user's YouTube upload remain gated.
+Required format: public English YouTube or Vimeo video, under three minutes. The finished upload file is 170 seconds at 1920×1080, H.264 High, 30 fps with AAC 48 kHz stereo, approved Higgsfield voice/music, and the verified public demo URL. Only the human start-to-finish review and the user's manual YouTube upload remain.
 
 ## Problem
 
@@ -109,7 +109,7 @@ Open `http://localhost:3000`, then run the protected flow:
 
 Or use the deployed isolated judge demo without an account:
 
-https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+https://saystay.site
 
 Run the verification gates:
 
@@ -246,7 +246,7 @@ https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md
 
 ### 28302 — Optional Project Testing Link
 
-https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+https://saystay.site
 
 ### 28303 — Feedback 1: tools, APIs, and SDKs used
 

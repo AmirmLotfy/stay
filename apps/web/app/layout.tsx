@@ -3,8 +3,7 @@ import './styles.css';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
-const publicBaseUrl =
-  process.env.NEXT_PUBLIC_APP_URL ?? 'https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com';
+const publicBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://saystay.site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicBaseUrl),

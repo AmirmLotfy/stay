@@ -1,6 +1,6 @@
 # YouTube upload copy
 
-Use this only after the final audio master has passed `DELIVERY_CHECKLIST.md`. The public demo URL is final; replace the bracketed YouTube URL in the repository after upload.
+The audible upload file, captions, and thumbnail are complete. Use this copy only after the human start-to-finish watch/listen in `DELIVERY_CHECKLIST.md`; replace the bracketed YouTube URL in the repository after upload.
 
 ## Title
 
@@ -10,7 +10,7 @@ STAY — Adaptive Independent Living + Crisis Coordination for Alexa+
 
 STAY helps an older adult manage an ordinary day, ask a trusted Circle for help, and run a resident-defined response plan when a Safety Window is missed—without taking control away from the resident.
 
-Try the public demo: https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+Try the public demo: https://saystay.site
 
 Explore the Apache-2.0 source: https://github.com/AmirmLotfy/stay
 
@@ -27,14 +27,14 @@ Built for the Alexa+ primary track and the AWS Builder and Open Source mini-chal
 ## Chapters
 
 00:00 STAY and the ordinary day
-00:28 Adaptive access and privacy
-00:54 A missed Safety Window
-01:28 Sarah asks Tom
-01:44 Tom is on the way
-02:00 Help Board, playbooks, and House Memory
-02:18 Alexa+ simulator and safety boundary
-02:35 MCP and AWS architecture
-02:48 Stay at home, connected, and in control
+00:36 Adaptive access and privacy
+01:08 A missed Safety Window
+01:30 Sarah asks Tom
+01:39 Tom is on the way
+01:45 Help Board, playbooks, and House Memory
+01:56 Alexa+ MCP and deterministic safety
+02:20 AWS architecture
+02:38 Stay at home, connected, and in control
 
 ## Upload settings
 
@@ -42,8 +42,9 @@ Built for the Alexa+ primary track and the AWS Builder and Open Source mini-chal
 - Audience: Not made for kids.
 - Category: Science & Technology.
 - Language: English.
+- Video file: upload `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`.
 - Captions: upload `assets/submission/video/STAY_DEMO.en.srt`, then manually compare every cue with the mixed master.
-- Thumbnail: use the final provenance-approved STAY mark with the “Tom is on the way.” product frame; do not add Alexa device imagery or emergency-service claims. The current repository-native mark is provisional and may be used for a draft thumbnail only until HF-LOGO-001 is generated and approved.
+- Thumbnail: upload `assets/submission/video/STAY_YouTube_Thumbnail.png`. It is the real deployed “Tom is on the way.” product frame and contains no generated interface, fake text, Alexa device imagery, or emergency-service claim.
 - Embedding: enabled so Devpost judges can watch in place.
 - License: Standard YouTube License unless the entrant deliberately chooses otherwise.
 
@@ -53,7 +54,7 @@ STAY, Alexa+, Model Context Protocol, MCP, Amazon Bedrock, Amazon Nova, Strands 
 
 ## Pinned comment
 
-Try STAY: https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+Try STAY: https://saystay.site
 
 Source and setup instructions: https://github.com/AmirmLotfy/stay
 

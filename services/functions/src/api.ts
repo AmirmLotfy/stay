@@ -215,6 +215,20 @@ function aggregateType(group: string): string {
   );
 }
 
+export function persistedExpectedVersion(
+  group: string,
+  action: string,
+  requestedVersion: number | undefined,
+): number {
+  const createsAggregate =
+    (group === 'help-requests' && action === 'create') ||
+    (group === 'safety-windows' && action === 'create') ||
+    (group === 'playbooks' && action === 'create') ||
+    (group === 'house-memory' && action === 'add') ||
+    (group === 'incidents' && action === 'activate-from-window');
+  return createsAggregate ? 0 : (requestedVersion ?? 0);
+}
+
 async function persistedView(
   store: DynamoStayRepository,
   householdId: string,
@@ -644,14 +658,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       await createSafetyWindowSchedules(actor.householdId, result.entity as SafetyWindow);
     }
     if (store && result.emittedEvents[0]) {
-      const expectedVersion =
-        group === 'help-requests' ||
-        (group === 'safety-windows' && body.action === 'create') ||
-        (group === 'playbooks' && body.action === 'create') ||
-        (group === 'house-memory' && body.action === 'add') ||
-        (group === 'incidents' && body.action === 'activate-from-window')
-          ? 0
-          : (body.expectedVersion ?? 0);
+      const expectedVersion = persistedExpectedVersion(group, body.action, body.expectedVersion);
       const demoExpiry = actor.subject.startsWith('demo:')
         ? Math.floor(Date.now() / 1000) + 4 * 60 * 60
         : undefined;

@@ -1,50 +1,65 @@
-# Higgsfield asset specifications
+# Higgsfield production record
 
-These specifications are the approved-source candidates for STAY submission media. The user approved HF-LOGO-001 and HF-VO-001 on 2026-09-02 with a combined ceiling of 15.1 credits. No job has been dispatched because the Higgsfield skill bundle is installed but the current tool inventory exposes no callable Higgsfield generation action. Every changed provider/model/cost still requires a fresh visible preflight before dispatch.
+All submission brand and audio generation was completed through the authenticated Higgsfield plugin/CLI on 2026-09-02. Browser automation was not used. The selected workspace was on the Max plan, Unlimited mode was unavailable, and the jobs used 56.93 credits in total. The post-production balance was 620.27 credits.
 
-## Brand mark candidate HF-LOGO-001
+## Brand mark HF-LOGO-001
 
-- Destination: `assets/brand/source/higgsfield/stay-mark-hf-logo-001.png`
-- Product use: PWA icon, sidebar identity, Alexa widget, repository social image, screenshots, and video cards
-- Higgsfield surface: Image
-- Model: GPT Image 2
-- Quality: High
+- Workflow: Higgsfield Brand Asset Creation
+- Model: Recraft V4.1
+- Mode: vector
 - Resolution: 2K
 - Aspect ratio: 1:1
-- Batch: 1
-- Displayed cost at preflight: 8.5 credits
-- Unlimited mode: off
+- Palette: Pine `#245248`, Clay `#A9503A`, Chalk background `#F3F0E8`
+- Spend: three candidates at 10 credits each
+- Selected job: `9bcd9a39-52a7-457c-96b2-d3e23ce242cc`
+- Selected result: `https://d8j0ntlcm91z4.cloudfront.net/user_35MJ2aWMmEoqYSm4FasjQsplt4C/hf_20260902_125620_9bcd9a39-52a7-457c-96b2-d3e23ce242cc.svg`
+- Alternate candidate jobs: `8e0d8e7f-ba0d-4e0e-8ae2-27e003182b15`, `80697874-2d8b-4dc1-8d8d-60ffaaa94ea2`
+- Geometry fingerprint: `b31ec83fb5ed001361de02f7278fa27b05012f1266a0c926d74b43c49a1632f2`
+- Local SVG: `assets/submission/stay-open-threshold-logo.svg`
+- Local transparent PNG: `assets/submission/stay-open-threshold-logo-2048.png`
+- Status: `APPROVED_AND_DEPLOYED`
 
-### Exact prompt
+The Brandkit palette and visual axes were persisted before generation. Candidate 1 was selected in the user's delegated no-question mode because it retained the clearest 24-pixel silhouette and expressed the approved protected-threshold plus route-forward mechanism. The exact Recraft geometry is reused; raster icons and cards are deterministic placements of the exported SVG/PNG, not redraws.
 
-> Create one premium app icon symbol for STAY, an accessibility-first independent-living and trusted-circle coordination product. Build the mark from a protected open doorway and one clear path returning home. The doorway should be two calm, weight-bearing deep-pine forms; the path should be a single warm-clay shape that also creates a subtle S in negative space. The result must feel like timeless civic wayfinding and excellent editorial identity design, not a technology startup logo. Center one isolated mark with generous optical padding on a flat warm-chalk square background. Use only deep pine #245248, warm clay #A9503A, and warm chalk #F3F0E8. Strong silhouette, precise geometry, slight human softness, legible at 24 pixels. No text, letters, initials, roof outline, heart, hand, person, face, medical cross, shield, checkmark, keyhole, location pin, chat bubble, brain, circuit, infinity loop, gradients, glow, sparkle, star, magic, 3D, shadow, mockup, photography, border, or watermark. Produce exactly one finished icon, front-facing and flat.
+Rejected motifs included sparkles, stars, magic, glow, gradients, 3D, shadows, hearts, hands, people, faces, shields, medical crosses, checkmarks, keys, pins, chat bubbles, brains, circuits, infinity loops, roof outlines, letters, initials, wordmarks, mockups, and watermarks.
 
-### Acceptance
+## Voice-over HF-VO-001
 
-- One mark only; no wordmark or presentation board.
-- Clear silhouette at 24 px.
-- No generic house/heart/shield/AI motif.
-- Palette visually matches the product tokens.
-- Safe center area survives maskable-icon cropping.
-- Final use is blocked until visual review and provenance capture.
+- Workflow: Higgsfield Narrator, continuous mode
+- Model: Seed Audio 1.0
+- Voice: Faye fictional female preset
+- Voice ID/type: `d198dc0b-c4e5-5198-aa1d-ecf5ca0927c4 preset`
+- Output: WAV, 48 kHz stereo
+- Chunk 1 job: `28567776-c87a-4237-9f02-35abf2976dd4`, 100.58 seconds, 10.2 credits
+- Chunk 2 job: `588141a8-6def-4f32-b9f1-25dd39ebca82`, 54.70 seconds, 6.1 credits
+- Joined duration: 155.28 seconds
+- Local file: `assets/submission/audio/stay-voiceover-approved.wav`
+- Status: `APPROVED_LOCAL_MASTER`
 
-## Voice-over candidate HF-VO-001
+Both chunks use the same delivery direction and locked voice pair. Speech metrics reported zero internal pauses of 0.8 seconds or longer. A small.en verification transcription confirmed the spoken safety claims and protected “Tom is on the way” moment. No time stretching, voice cloning, or voice substitution was used.
 
-See `VOICEOVER_SCRIPT.md`. Target: warm, grounded English voice; 135–145 words per minute; no announcer delivery.
+## Music HF-MUSIC-001
 
-- Live surface checked: 2026-09-02T03:14:42Z
-- Surface: Audio → Text to Speech
-- Model: MiniMax Speech 2.8 HD
-- Voice: Faye, fictional female preset
-- Batch: 1
-- Script: 324 words, 2,179 characters
-- Exact script SHA-256: `8a1039e9a92fa59e89bd580fe8456bc88b1a881f93ae0db0bda2f8edac25c7ca`
-- Displayed cost: 6.6 credits
-- Account warning: more than 90% of credits already used
-- Status: `APPROVED_NOT_DISPATCHED`; the approved Higgsfield app action is unavailable and no credits were spent
+- Workflow: Higgsfield authenticated CLI
+- Model: Sonilo Music
+- Job: `b36c45f2-086d-40f2-8862-b356693bc143`
+- Spend: 10.63 credits
+- Provider duration: 170 seconds
+- Source result: `https://d8j0ntlcm91z4.cloudfront.net/user_35MJ2aWMmEoqYSm4FasjQsplt4C/hf_20260902_131010_b36c45f2-086d-40f2-8862-b356693bc143.m4a`
+- Local conformed file: `assets/submission/audio/stay-tonal-bed-approved.wav`
+- Status: `APPROVED_LOCAL_MASTER`
 
-## Music candidate HF-MUSIC-001
+Prompt direction: warm felt piano, low marimba pulse, restrained brushed acoustic texture, gentle room tone, calm sparse arrangement, and a loopable ending; no vocals, choir, synthetic risers, alarm cues, dramatic drops, corporate-anthem treatment, or melody competing with narration. Automated speech detection returned only one isolated low-confidence word over the complete 170-second track; final human listening remains required before YouTube upload.
 
-Target: 175-second instrumental tonal bed; warm felt piano, low marimba pulse, brushed texture, and restrained acoustic room tone; no vocals, no synthetic risers, no cinematic alarm cues, no melody that competes with narration.
+## Final mix
 
-The authenticated Higgsfield Audio surface was checked at 2026-09-02T03:14:42Z. It exposed Text to Speech, Voice Change, and Translate, but no music mode; Higgsfield's own product search returned no result for “music.” This asset remains `PROVIDER_UNAVAILABLE` until a native, provenance-preserving Higgsfield music control is visibly available. No substitute source is represented as Higgsfield output.
+- Master: `assets/submission/video/STAY_Devpost_Demo_MASTER_v01.mp4`
+- Upload copy: `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`
+- Duration: 170.00 seconds
+- Video: H.264 High, 1920×1080, 30 fps
+- Audio: AAC, 48 kHz stereo
+- Integrated loudness: −14.58 LUFS
+- True peak: −0.92 dBTP
+- Captions: 34 measured cues ending at 02:38.900
+
+The final MP4 uses deterministic editing and the real STAY product capture. No product screen was generatively altered.

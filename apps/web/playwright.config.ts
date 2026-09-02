@@ -2,14 +2,17 @@ import { defineConfig, devices } from '@playwright/test';
 
 const liveBaseUrl = process.env.STAY_E2E_BASE_URL;
 const liveBrowserPath = process.env.STAY_BROWSER_PATH;
+const localBaseUrl = 'http://127.0.0.1:3107';
 
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
+  timeout: liveBaseUrl ? 180_000 : 30_000,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
+  expect: { timeout: liveBaseUrl ? 30_000 : 5_000 },
   use: {
-    baseURL: liveBaseUrl ?? 'http://127.0.0.1:3000',
+    baseURL: liveBaseUrl ?? localBaseUrl,
     ...(liveBrowserPath ? { launchOptions: { executablePath: liveBrowserPath } } : {}),
     trace: 'on-first-retry',
   },
@@ -17,9 +20,9 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: 'pnpm dev',
-          url: 'http://127.0.0.1:3000',
-          reuseExistingServer: !process.env.CI,
+          command: 'pnpm dev --port 3107',
+          url: localBaseUrl,
+          reuseExistingServer: false,
           timeout: 120_000,
         },
       }),

@@ -196,6 +196,7 @@ function browserAccessPreferences(fallback: HomeState['access']): HomeState['acc
 
 export default function StayApp() {
   const engine = useRef(new StayEngine());
+  const accessUpdateQueue = useRef(Promise.resolve());
   const [state, setState] = useState<HomeState>(() => createDemoState());
   const [surface, setSurface] = useState<Surface>('home');
   const [circleSurface, setCircleSurface] = useState<CircleSurface>('overview');
@@ -270,34 +271,57 @@ export default function StayApp() {
   }, []);
 
   useEffect(() => {
-    if (!runtimeConfig || !demoSession) return;
+    if (!runtimeConfig || !demoSession || actionPending) return;
+    const reconciliationMessage =
+      'Live updates paused. STAY will reconcile with the API when the connection returns.';
     let stopped = false;
     let reconciling = false;
+    let reconcileQueued = false;
+    let reconcileAttempt = 0;
+    let reconciliationRetry: ReturnType<typeof setTimeout> | null = null;
     const reconcile = () => {
-      if (stopped || reconciling) return;
+      if (stopped) return;
+      if (reconciling) {
+        reconcileQueued = true;
+        return;
+      }
+      if (reconciliationRetry) {
+        clearTimeout(reconciliationRetry);
+        reconciliationRetry = null;
+      }
       reconciling = true;
       void hydrateDemoState(runtimeConfig, demoSession, engine.current.snapshot())
         .then((hydrated) => {
           if (stopped) return;
+          reconcileAttempt = 0;
           engine.current = new StayEngine(hydrated);
           setState(hydrated);
+          setLastError((current) => (current === reconciliationMessage ? null : current));
         })
         .catch(() => {
-          if (!stopped)
-            setLastError(
-              'Live updates paused. STAY will reconcile with the API when the connection returns.',
-            );
+          if (stopped) return;
+          setLastError(reconciliationMessage);
+          reconcileAttempt += 1;
+          reconciliationRetry = setTimeout(
+            reconcile,
+            Math.min(10_000, 500 * 2 ** reconcileAttempt),
+          );
         })
         .finally(() => {
           reconciling = false;
+          if (reconcileQueued && !stopped) {
+            reconcileQueued = false;
+            queueMicrotask(reconcile);
+          }
         });
     };
     const disconnect = connectDemoUpdates(runtimeConfig, demoSession, reconcile);
     return () => {
       stopped = true;
+      if (reconciliationRetry) clearTimeout(reconciliationRetry);
       disconnect();
     };
-  }, [demoSession, runtimeConfig]);
+  }, [actionPending, demoSession, runtimeConfig]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -560,52 +584,57 @@ export default function StayApp() {
   }, [actionPending, demoSession, refresh, runtimeConfig]);
 
   const updateAccess = useCallback(
-    async (nextAccess: HomeState['access']) => {
-      if (actionPending) return;
-      const preferences: AccessPreferences = {
-        interactionMode: nextAccess.interactionMode,
-        reducedLoad: nextAccess.reducedLoad,
-        highLegibility: nextAccess.highLegibility,
-        captions: nextAccess.captions,
-        extraResponseTime: nextAccess.extraResponseTime,
-        repeatInformation: nextAccess.repeatInformation,
-        highContrast: nextAccess.highContrast,
-        reducedMotion: nextAccess.reducedMotion,
-        textScale: nextAccess.textScale,
-      };
-      const idempotencyKey = uid('access-update');
-      setActionPending(true);
-      setLastError(null);
-      try {
-        if (runtimeConfig && demoSession) {
-          const remote = await runDemoCommand<HomeState['access']>(runtimeConfig, demoSession, {
-            group: 'access',
-            action: 'update',
-            entityId: nextAccess.id,
-            expectedVersion: nextAccess.version,
-            idempotencyKey,
-            preferences,
-          });
-          const next = engine.current.snapshot();
-          next.access = remote.entity;
-          engine.current = new StayEngine(next);
-          setState(next);
-        } else {
-          engine.current.updateAccessPreferences(preferences, {
-            actor: residentActor,
-            idempotencyKey,
-            expectedVersion: nextAccess.version,
-          });
-          refresh();
+    (changes: Partial<AccessPreferences>) => {
+      accessUpdateQueue.current = accessUpdateQueue.current.then(async () => {
+        const currentAccess = engine.current.snapshot().access;
+        const nextAccess = { ...currentAccess, ...changes };
+        const preferences: AccessPreferences = {
+          interactionMode: nextAccess.interactionMode,
+          reducedLoad: nextAccess.reducedLoad,
+          highLegibility: nextAccess.highLegibility,
+          captions: nextAccess.captions,
+          extraResponseTime: nextAccess.extraResponseTime,
+          repeatInformation: nextAccess.repeatInformation,
+          highContrast: nextAccess.highContrast,
+          reducedMotion: nextAccess.reducedMotion,
+          textScale: nextAccess.textScale,
+        };
+        const idempotencyKey = uid('access-update');
+        setActionPending(true);
+        setLastError(null);
+        try {
+          if (runtimeConfig && demoSession) {
+            const remote = await runDemoCommand<HomeState['access']>(runtimeConfig, demoSession, {
+              group: 'access',
+              action: 'update',
+              entityId: currentAccess.id,
+              expectedVersion: currentAccess.version,
+              idempotencyKey,
+              preferences,
+            });
+            const next = engine.current.snapshot();
+            next.access = remote.entity;
+            engine.current = new StayEngine(next);
+            setState(next);
+          } else {
+            engine.current.updateAccessPreferences(preferences, {
+              actor: residentActor,
+              idempotencyKey,
+              expectedVersion: currentAccess.version,
+            });
+            refresh();
+          }
+          setNotice('Sarah’s access preferences are saved. Safety policy did not change.');
+        } catch (error) {
+          setLastError(
+            error instanceof Error ? error.message : 'Access preferences did not change.',
+          );
+        } finally {
+          setActionPending(false);
         }
-        setNotice('Sarah’s access preferences are saved. Safety policy did not change.');
-      } catch (error) {
-        setLastError(error instanceof Error ? error.message : 'Access preferences did not change.');
-      } finally {
-        setActionPending(false);
-      }
+      });
     },
-    [actionPending, demoSession, refresh, runtimeConfig],
+    [demoSession, refresh, runtimeConfig],
   );
 
   const requestPrivacyConfirmation = useCallback(
@@ -1150,6 +1179,7 @@ export default function StayApp() {
     'Reset demo',
   ][demoStep];
   const activeIncident = state.incidents[0];
+  const interactionPending = !ready || actionPending;
 
   return (
     <main
@@ -1274,21 +1304,21 @@ export default function StayApp() {
                 state={state}
                 onNavigate={setSurface}
                 onTaskAction={() => void manageOneThing()}
-                pending={actionPending}
+                pending={interactionPending}
               />
             )}
             {surface === 'access' && (
               <AccessSurface
                 state={state}
                 onChange={(next) => void updateAccess(next)}
-                pending={actionPending}
+                pending={interactionPending}
               />
             )}
             {surface === 'windows' && (
               <WindowsSurface
                 state={state}
                 demoStep={demoStep}
-                pending={actionPending}
+                pending={interactionPending}
                 onAction={(action, windowId) => void manageSafetyWindow(action, windowId)}
                 onCreate={createSafetyWindow}
               />
@@ -1302,7 +1332,7 @@ export default function StayApp() {
                 onCreateHelp={createHelpRequest}
                 onIncidentAction={(action) => void manageIncident(action)}
                 onRoutineSharing={(enabled) => void updatePrivacy({ routineSharing: enabled })}
-                pending={actionPending}
+                pending={interactionPending}
                 {...(activeIncident ? { activeIncident } : {})}
               />
             )}
@@ -1311,7 +1341,7 @@ export default function StayApp() {
                 state={state}
                 onRun={(id) => void advancePlaybook(id)}
                 onCreate={createPlaybook}
-                pending={actionPending}
+                pending={interactionPending}
               />
             )}
             {surface === 'privacy' && (
@@ -1319,11 +1349,11 @@ export default function StayApp() {
                 state={state}
                 onChange={updatePrivacy}
                 onRequestConfirmation={requestPrivacyConfirmation}
-                pending={actionPending}
+                pending={interactionPending}
               />
             )}
             {surface === 'memory' && (
-              <MemorySurface state={state} onSave={saveHouseMemory} pending={actionPending} />
+              <MemorySurface state={state} onSave={saveHouseMemory} pending={interactionPending} />
             )}
           </section>
 
@@ -1625,7 +1655,7 @@ function AccessSurface({
   pending,
 }: {
   state: HomeState;
-  onChange: (next: HomeState['access']) => void;
+  onChange: (changes: Partial<AccessPreferences>) => void;
   pending: boolean;
 }) {
   const toggles: Array<{ key: keyof AccessPreferences; title: string; detail: string }> = [
@@ -1677,7 +1707,7 @@ function AccessSurface({
               role="radio"
               aria-checked={state.access.interactionMode === mode}
               className={state.access.interactionMode === mode ? 'selected' : ''}
-              onClick={() => onChange({ ...state.access, interactionMode: mode })}
+              onClick={() => onChange({ interactionMode: mode })}
               disabled={pending}
               key={mode}
             >
@@ -1694,7 +1724,7 @@ function AccessSurface({
               role="radio"
               aria-checked={state.access.textScale === scale}
               className={state.access.textScale === scale ? 'selected' : ''}
-              onClick={() => onChange({ ...state.access, textScale: scale })}
+              onClick={() => onChange({ textScale: scale })}
               disabled={pending}
               key={scale}
             >
@@ -1717,7 +1747,7 @@ function AccessSurface({
                 role="switch"
                 aria-checked={checked}
                 aria-label={item.title}
-                onClick={() => onChange({ ...state.access, [item.key]: !checked })}
+                onClick={() => onChange({ [item.key]: !checked })}
                 disabled={pending}
               >
                 <span />

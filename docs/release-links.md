@@ -2,22 +2,22 @@
 
 This is the single copy source for judge-facing links. Only the video value remains pending the user's manual YouTube upload.
 
-| Purpose                           | Link                                                                                            | Evidence required before use                                                    |
-| --------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Try STAY                          | https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com                                          | Fresh signed-out browser completes the isolated protected flow over HTTPS       |
-| Demo video                        | `[PUBLIC_YOUTUBE_URL]`                                                                          | Public, embeddable, English, HD, captions available, under three minutes        |
-| Public source                     | https://github.com/AmirmLotfy/stay                                                              | Public repository and Apache-2.0 detection                                      |
-| Setup instructions                | https://github.com/AmirmLotfy/stay#run-locally                                                  | Clean clone follows the documented path                                         |
-| Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/33629021097                                     | Green run for submission-finalization commit `a8f43d8`; 20/20 scenarios passed  |
-| Friction log                      | https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md                               | Publicly readable                                                               |
-| Devpost project                   | https://devpost.com/software/stay-ljbdk8                                                        | Remains a draft until the separate final submission confirmation                |
-| MCP endpoint                      | https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp                                      | Protocol, origin, bearer scope, initialize/list/call, and error tests pass live |
-| OAuth protected-resource metadata | https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/.well-known/oauth-protected-resource/mcp | Public metadata resolves and names the deployed MCP resource                    |
+| Purpose                           | Link                                                              | Evidence required before use                                                    |
+| --------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Try STAY                          | https://saystay.site                                              | Fresh signed-out browser completes the isolated protected flow over HTTPS       |
+| Demo video                        | `[PUBLIC_YOUTUBE_URL]`                                            | Public, embeddable, English, HD, captions available, under three minutes        |
+| Public source                     | https://github.com/AmirmLotfy/stay                                | Public repository and Apache-2.0 detection                                      |
+| Setup instructions                | https://github.com/AmirmLotfy/stay#run-locally                    | Clean clone follows the documented path                                         |
+| Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/33629021097       | Green run for submission-finalization commit `a8f43d8`; 20/20 scenarios passed  |
+| Friction log                      | https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md | Publicly readable                                                               |
+| Devpost project                   | https://devpost.com/software/stay-ljbdk8                          | Remains a draft until the separate final submission confirmation                |
+| MCP endpoint                      | https://saystay.site/mcp                                          | Protocol, origin, bearer scope, initialize/list/call, and error tests pass live |
+| OAuth protected-resource metadata | https://saystay.site/.well-known/oauth-protected-resource/mcp     | Public metadata resolves and names the deployed MCP resource                    |
 
 ## Devpost copy
 
-- **Project URL / Try it out:** `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
-- **Testing link — field 28302:** `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
+- **Project URL / Try it out:** `https://saystay.site`
+- **Testing link — field 28302:** `https://saystay.site`
 - **Video:** `[PUBLIC_YOUTUBE_URL]`
 - **Repository — field 28290:** `https://github.com/AmirmLotfy/stay`
 - **Open Source contribution — field 28296:** `https://github.com/AmirmLotfy/stay/commit/d03c59e05ec3359c33bdcdfcaf44769922885c90`

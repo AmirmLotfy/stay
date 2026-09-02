@@ -1,4 +1,7 @@
 timestamp,phase,target,kind,credits,status,approval_id,notes
-2026-09-02T01:13:50Z,brand,HF-LOGO-001,image,0,APPROVED_NOT_DISPATCHED,USER-APPROVAL-2026-09-02,GPT Image 2 High 2K 1:1 batch one displayed 8.5 credits; user approved; Higgsfield app action unavailable; over 90 percent account credits used warning visible
-2026-09-02T03:14:42Z,audio,HF-VO-001,text-to-speech,0,APPROVED_NOT_DISPATCHED,USER-APPROVAL-2026-09-02,MiniMax Speech 2.8 HD; Faye fictional preset; batch one; displayed 6.6 credits; script SHA-256 8a1039e9a92fa59e89bd580fe8456bc88b1a881f93ae0db0bda2f8edac25c7ca; user approved; Higgsfield app action unavailable; over 90 percent account credits used warning visible
-2026-09-02T03:14:42Z,audio,HF-MUSIC-001,music,0,PROVIDER_UNAVAILABLE,,Authenticated Higgsfield Audio surface and product search exposed no native music generator; no action dispatched
+2026-09-02T12:56:20Z,brand,HF-LOGO-001-A,image-vector,10,SELECTED,USER-APPROVAL-2026-09-02,Recraft V4.1 2K 1:1 vector; job 9bcd9a39-52a7-457c-96b2-d3e23ce242cc
+2026-09-02T12:56:20Z,brand,HF-LOGO-001-B,image-vector,10,REVIEWED_NOT_SELECTED,USER-APPROVAL-2026-09-02,Recraft V4.1 2K 1:1 vector; job 8e0d8e7f-ba0d-4e0e-8ae2-27e003182b15
+2026-09-02T12:56:20Z,brand,HF-LOGO-001-C,image-vector,10,REVIEWED_NOT_SELECTED,USER-APPROVAL-2026-09-02,Recraft V4.1 2K 1:1 vector; job 80697874-2d8b-4dc1-8d8d-60ffaaa94ea2
+2026-09-02T13:03:00Z,audio,HF-VO-001-A,text-to-speech,10.2,SELECTED,USER-APPROVAL-2026-09-02,Seed Audio 1.0 Faye locked voice; job 28567776-c87a-4237-9f02-35abf2976dd4; 100.58 seconds
+2026-09-02T13:05:00Z,audio,HF-VO-001-B,text-to-speech,6.1,SELECTED,USER-APPROVAL-2026-09-02,Seed Audio 1.0 same Faye locked voice; job 588141a8-6def-4f32-b9f1-25dd39ebca82; 54.70 seconds
+2026-09-02T13:10:10Z,audio,HF-MUSIC-001,music,10.63,SELECTED,USER-APPROVAL-2026-09-02,Sonilo Music; job b36c45f2-086d-40f2-8862-b356693bc143; 170 seconds

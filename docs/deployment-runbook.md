@@ -134,8 +134,9 @@ CloudFront is a separate upgrade because AWS currently blocks distribution creat
 
 Current public endpoints:
 
-- Demo/API: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
-- MCP: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp`
+- Demo/API: `https://saystay.site`
+- MCP: `https://saystay.site/mcp`
+- Fallback: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
 - WebSocket: `wss://vkcgjbose3.execute-api.us-east-1.amazonaws.com/prod`
 - Managed Login: `https://stay-demo-828547077857.auth.us-east-1.amazoncognito.com`
 

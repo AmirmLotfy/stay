@@ -1,0 +1,15 @@
+{
+  "source_summary": "Exact STAY product palette declared in the approved product brief and implemented in apps/web/app/styles.css.",
+  "palette": {
+    "colors": [
+      { "hex": "#F3F0E8", "name": "Chalk", "role": "background" },
+      { "hex": "#1E2321", "name": "Coal", "role": "text" },
+      { "hex": "#245248", "name": "Pine", "role": "primary" },
+      { "hex": "#B7D3C8", "name": "Sea Glass", "role": "support" },
+      { "hex": "#A9503A", "name": "Clay", "role": "accent" },
+      { "hex": "#C49A3A", "name": "Mustard", "role": "attention" },
+      { "hex": "#A62E2E", "name": "Emergency", "role": "emergency-only" }
+    ],
+    "gradients": []
+  }
+}

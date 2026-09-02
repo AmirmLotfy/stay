@@ -74,10 +74,11 @@ async function verifyCandidateHashes() {
     if (actual !== expected) mismatches.push(relative);
   }
 
+  const candidateCount = manifest.trim().split('\n').length;
   if (mismatches.length > 0) {
     record('failed', 'candidate media checksums', `mismatched: ${mismatches.join(', ')}`);
   } else {
-    record('passed', 'candidate media checksums', 'all 12 tracked candidates match');
+    record('passed', 'candidate media checksums', `all ${candidateCount} tracked candidates match`);
   }
 }
 
@@ -110,7 +111,7 @@ record(
 );
 
 const requiredProviderFiles = [
-  ['Higgsfield logo source', 'assets/brand/source/higgsfield/stay-mark-hf-logo-001.png'],
+  ['Higgsfield logo source', 'assets/submission/stay-open-threshold-logo.svg'],
   ['Higgsfield voice source', 'assets/submission/audio/stay-voiceover-approved.wav'],
   ['Higgsfield tonal bed', 'assets/submission/audio/stay-tonal-bed-approved.wav'],
 ];
@@ -183,16 +184,8 @@ if (deniedEligibility.length > 0) {
   record('passed', 'participant eligibility', 'age and jurisdiction confirmed eligible');
 }
 
-await verifyUrl(
-  'public judge demo',
-  'https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com',
-  [200],
-);
-await verifyUrl(
-  'MCP bearer boundary',
-  'https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp',
-  [401],
-);
+await verifyUrl('public judge demo', 'https://saystay.site', [200]);
+await verifyUrl('MCP bearer boundary', 'https://saystay.site/mcp', [401]);
 await verifyUrl('public GitHub repository', 'https://api.github.com/repos/AmirmLotfy/stay', [200]);
 
 const expectedNameServers = [
