@@ -2,7 +2,7 @@
 
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
-[Try the public demo](https://saystay.site) · [Current CI](https://github.com/AmirmLotfy/stay/actions/runs/33672683862) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)
+[Try the public demo](https://saystay.site) · [Main CI](https://github.com/AmirmLotfy/stay/actions/workflows/ci.yml?query=branch%3Amain) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)
 
 STAY helps an older adult manage an ordinary day, ask a trusted Circle for help, and run a resident-defined response plan when a Safety Window is missed. The product is designed around one promise: useful coordination without taking control away from the resident.
 

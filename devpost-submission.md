@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for current release commit `bd9c184`: https://github.com/AmirmLotfy/stay/actions/runs/33672683862
+Public CI evidence for audited readiness baseline `e6bd500`: https://github.com/AmirmLotfy/stay/actions/runs/33674008631
 
 ## Screenshot Shot List
 
@@ -289,7 +289,7 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; current `main` commit `bd9c184` has green CI with 20/20 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; audited readiness baseline `e6bd500` has green CI with 20/20 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** six tracked screenshots recaptured from the public AWS demo, a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://saystay.site`; the original execute-api URL remains a working fallback and the hosting mode remains secure API Gateway/private-S3.
