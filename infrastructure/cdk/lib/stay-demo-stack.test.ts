@@ -32,6 +32,17 @@ describe('StayDemoStack', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'stay-demo-metrics',
     });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-demo-identity-claims',
+    });
+    template.hasResourceProperties('AWS::Cognito::UserPool', {
+      LambdaConfig: {
+        PreTokenGenerationConfig: {
+          LambdaArn: Match.anyValue(),
+          LambdaVersion: 'V2_0',
+        },
+      },
+    });
     template.hasResourceProperties('AWS::Events::Rule', {
       EventPattern: { source: ['stay.domain'] },
     });

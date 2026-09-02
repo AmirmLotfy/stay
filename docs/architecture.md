@@ -48,6 +48,8 @@ The write transaction requires the current version, writes version `n + 1`, appe
 
 ## AWS topology
 
+Cognito uses a version 2 pre-token-generation Lambda to copy the immutable household and resident attributes into the signed access token. Both REST and MCP require those claims for authenticated traffic and fail closed when either claim is absent; demo traffic remains isolated by its separately validated TTL session.
+
 - CloudFront uses a private, encrypted S3 origin and security headers.
 - API Gateway HTTP API serves REST, MCP, OAuth metadata, and the public TTL-isolated demo API.
 - Cognito uses authorization code flow, a public no-secret PWA client, a confidential Alexa client, token revocation, refresh rotation, and no identity pool.

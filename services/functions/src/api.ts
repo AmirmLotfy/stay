@@ -89,10 +89,18 @@ function actorFrom(
       'FORBIDDEN',
       'Authentication or an isolated demo session is required.',
     );
+  const householdId = claims['custom:household_id']?.toString();
+  const residentId = claims['custom:resident_id']?.toString();
+  if (!demo && (!householdId || !residentId)) {
+    throw new StayDomainError(
+      'FORBIDDEN',
+      'The authenticated identity is missing its household partition claims.',
+    );
+  }
   return {
     subject: claims.sub?.toString() ?? `demo:${demo}`,
-    householdId: claims['custom:household_id']?.toString() ?? `demo-household-${demo as string}`,
-    residentId: claims['custom:resident_id']?.toString() ?? 'resident-sarah',
+    householdId: householdId ?? `demo-household-${demo as string}`,
+    residentId: residentId ?? 'resident-sarah',
     role: 'resident',
     correlationId,
     permissions: (demo || scopes.includes('stay/app')

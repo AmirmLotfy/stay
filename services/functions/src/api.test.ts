@@ -32,6 +32,23 @@ function event(
 }
 
 describe('REST API contract', () => {
+  it('fails closed when an authenticated token omits partition claims', async () => {
+    const request = event('/v1/home');
+    const context = request.requestContext as typeof request.requestContext & {
+      authorizer?: { jwt: { claims: Record<string, string>; scopes: string[] } };
+    };
+    context.authorizer = {
+      jwt: { claims: { sub: 'resident-authenticated' }, scopes: ['stay/app'] },
+    };
+    const result = (await handler(request)) as { statusCode: number; body: string };
+
+    expect(result.statusCode).toBe(403);
+    expect(JSON.parse(result.body)).toMatchObject({
+      code: 'FORBIDDEN',
+      message: 'The authenticated identity is missing its household partition claims.',
+    });
+  });
+
   it('creates an isolated TTL-scoped demo session without auth', async () => {
     const result = (await handler(event('/v1/demo-sessions', 'POST'))) as {
       statusCode: number;

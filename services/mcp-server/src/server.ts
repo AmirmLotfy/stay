@@ -26,7 +26,10 @@ const providers = new SimulatedHomeContextProvider();
 const repository = process.env.TABLE_NAME ? new DynamoStayRepository(process.env.TABLE_NAME) : null;
 
 function householdIdFor(context: McpRequestContext): string {
-  return context.authInfo?.extra?.householdId?.toString() ?? 'demo-household-sarah';
+  const householdId = context.authInfo?.extra?.householdId?.toString();
+  if (householdId) return householdId;
+  if (!repository) return 'demo-household-sarah';
+  throw new StayDomainError('FORBIDDEN', 'The authenticated household scope is missing.');
 }
 
 function mergeById<T extends { id: string }>(stored: T[], fallback: T[]): T[] {
@@ -134,10 +137,15 @@ const HelpInputSchema = z.object({
 function actor(ctx: McpRequestContext): ActorContext {
   const info = ctx.authInfo;
   const subject = info?.extra?.subject?.toString() ?? 'resident-sarah';
+  const householdId = info?.extra?.householdId?.toString();
+  const residentId = info?.extra?.residentId?.toString();
+  if (repository && (!householdId || !residentId)) {
+    throw new StayDomainError('FORBIDDEN', 'The authenticated resident scope is missing.');
+  }
   return {
     subject,
-    householdId: info?.extra?.householdId?.toString() ?? 'demo-household-sarah',
-    residentId: info?.extra?.residentId?.toString() ?? 'resident-sarah',
+    householdId: householdId ?? 'demo-household-sarah',
+    residentId: residentId ?? 'resident-sarah',
     role: 'resident',
     correlationId: crypto.randomUUID(),
     permissions: [

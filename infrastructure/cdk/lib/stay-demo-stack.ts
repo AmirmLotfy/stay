@@ -300,6 +300,15 @@ export class StayDemoStack extends Stack {
     };
 
     const apiFunction = fn('ApiFunction', 'services/functions/src/api.ts');
+    const identityClaimsFunction = fn(
+      'IdentityClaimsFunction',
+      'services/functions/src/pre-token-generation.ts',
+    );
+    userPool.addTrigger(
+      cognito.UserPoolOperation.PRE_TOKEN_GENERATION_CONFIG,
+      identityClaimsFunction,
+      cognito.LambdaVersion.V2_0,
+    );
     const mcpFunction = fn('McpFunction', 'services/mcp-server/src/handler.ts', {
       memorySize: 768,
       timeout: Duration.seconds(25),

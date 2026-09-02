@@ -57,7 +57,10 @@ function auth(event: APIGatewayProxyEventV2): AuthInfo | null {
       },
     };
   }
-  if (!header || !claims?.sub || !scopes.includes('stay/mcp')) return null;
+  const householdId = claims?.['custom:household_id']?.toString();
+  const residentId = claims?.['custom:resident_id']?.toString();
+  if (!header || !claims?.sub || !householdId || !residentId || !scopes.includes('stay/mcp'))
+    return null;
   return {
     token: header.replace(/^Bearer\s+/i, ''),
     clientId: claims.client_id?.toString() ?? 'unknown',
@@ -65,8 +68,8 @@ function auth(event: APIGatewayProxyEventV2): AuthInfo | null {
     expiresAt: Number(claims.exp),
     extra: {
       subject: claims.sub,
-      householdId: claims['custom:household_id'],
-      residentId: claims['custom:resident_id'],
+      householdId,
+      residentId,
     },
   };
 }
