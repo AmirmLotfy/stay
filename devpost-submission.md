@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for submission-finalization commit `a8f43d8`: https://github.com/AmirmLotfy/stay/actions/runs/33629021097
+Public CI evidence for branded release commit `a2cdb02`: https://github.com/AmirmLotfy/stay/actions/runs/33647103226
 
 ## Screenshot Shot List
 
@@ -216,7 +216,7 @@ Yes
 
 ### 28296 — Contribution URL
 
-https://github.com/AmirmLotfy/stay/commit/d03c59e05ec3359c33bdcdfcaf44769922885c90
+https://github.com/AmirmLotfy/stay/commit/a2cdb02df7ae0e235a1a738f4fe31d93bbc5a762
 
 ### 28297 — Project Repository URL
 
