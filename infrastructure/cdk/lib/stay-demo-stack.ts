@@ -246,10 +246,7 @@ export class StayDemoStack extends Stack {
       ? `https://${distribution.distributionDomainName}`
       : undefined;
     const customDomainOrigin = `https://${customDomainName}`;
-    const corsOrigins = [
-      ...(enableCustomDomain ? [customDomainOrigin] : []),
-      ...(cloudFrontOrigin ? [cloudFrontOrigin] : []),
-    ];
+    const corsOrigins = distribution ? [] : enableCustomDomain ? [customDomainOrigin] : [];
     const httpAccessLogs = new logs.LogGroup(this, 'HttpAccessLogs', {
       logGroupName: '/aws/apigateway/stay-demo-http',
       retention: logs.RetentionDays.ONE_MONTH,
@@ -324,12 +321,9 @@ export class StayDemoStack extends Stack {
       });
     }
     const transportOrigin = cloudFrontOrigin ?? httpApi.apiEndpoint;
-    const allowedWebOrigins = enableCustomDomain
-      ? [customDomainOrigin, transportOrigin]
-      : [transportOrigin];
+    const allowedWebOrigins = enableCustomDomain ? [customDomainOrigin] : [transportOrigin];
     const preferredDemoUrl = enableCustomDomain ? customDomainOrigin : transportOrigin;
-    const apiBaseUrl =
-      enableCustomDomain && !distribution ? customDomainOrigin : httpApi.apiEndpoint;
+    const apiBaseUrl = enableCustomDomain ? customDomainOrigin : transportOrigin;
 
     const userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: 'stay-demo-users',
@@ -666,6 +660,23 @@ export class StayDemoStack extends Stack {
           ? { authorizer: jwtAuthorizer, authorizationScopes: ['stay/mcp'] }
           : {}),
       });
+    }
+    if (distribution) {
+      const apiOrigin = new origins.HttpOrigin(Fn.select(2, Fn.split('/', httpApi.apiEndpoint)), {
+        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+      });
+      const apiBehavior = {
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        compress: true,
+      } satisfies cloudfront.AddBehaviorOptions;
+      for (const pathPattern of ['v1/*', 'mcp', '.well-known/*']) {
+        distribution.addBehavior(pathPattern, apiOrigin, apiBehavior);
+      }
     }
     if (staticSiteFunction) {
       const staticIntegration = new apigwv2integrations.HttpLambdaIntegration(

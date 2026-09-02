@@ -4,7 +4,7 @@
 - [x] Record action-time approval and completed spend for three Recraft candidates, two locked-voice narration jobs, and one Sonilo music job.
 - [x] Review every completed provider result before marking it candidate or approved; automated speech/transcript checks are recorded, with human final listening retained below.
 - [x] Record model, prompt, date, result ID, local filename, and SHA-256 for every used audio asset.
-- [x] Recapture all six product screenshots from the verified public AWS demo and record their hashes and deployed provenance.
+- [x] Recapture all seven product screenshots from the verified public AWS demo, including the functional mobile Updates panel, and record their hashes and deployed provenance.
 - [x] Capture the 170-second 1080p picture-only walkthrough and record its hash as local-only evidence.
 - [x] Conform the edit to the real product capture and approved voice-over.
 - [ ] Manually QA captions against the mixed master.

@@ -246,9 +246,22 @@ describe('StayDemoStack', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
         Aliases: ['saystay.site'],
+        CacheBehaviors: Match.arrayWith([
+          Match.objectLike({ PathPattern: 'v1/*' }),
+          Match.objectLike({ PathPattern: 'mcp' }),
+          Match.objectLike({ PathPattern: '.well-known/*' }),
+        ]),
       }),
     });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-demo-mcp',
+      Environment: {
+        Variables: Match.objectLike({ MCP_RESOURCE_URL: 'https://saystay.site/mcp' }),
+      },
+    });
     template.hasOutput('DemoUrl', { Value: 'https://saystay.site' });
+    template.hasOutput('ApiUrl', { Value: 'https://saystay.site' });
+    template.hasOutput('McpUrl', { Value: 'https://saystay.site/mcp' });
     template.hasOutput('CustomDomainStatus', { Value: 'ACTIVE_IN_THIS_TEMPLATE' });
   }, 30_000);
 });

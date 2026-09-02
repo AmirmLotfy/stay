@@ -118,7 +118,7 @@ The domain is purchased, delegated, and active. The deployed stack contains the 
 
 The custom-domain update preserves the DNS-validated ACM certificate in `us-east-1`, maps `saystay.site` to the regional HTTP API, preserves apex A/AAAA aliases, and keeps the custom URL in Cognito, CORS, MCP Origin validation, and the deployed web configuration. CDK also owns the SES identity and authentication DNS records; do not replace them with manually managed duplicates. The API Gateway hostname remains the tested fallback. Route 53 hosted-zone and domain-registration charges are separate.
 
-CloudFront is a separate upgrade because AWS currently blocks distribution creation for this account pending account verification. After AWS clears that provider gate, review a new diff with `enableCloudFront=true`; never make the S3 bucket public as a workaround.
+CloudFront is a separate upgrade because AWS still blocked distribution creation with the account-verification 403 on 2026-09-03. The prepared distribution serves the app shell from private S3 and forwards uncached `v1/*`, `mcp`, and `.well-known/*` behaviors to API Gateway so the upgrade cannot replace the apex API mapping with a static-only surface. After AWS clears the gate, review a fresh diff with `enableCloudFront=true`; never make the S3 bucket public as a workaround.
 
 ## 6. Live evidence
 

@@ -52,7 +52,7 @@ The write transaction requires the current version, writes version `n + 1`, appe
 
 Cognito uses a version 2 pre-token-generation Lambda to copy the immutable household and resident attributes into the signed access token. Both REST and MCP require those claims for authenticated traffic and fail closed when either claim is absent; demo traffic remains isolated by its separately validated TTL session.
 
-- The current public demo uses API Gateway plus a Lambda reader over a private KMS-encrypted S3 bucket because CloudFront creation is account-provider blocked. The CloudFront/private-S3 topology remains a separately gated CDK upgrade.
+- The current public demo uses API Gateway plus a Lambda reader over a private KMS-encrypted S3 bucket because CloudFront creation is account-provider blocked. The separately gated CloudFront topology keeps private S3 as the default origin and forwards uncached `v1/*`, `mcp`, and `.well-known/*` behavior to API Gateway, preserving every public contract when the account gate is eventually cleared.
 - API Gateway HTTP API serves REST, MCP, OAuth metadata, and the public TTL-isolated demo API.
 - Cognito uses authorization code flow, a public no-secret PWA client, a confidential Alexa client, token revocation, refresh rotation, and no identity pool.
 - DynamoDB uses on-demand capacity, KMS, PITR, TTL, Streams, and deletion protection.

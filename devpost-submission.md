@@ -2,7 +2,7 @@
 
 > Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment and media fields are final; the YouTube URL remains bracketed. Private participant assertions are stored locally in the ignored `devpost-private-answers.md` handoff.
 
-Official requirements were rechecked on 2026-09-02 against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
+Official requirements were rechecked live through Devpost on 2026-09-03 Cairo time against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
 
 ## Project fields
 
@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for audited readiness baseline `e6bd500`: https://github.com/AmirmLotfy/stay/actions/runs/33674008631
+Public CI evidence for audited runtime baseline `41d0f7d`: https://github.com/AmirmLotfy/stay/actions/runs/33684136951 — all 24 Playwright scenarios passed.
 
 ## Screenshot Shot List
 
@@ -133,8 +133,9 @@ Public CI evidence for audited readiness baseline `e6bd500`: https://github.com/
 4. `assets/submission/screenshots/04-tom-on-the-way-desktop.png` — protected hero moment and response ownership.
 5. `assets/submission/screenshots/05-emergency-boundary-desktop.png` — explicit supplementary-service boundary.
 6. `assets/submission/screenshots/06-home-mobile.png` — responsive resident home.
+7. `assets/submission/screenshots/07-mobile-updates.png` — functional mobile Updates panel.
 
-Recommended Devpost gallery order: 04, 01, 02, 03, 05, 06.
+Recommended Devpost gallery order: 04, 01, 02, 03, 07, 05, 06.
 
 ## Demo Video Outline
 
@@ -159,14 +160,14 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 - Weather, outage, maintenance, Ring, Smart Properties, smart-home devices, and travel estimates are simulated adapters.
 - STAY does not contact an emergency provider and is not a medical device or fall detector.
 - Nova Micro is regionally available but the AWS account remains `NOT_AUTHORIZED`, so the optional Bedrock intent layer is disabled with no silent model fallback.
-- SES application delivery is verified to the approved identity, but the account remains in the SES sandbox.
+- SES is domain-authenticated for `STAY <updates@saystay.site>` with DKIM, custom MAIL FROM/SPF, and DMARC. SES accepted the live sender test, but inbox confirmation remains separate and the account remains in the SES sandbox.
 - CloudFront creation is account-provider blocked; the judge demo uses the deployed API Gateway/private-S3 fallback until AWS clears that gate.
 - Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
 - Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.
 
 ## Official Form Fields — Copy Pack
 
-Official requirements fetched from Devpost on 2026-09-02. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
+Official requirements fetched live from Devpost on 2026-09-03 Cairo time. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
 
 ### 28285 — Submitter Type
 
@@ -208,7 +209,7 @@ Yes
 
 ### 28294 — AWS services and how they were incorporated
 
-The deployed stack uses Amazon Cognito for OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, metrics, static-site, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email and metric delivery. Amazon SES delivered a minimal transactional demo email to the verified identity. API Gateway provides HTTP and WebSocket APIs and currently serves the PWA through a Lambda reader over private encrypted S3 because CloudFront is account-provider blocked. AWS KMS, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The Strands Agents SDK plus Amazon Bedrock Converse/Nova Micro integration is implemented for redacted, non-critical intent interpretation, but this account is `NOT_AUTHORIZED`, so the live AI gate remains off and the deterministic application handles every safety workflow. The $25 budget is alert-only, and simulated providers remain visibly labeled.
+The deployed stack uses Amazon Cognito for OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, metrics, static-site, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email and metric delivery. Amazon SES is domain-authenticated with Easy DKIM 2048, custom MAIL FROM/SPF, and DMARC and sends minimal mail as `STAY <updates@saystay.site>`; the account remains sandbox-limited. API Gateway provides HTTP and WebSocket APIs and currently serves the PWA through a Lambda reader over private encrypted S3 because CloudFront is account-provider blocked. AWS KMS, Route 53, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide DNS, encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The Strands Agents SDK plus Amazon Bedrock Converse/Nova Micro integration is implemented for redacted, non-critical intent interpretation, but this account is `NOT_AUTHORIZED`, so the live AI gate remains off and the deterministic application handles every safety workflow. The $25 budget is alert-only, and simulated providers remain visibly labeled.
 
 ### 28295 — Open Source Mini Challenge
 
@@ -282,16 +283,16 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 ## Submission Readiness Notes
 
-- **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-02T19:25Z).
+- **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-03 Cairo time).
 - **Official deadline:** 2026-10-23T19:00:00Z.
 - **Optional AWS credit deadline:** registered individuals may use the [official credit request form](https://forms.gle/5hyhr1u6x3fuV2aW7) to request the advertised $150 AWS promotional credit by 2026-10-21 at 12:00 PM Pacific Time while supplies last; this is not required for submission and has not been requested.
 - **Judging availability:** keep the public repository, public video, and free judge demo available without restriction through 2026-11-20T20:00:00Z.
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; audited readiness baseline `e6bd500` has green CI with 20/20 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; audited runtime baseline `41d0f7d` has green CI with 24/24 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
-- **Media evidence:** six tracked screenshots recaptured from the public AWS demo, a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
+- **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://saystay.site`; the original execute-api URL remains a working fallback and the hosting mode remains secure API Gateway/private-S3.
 - **Video:** finished 170-second H.264/AAC master, identical upload copy, 34-cue English captions, and real-product thumbnail are packaged; human final review and the user's public YouTube upload remain.
 - **Higgsfield:** selected Recraft V4.1 logo, locked Faye Seed Audio narration, and Sonilo Music tonal bed were generated, reviewed, integrated, and provenance-locked. The recorded spend is 56.93 credits.
