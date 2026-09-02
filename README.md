@@ -2,7 +2,7 @@
 
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
-[Try the public demo](https://saystay.site) · [Current CI](https://github.com/AmirmLotfy/stay/actions/runs/33647103226) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)
+[Try the public demo](https://saystay.site) · [Current CI](https://github.com/AmirmLotfy/stay/actions/runs/33672683862) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)
 
 STAY helps an older adult manage an ordinary day, ask a trusted Circle for help, and run a resident-defined response plan when a Safety Window is missed. The product is designed around one promise: useful coordination without taking control away from the resident.
 
@@ -141,7 +141,7 @@ parameter values separately, then supply stack-qualified values to the reviewed 
 the [deployment runbook](docs/deployment-runbook.md). Leave `BedrockModelId` empty unless the exact
 Nova Micro profile passes the live invocation gate.
 
-The deployed Route 53 hosted zone for `saystay.site` is ready. After purchase, set the registrar nameservers to `ns-349.awsdns-43.com`, `ns-1914.awsdns-47.co.uk`, `ns-816.awsdns-38.net`, and `ns-1302.awsdns-34.org`. After delegation is visible, review a second diff with `enableCustomDomain=true` and `enableCloudFront=false`; that update adds an ACM certificate, a regional API Gateway custom domain, DNS A/AAAA aliases, and Cognito callback/logout URLs. If AWS later clears the CloudFront account gate, review the separate `enableCloudFront=true` upgrade.
+The purchased `saystay.site` domain is delegated to the existing Route 53 hosted zone through `ns-349.awsdns-43.com`, `ns-1914.awsdns-47.co.uk`, `ns-816.awsdns-38.net`, and `ns-1302.awsdns-34.org`. The deployed custom-domain update includes an ACM certificate, a regional API Gateway custom domain, DNS A/AAAA aliases, and Cognito callback/logout URLs. Keep those exact nameservers at the registrar; do not create a second hosted zone. If AWS later clears the CloudFront account gate, review the separate `enableCloudFront=true` upgrade.
 
 The `$25` AWS Budget is alert-only; it does not stop spend. The Route 53 hosted zone has a recurring AWS charge even before the domain is activated.
 

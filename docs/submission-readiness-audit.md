@@ -1,0 +1,48 @@
+# Submission readiness audit
+
+Audited on 2026-09-02 against the live Devpost project, the live Build, Ship, Shape submission form, the public AWS deployment, the current public repository head, and the tracked media package. Unknown evidence fails closed.
+
+## Decision
+
+**NO-GO for final Devpost submission.** The product and local submission packet are materially complete, but two participant-controlled gates remain: the required eligibility confirmations do not currently pass, and no verified public YouTube URL exists. Nothing has been sent to Devpost.
+
+## Evidence matrix
+
+| Gate                       | Status                | Evidence                                                                                                                                                                                                                                                  |
+| -------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Devpost authentication     | PASS                  | Authenticated as the project owner through the Devpost MCP connection.                                                                                                                                                                                    |
+| Hackathon registration     | PASS                  | The live event relationship includes `registered`; submissions are open.                                                                                                                                                                                  |
+| Project submission state   | PASS                  | Project `1412726` / `stay-ljbdk8` is a draft with `submitted_at=null`.                                                                                                                                                                                    |
+| Official form coverage     | PASS                  | All 26 live field IDs, `28285` through `28310`, have matching headings in `devpost-submission.md`; private answers remain in an ignored local handoff.                                                                                                    |
+| Participant eligibility    | BLOCKED               | The local fail-closed verifier does not currently accept both required participant eligibility confirmations. Only the participant can truthfully correct them.                                                                                           |
+| Public repository          | PASS                  | `https://github.com/AmirmLotfy/stay` is public and exposes Apache-2.0 licensing, source, assets, setup instructions, and public CI.                                                                                                                       |
+| Current CI                 | PASS                  | Commit `bd9c184` passed format, lint, strict typecheck, tests, production build, strict CDK synthesis, and 20 Playwright scenarios: `https://github.com/AmirmLotfy/stay/actions/runs/33672683862`.                                                        |
+| Public judge demo          | PASS                  | `https://saystay.site` returned HTTP 200 without an account on 2026-09-02.                                                                                                                                                                                |
+| MCP boundary               | PASS                  | `https://saystay.site/mcp` returned the expected HTTP 401 without a bearer token; protocol, origin, scope, initialize, list, call, and error behavior are covered by the release tests.                                                                   |
+| OAuth metadata             | PASS                  | `https://saystay.site/.well-known/oauth-protected-resource/mcp` returned HTTP 200.                                                                                                                                                                        |
+| Protected demo flow        | PASS                  | Local CI and the deployed serial matrix cover two missed checks, Sarah asks Tom, Tom accepts, and the shared “Tom is on the way.” state.                                                                                                                  |
+| Screenshots                | PASS                  | Six real-product captures are tracked: five 1920×1080 desktop views and one 390 px mobile full-page view.                                                                                                                                                 |
+| Higgsfield logo            | PASS                  | Selected Recraft V4.1 job `9bcd9a39-52a7-457c-96b2-d3e23ce242cc`; deployed vector and 2048 px export are provenance-locked.                                                                                                                               |
+| Higgsfield narration       | PASS                  | Two Faye / Seed Audio 1.0 results were joined without time stretching; model, result IDs, cost, source, and checksum are recorded.                                                                                                                        |
+| Higgsfield music           | PASS                  | Sonilo Music job `b36c45f2-086d-40f2-8862-b356693bc143`; no vocals; source, cost, and checksum are recorded.                                                                                                                                              |
+| Final video master         | PASS                  | 170.000 seconds, 1920×1080, H.264 High, 30 fps, AAC-LC 48 kHz stereo, approximately -14.6 LUFS and -0.9 dBTP. Master and upload copy are byte-identical at SHA-256 `63354dc8a1a25809bb530aed28d417279c941da97817636cf3a825b00814f00c`.                    |
+| Captions                   | REVIEW REQUIRED       | The English SRT contains 34 measured cues and is packaged. A human must compare every cue with the audible master before upload.                                                                                                                          |
+| Human playback QA          | REVIEW REQUIRED       | A human must watch and listen to the complete upload file and confirm intelligibility on ordinary speakers.                                                                                                                                               |
+| Public video               | BLOCKED               | The public English YouTube/Vimeo link is required and remains `[PUBLIC_YOUTUBE_URL]`. After upload, verify public visibility, HD completion, captions, embedding, and absence of a copyright claim.                                                       |
+| AWS architecture           | PASS WITH LIMITATIONS | The isolated API Gateway/private-S3 fallback, Cognito, Lambda, DynamoDB, Scheduler, EventBridge, SQS, SES, WebSocket, KMS, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK stack are deployed. CloudFront creation remains account-provider blocked. |
+| Bedrock/Nova               | PROVIDER-LIMITED      | The redacted Strands/Bedrock integration is implemented, but Nova Micro invocation returns `NOT_AUTHORIZED`; deterministic safety behavior remains operational and is the demonstrated path.                                                              |
+| Real Alexa device evidence | NOT AVAILABLE         | Partner-only Alexa+ deployment and device access were not granted. The submission uses the event's explicitly permitted self-hosted MCP plus simulated web experience route.                                                                              |
+| Final Devpost action       | NOT AUTHORIZED        | The participant reserved final form entry and submission for manual handling. No final-submit action is authorized.                                                                                                                                       |
+
+## Higgsfield readiness scope
+
+The Higgsfield festival-only runtime, watermark, packshot, dedicated-project image/video provenance, and social-film requirements are **not applicable** to this Devpost demo. The relevant Higgsfield evidence gates—generation approval, credit accounting, identity consistency, audio provenance, captions, rights-safe original product footage, master integrity, and public-link verification—are applied above.
+
+## Remaining sequence
+
+1. Truthfully resolve the two participant eligibility confirmations; do not proceed if either required confirmation remains false.
+2. Watch and listen to `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4` from start to finish and compare all 34 caption cues.
+3. Upload the video, SRT, and thumbnail using `docs/media-production/YOUTUBE_UPLOAD_COPY.md` and make the video public.
+4. Verify the public video in a signed-out browser, then replace `[PUBLIC_YOUTUBE_URL]` in `devpost-submission.md` and `docs/release-links.md`.
+5. Run `pnpm verify:submission` without `--allow-pending`; it must exit successfully.
+6. Copy the prepared fields into Devpost and use the dedicated final confirmation before submitting.

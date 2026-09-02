@@ -73,9 +73,9 @@ aws cloudformation update-termination-protection \
 
 Do not infer CloudFormation termination protection from the `DeletionProtectionStatus` output; that output records DynamoDB and Cognito resource-level deletion protection.
 
-## 5. Activate `saystay.site` after purchase
+## 5. Maintain or redeploy `saystay.site`
 
-The deployed stack already contains the Route 53 public hosted zone. Until delegation is complete, the API Gateway URL remains the public demo URL.
+The domain is purchased, delegated, and active. The deployed stack contains the original Route 53 public hosted zone, DNS-validated ACM certificate, regional API Gateway custom domain, apex A/AAAA aliases, and custom Cognito callback/logout URLs. The API Gateway URL remains the public fallback.
 
 1. Use these authoritative nameservers for the existing STAY hosted zone:
 
@@ -84,14 +84,14 @@ The deployed stack already contains the Route 53 public hosted zone. Until deleg
    - `ns-816.awsdns-38.net`
    - `ns-1302.awsdns-34.org`
 
-2. Purchase `saystay.site`, then replace the registrar nameservers with those exact four values. Do not create a second hosted zone.
-3. Wait until public DNS reports the same delegation:
+2. Keep the registrar nameservers set to those exact four values. Do not create a second hosted zone.
+3. Before a domain-affecting deployment, confirm public DNS still reports the same delegation:
 
    ```bash
    dig +short NS saystay.site
    ```
 
-4. Rebuild the public assets with the canonical domain, then generate and review the activation diff using all the same parameters as the first deployment:
+4. Rebuild the public assets with the canonical domain, then generate and review the custom-domain diff using all the same parameters as the first deployment:
 
    ```bash
    NEXT_PUBLIC_APP_URL=https://saystay.site pnpm --filter @stay/web build
@@ -103,7 +103,7 @@ The deployed stack already contains the Route 53 public hosted zone. Until deleg
      --method template
    ```
 
-5. Only after delegation and diff review, deploy the activation update:
+5. Only after delegation and diff review, deploy the custom-domain update:
 
    ```bash
    pnpm exec cdk deploy StayDemoStack --require-approval never \
@@ -116,7 +116,7 @@ The deployed stack already contains the Route 53 public hosted zone. Until deleg
      --parameters StayDemoStack:BedrockModelId=
    ```
 
-The fallback update issues a DNS-validated ACM certificate in `us-east-1`, maps `saystay.site` to the regional HTTP API, creates apex A/AAAA aliases, and adds the custom URL to Cognito, CORS, MCP Origin validation, and the deployed web configuration. The current API Gateway hostname remains the tested fallback. Route 53 hosted-zone charges already apply; domain-registration charges are separate.
+The custom-domain update preserves the DNS-validated ACM certificate in `us-east-1`, maps `saystay.site` to the regional HTTP API, preserves apex A/AAAA aliases, and keeps the custom URL in Cognito, CORS, MCP Origin validation, and the deployed web configuration. The API Gateway hostname remains the tested fallback. Route 53 hosted-zone and domain-registration charges are separate.
 
 CloudFront is a separate upgrade because AWS currently blocks distribution creation for this account pending account verification. After AWS clears that provider gate, review a new diff with `enableCloudFront=true`; never make the S3 bucket public as a workaround.
 
