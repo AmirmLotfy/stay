@@ -47,7 +47,7 @@ export async function interpretIntent(
     region: env.AWS_REGION ?? 'us-east-1',
     modelId: status.modelId,
     maxTokens: 300,
-    temperature: 0.05,
+    temperature: 0,
     stream: false,
     clientConfig: {
       maxAttempts: 3,

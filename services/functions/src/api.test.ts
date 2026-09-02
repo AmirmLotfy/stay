@@ -87,6 +87,39 @@ describe('REST API contract', () => {
     }
   });
 
+  it('returns the emergency boundary without Bedrock', async () => {
+    const priorModel = process.env.BEDROCK_MODEL_ID;
+    delete process.env.BEDROCK_MODEL_ID;
+    try {
+      const result = (await handler(
+        event(
+          '/v1/demo/intent',
+          'POST',
+          {
+            utterance: 'This is an emergency, get help',
+            currentSurface: 'home',
+            visibleEntityIds: ['task-one-thing'],
+            locale: 'en-US',
+          },
+          { 'x-stay-demo-session': 'test-emergency-intent' },
+        ),
+      )) as { statusCode: number; body: string };
+
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toMatchObject({
+        intent: {
+          toolName: 'request_help',
+          action: 'explain-emergency-boundary',
+          explicitEmergencyLanguage: true,
+        },
+        provenance: { provider: 'STAY deterministic emergency-language guard' },
+      });
+    } finally {
+      if (priorModel === undefined) delete process.env.BEDROCK_MODEL_ID;
+      else process.env.BEDROCK_MODEL_ID = priorModel;
+    }
+  });
+
   it('requires an idempotency key for writes', async () => {
     const result = (await handler(
       event(

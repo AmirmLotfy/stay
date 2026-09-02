@@ -14,7 +14,13 @@ import {
   type SafetyWindow,
   type SourceProvenance,
 } from '@stay/contracts';
-import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
+import {
+  createDemoState,
+  hasExplicitEmergencyLanguage,
+  StayDomainError,
+  StayEngine,
+  type HomeState,
+} from '@stay/domain';
 import { AgentUnavailableError, interpretIntent } from '@stay/agent';
 import { z } from 'zod';
 import { log } from './logging.js';
@@ -246,16 +252,26 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       if (demoRoute && store && !(await store.demoSessionExists(demoSession as string))) {
         throw new StayDomainError('FORBIDDEN', 'The isolated demo session is invalid or expired.');
       }
-      const intent = await interpretIntent(
-        MinimalIntentContextSchema.parse(event.body ? JSON.parse(event.body) : {}),
-      );
+      const context = MinimalIntentContextSchema.parse(event.body ? JSON.parse(event.body) : {});
+      const deterministicEmergency = hasExplicitEmergencyLanguage(context.utterance);
+      const intent = deterministicEmergency
+        ? {
+            toolName: 'request_help' as const,
+            action: 'explain-emergency-boundary',
+            explanation:
+              'STAY can coordinate your preconfigured Circle. It does not contact emergency services or replace Alexa Emergency Assist. No action was taken.',
+            explicitEmergencyLanguage: true,
+          }
+        : await interpretIntent(context);
       return response(
         200,
         {
           intent,
           provenance: {
             mode: 'live',
-            provider: 'Amazon Bedrock through Strands Agents SDK',
+            provider: deterministicEmergency
+              ? 'STAY deterministic emergency-language guard'
+              : 'Amazon Bedrock through Strands Agents SDK',
             observedAt: new Date().toISOString(),
           } satisfies SourceProvenance,
         },

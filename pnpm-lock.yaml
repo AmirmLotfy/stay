@@ -267,7 +267,7 @@ importers:
         version: link:../../packages/contracts
       '@strands-agents/sdk':
         specifier: 1.16.0
-        version: 1.16.0(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.5.4)
+        version: 1.16.0(@aws-sdk/client-s3@3.1124.0)(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.5.4)
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -291,6 +291,9 @@ importers:
         specifier: 3.1124.0
         version: 3.1124.0
       '@aws-sdk/client-eventbridge':
+        specifier: 3.1124.0
+        version: 3.1124.0
+      '@aws-sdk/client-s3':
         specifier: 3.1124.0
         version: 3.1124.0
       '@aws-sdk/client-scheduler':
@@ -383,6 +386,10 @@ packages:
       - jsonschema
       - semver
 
+  '@aws-sdk/checksums@3.1000.29':
+    resolution: {integrity: sha512-Dtu0gr4dnATZAPwEYbpCsG+MpLM7OAliy2gTepEFQwl1vZ6DL3QMH2FveMa3HLvPsOdhJsPRB3KtxVhph9T75A==}
+    engines: {node: '>=20.0.0'}
+
   '@aws-sdk/client-apigatewaymanagementapi@3.1124.0':
     resolution: {integrity: sha512-SzTHou+74Uq/O3XZk021t8QnO68k9cYRMg4k3S0LOadOxEmjRXpyRyd0AmOJvnCJuQgKKKeQl2G9zkYbz04BrQ==}
     engines: {node: '>=20.0.0'}
@@ -405,6 +412,10 @@ packages:
 
   '@aws-sdk/client-eventbridge@3.1124.0':
     resolution: {integrity: sha512-vpoOmKZkkZKtjOrDfc7JL9dKyIzNYGsoc5j69N1eCz49m8gVnu4qgRbh80FdDg4TzoalfsXPlUVlHIQZ5gTONA==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-s3@3.1124.0':
+    resolution: {integrity: sha512-f20BksgVlXufcf/mijde1LAjwM/iSDdG3mGtN3yRFOUzXtlFEOjxNi1Rf2Kb+rSgoiOSpO0hUOna9Bs+J1gX2A==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-scheduler@3.1124.0':
@@ -475,6 +486,10 @@ packages:
 
   '@aws-sdk/middleware-eventstream@3.972.29':
     resolution: {integrity: sha512-dlRzHCgyB8W6hLuDC5pcT5q+ziPt00n4QGgGBE17ucLVU4zMa6lsbuUdQ2Pm75Z5VA8GF+R/+SgrRcaTdIzSIQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/middleware-sdk-s3@3.972.75':
+    resolution: {integrity: sha512-wMIsNumRVKaNMKhvU/s9VrdEwE8S6gSzXp4RygFG5BEMnGkkXf8cjh8zf7cKJBpUDpqTWqwbz5isEgp9rH6Lng==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/middleware-websocket@3.972.52':
@@ -3204,6 +3219,14 @@ snapshots:
 
   '@aws-cdk/cloud-assembly-schema@54.21.0': {}
 
+  '@aws-sdk/checksums@3.1000.29':
+    dependencies:
+      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/types': 4.17.2
+      tslib: 2.8.1
+
   '@aws-sdk/client-apigatewaymanagementapi@3.1124.0':
     dependencies:
       '@aws-sdk/core': 3.977.9
@@ -3274,6 +3297,20 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.977.9
       '@aws-sdk/credential-provider-node': 3.972.82
+      '@aws-sdk/signature-v4-multi-region': 3.996.46
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/fetch-http-handler': 5.7.2
+      '@smithy/node-http-handler': 4.12.0
+      '@smithy/types': 4.17.2
+      tslib: 2.8.1
+
+  '@aws-sdk/client-s3@3.1124.0':
+    dependencies:
+      '@aws-sdk/checksums': 3.1000.29
+      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/credential-provider-node': 3.972.82
+      '@aws-sdk/middleware-sdk-s3': 3.972.75
       '@aws-sdk/signature-v4-multi-region': 3.996.46
       '@aws-sdk/types': 3.974.5
       '@smithy/core': 3.33.3
@@ -3438,6 +3475,15 @@ snapshots:
 
   '@aws-sdk/middleware-eventstream@3.972.29':
     dependencies:
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/types': 4.17.2
+      tslib: 2.8.1
+
+  '@aws-sdk/middleware-sdk-s3@3.972.75':
+    dependencies:
+      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/signature-v4-multi-region': 3.996.46
       '@aws-sdk/types': 3.974.5
       '@smithy/core': 3.33.3
       '@smithy/types': 4.17.2
@@ -4084,7 +4130,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@strands-agents/sdk@1.16.0(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.5.4)':
+  '@strands-agents/sdk@1.16.0(@aws-sdk/client-s3@3.1124.0)(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.5.4)':
     dependencies:
       '@aws-sdk/client-bedrock-runtime': 3.1122.0
       '@modelcontextprotocol/sdk': 1.30.0(supports-color@10.2.2)(zod@4.5.4)
@@ -4095,6 +4141,7 @@ snapshots:
       yaml: 2.9.0
       zod: 4.5.4
     optionalDependencies:
+      '@aws-sdk/client-s3': 3.1124.0
       '@smithy/types': 4.17.2
       '@tobilu/qmd': 2.8.3(supports-color@7.2.0)(typescript@5.9.3)
       express: 5.2.1(supports-color@10.2.2)

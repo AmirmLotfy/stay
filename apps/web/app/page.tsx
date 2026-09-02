@@ -15,6 +15,7 @@ import type {
 import {
   createDemoState,
   formatResidentDateTimeInput,
+  hasExplicitEmergencyLanguage,
   residentDateTimeToUtc,
   StayEngine,
   type CreatePlaybookInput,
@@ -1089,7 +1090,10 @@ export default function StayApp() {
     const normalized = clean.toLowerCase();
     let reply =
       'I can help with your home, Safety Windows, Circle, plans, privacy, or House Memory.';
-    if (runtimeConfig && demoSession) {
+    if (hasExplicitEmergencyLanguage(clean)) {
+      reply =
+        'STAY can coordinate your preconfigured Circle. It does not contact emergency services or replace Alexa Emergency Assist. No action was taken.';
+    } else if (runtimeConfig && demoSession) {
       setVoicePending(true);
       try {
         const intent = await interpretDemoIntent(runtimeConfig, demoSession, {
@@ -1116,9 +1120,8 @@ export default function StayApp() {
       } finally {
         setVoicePending(false);
       }
-    } else if (normalized.includes('help') || normalized.includes('emergency')) {
-      reply =
-        'STAY can coordinate your preconfigured Circle. It does not contact emergency services or replace Alexa Emergency Assist. Should I ask your Circle now?';
+    } else if (normalized.includes('help')) {
+      reply = 'I can help you create an ordinary request for your Circle. No action was taken.';
     } else if (normalized.includes('morning') || normalized.includes('today')) {
       reply =
         'Good morning. Your home is settled. Your one thing is to put the blue recycling bin out.';

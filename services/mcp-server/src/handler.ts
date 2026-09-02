@@ -20,13 +20,16 @@ function metadata(event: APIGatewayProxyEventV2): APIGatewayProxyResultV2 | null
       }),
     };
   }
+  const authorizationBaseUrl = process.env.COGNITO_AUTHORIZATION_BASE_URL;
+  if (!authorizationBaseUrl)
+    return { statusCode: 503, body: JSON.stringify({ error: 'oauth_not_configured' }) };
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       issuer,
-      authorization_endpoint: `${issuer}/oauth2/authorize`,
-      token_endpoint: `${issuer}/oauth2/token`,
+      authorization_endpoint: `${authorizationBaseUrl}/oauth2/authorize`,
+      token_endpoint: `${authorizationBaseUrl}/oauth2/token`,
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],

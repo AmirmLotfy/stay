@@ -1,6 +1,6 @@
 # STAY — Devpost submission copy pack
 
-> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. Replace only the bracketed evidence placeholders after deployment, YouTube upload, and participant confirmation.
+> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment fields are final; only the YouTube URL and participant assertions remain bracketed.
 
 ## Project fields
 
@@ -22,13 +22,13 @@ https://github.com/AmirmLotfy/stay
 
 ### Public Demo Link
 
-`[DEPLOYED_HTTPS_URL]`
+https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
 
 ### Demo Video
 
 `[PUBLIC_YOUTUBE_URL]`
 
-Required format: public English YouTube or Vimeo video, under three minutes. The current picture-only candidate is 170 seconds at 1920×1080, H.264, 30 fps; final voice, audio, and deployed URL remain gated.
+Required format: public English YouTube or Vimeo video, under three minutes. The current picture-only candidate is 170 seconds at 1920×1080, H.264, 30 fps and contains the verified public demo URL; final approved voice/audio and the user's YouTube upload remain gated.
 
 ## Problem
 
@@ -55,7 +55,7 @@ Independence is sustained by small, reliable acts: remembering one task, knowing
 
 ## How We Used AI
 
-STAY uses AI only in its convenience plane. The implemented Strands agent is feature-gated until deployment verifies the exact Amazon Nova model or inference profile in `us-east-1`; when enabled, it calls Amazon Bedrock Converse to interpret a short redacted intent envelope and produce concise, non-critical guidance. Contact details, addresses, access instructions, location, and unrestricted House Memory are excluded. Every model-produced argument is schema-validated, and the deterministic application—not the model—executes commands.
+STAY uses AI only in its optional convenience plane. The Strands agent and Amazon Bedrock Converse integration are implemented for the exact Nova Micro profile in `us-east-1`, but the deployed account currently reports `NOT_AUTHORIZED`, so the live AI feature gate is off. When authorized, it interprets only a short redacted intent envelope and produces concise, non-critical guidance. Contact details, addresses, access instructions, location, and unrestricted House Memory are excluded. Every model-produced argument is schema-validated, and the deterministic application—not the model—executes commands.
 
 There is no silent model fallback. If Bedrock is unavailable, Safety Windows, scheduled checks, Help Requests, Circle assignment, touch forms, privacy controls, and incident state machines continue to work. The submitted Alexa+ route is a self-hosted Streamable HTTP MCP server plus a web simulator; ten goal-level tools return accessible text, typed structured content, provenance, and hashed widget resources.
 
@@ -82,7 +82,7 @@ The safety plane is deterministic TypeScript. Every write requires an idempotenc
 
 EventBridge Scheduler creates named one-time open, first-check, and grace-expiry invocations carrying the expected aggregate version. A resident check-in, cancellation, duplicate delivery, delayed delivery, or retry therefore becomes a logged no-op when no longer current.
 
-Cognito uses authorization code plus PKCE for the public PWA client, a confidential account-linking client, token revocation, refresh rotation, and no identity pool. CloudFront serves a private encrypted S3 origin. DynamoDB uses KMS, PITR, TTL, on-demand capacity, and Streams. Lambda uses Node 22, ARM64, X-Ray, structured logs, bounded timeouts, and adaptive AWS SDK retries. CloudWatch alarms and a $25 alert-only budget surface failures.
+Cognito uses authorization code plus PKCE for the public PWA client, a confidential account-linking client, token revocation, refresh rotation, and no identity pool. The public demo currently uses API Gateway plus a Lambda reader over a private KMS-encrypted S3 bucket because AWS has not yet cleared this account for CloudFront distribution creation; the CloudFront/private-S3 upgrade remains prepared in CDK. DynamoDB uses KMS, PITR, TTL, on-demand capacity, and Streams. Lambda uses Node 22, ARM64, X-Ray, structured logs, bounded timeouts, and adaptive AWS SDK retries. CloudWatch alarms and a $25 alert-only budget surface failures.
 
 ## Testing Instructions
 
@@ -104,6 +104,10 @@ Open `http://localhost:3000`, then run the protected flow:
 3. Select **Sarah asks Tom**.
 4. Select **Tom accepts**.
 5. Confirm **“Tom is on the way.”** and resolve the incident.
+
+Or use the deployed isolated judge demo without an account:
+
+https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
 
 Run the verification gates:
 
@@ -152,7 +156,9 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 - Real Alexa+ add-on deployment, Local Inspector, account linking, and device tests require partner access and remain unavailable unless granted.
 - Weather, outage, maintenance, Ring, Smart Properties, smart-home devices, and travel estimates are simulated adapters.
 - STAY does not contact an emergency provider and is not a medical device or fall detector.
-- Bedrock model access, AWS integration behavior, SES delivery, and the public judge URL remain unverified until the reviewed deployment gate passes.
+- Nova Micro is regionally available but the AWS account remains `NOT_AUTHORIZED`, so the optional Bedrock intent layer is disabled with no silent model fallback.
+- SES application delivery is verified to the approved identity, but the account remains in the SES sandbox.
+- CloudFront creation is account-provider blocked; the judge demo uses the deployed API Gateway/private-S3 fallback until AWS clears that gate.
 - Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
 - Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.
 
@@ -200,7 +206,7 @@ Yes
 
 ### 28294 — AWS services and how they were incorporated
 
-STAY uses Amazon Bedrock Converse with Amazon Nova through the Strands Agents SDK for redacted, non-critical intent interpretation; the deterministic application validates and executes every command. Amazon Cognito provides OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email, WebSocket, and metric delivery. Amazon SES sends minimal transactional email. API Gateway provides HTTP and WebSocket APIs. CloudFront and a private encrypted S3 origin host the PWA. AWS KMS, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The $25 budget is alert-only, and simulated providers remain visibly labeled.
+The deployed stack uses Amazon Cognito for OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, metrics, static-site, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email and metric delivery. Amazon SES delivered a minimal transactional demo email to the verified identity. API Gateway provides HTTP and WebSocket APIs and currently serves the PWA through a Lambda reader over private encrypted S3 because CloudFront is account-provider blocked. AWS KMS, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The Strands Agents SDK plus Amazon Bedrock Converse/Nova Micro integration is implemented for redacted, non-critical intent interpretation, but this account is `NOT_AUTHORIZED`, so the live AI gate remains off and the deterministic application handles every safety workflow. The $25 budget is alert-only, and simulated providers remain visibly labeled.
 
 ### 28295 — Open Source Mini Challenge
 
@@ -238,7 +244,7 @@ https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md
 
 ### 28302 — Optional Project Testing Link
 
-`[DEPLOYED_HTTPS_URL]`
+https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
 
 ### 28303 — Feedback 1: tools, APIs, and SDKs used
 
@@ -281,9 +287,9 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Mini challenges:** AWS Builder and Open Source.
 - **Repository:** public; Apache-2.0 detected by GitHub; current `main` CI green.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
-- **Media evidence:** six tracked screenshots, a tracked 170-second 1080p picture master, English SRT, and SHA-256 manifest are present under `assets/submission/`.
-- **AWS/public demo:** prepared but not deployed; do not replace `[DEPLOYED_HTTPS_URL]` until fresh unauthenticated-browser evidence passes.
-- **Video:** 170-second picture-only candidate exists; final voice, audio decision, deployed URL, and public YouTube link remain.
+- **Media evidence:** six tracked screenshots recaptured from the public AWS demo, a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
+- **AWS/public demo:** deployed and verified at `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`; the current hosting mode is the secure API Gateway/private-S3 fallback.
+- **Video:** 170-second picture-only candidate exists; final approved Higgsfield voice/audio and the user's public YouTube upload remain.
 - **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits were explicitly approved but not generated; the skill bundle is present while the underlying Higgsfield app connection reports `not_installed`, so no plugin generation action is callable and no credits were spent. Native Higgsfield music generation was unavailable in the authenticated Audio surface.
 - **Participant assertions:** submitter type, organization, country, Canadian province, age, eligible jurisdiction, and employee status require Amir’s explicit confirmation.
 - **Final action:** do not submit without the dedicated final confirmation.

@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import {
+  CfnCondition,
   CfnOutput,
   CfnParameter,
   Duration,
@@ -85,14 +86,46 @@ export class StayDemoStack extends Stack {
       description:
         'Exact Nova Micro model or inference profile ID verified in us-east-1. Leave blank to keep the AI feature gate off.',
       default: '',
+      allowedValues: ['', 'us.amazon.nova-micro-v1:0'],
+      constraintDescription:
+        'STAY permits only the live-verified US Nova Micro inference profile, or an empty value that disables AI.',
     });
+    const bedrockEnabled = new CfnCondition(this, 'BedrockEnabled', {
+      expression: Fn.conditionNot(Fn.conditionEquals(bedrockModelId.valueAsString, '')),
+    });
+    const enableDeletionProtection =
+      String(this.node.tryGetContext('enableDeletionProtection') ?? 'true').toLowerCase() ===
+      'true';
 
     const dataKey = new kms.Key(this, 'DataKey', {
       alias: 'alias/stay-demo-data',
       enableKeyRotation: true,
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
       description: 'Encrypts the STAY DynamoDB table and sensitive demo data at rest.',
     });
+    dataKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'AllowCloudWatchLogsEncryptionForStayOnly',
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ServicePrincipal(`logs.${this.region}.${this.urlSuffix}`)],
+        actions: [
+          'kms:Encrypt',
+          'kms:Decrypt',
+          'kms:ReEncrypt*',
+          'kms:GenerateDataKey*',
+          'kms:DescribeKey',
+        ],
+        resources: ['*'],
+        conditions: {
+          ArnLike: {
+            'kms:EncryptionContext:aws:logs:arn': [
+              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/lambda/stay-demo-*`,
+              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/apigateway/stay-demo-*`,
+            ],
+          },
+        },
+      }),
+    );
     const table = new dynamodb.Table(this, 'ProductTable', {
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
@@ -102,8 +135,8 @@ export class StayDemoStack extends Stack {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       timeToLiveAttribute: 'expiresAt',
       stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
-      deletionProtection: true,
-      removalPolicy: RemovalPolicy.RETAIN,
+      deletionProtection: enableDeletionProtection,
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
     table.addGlobalSecondaryIndex({
       indexName: 'GSI1',
@@ -115,6 +148,8 @@ export class StayDemoStack extends Stack {
     const customDomainName = 'saystay.site';
     const enableCustomDomain =
       String(this.node.tryGetContext('enableCustomDomain') ?? 'false').toLowerCase() === 'true';
+    const enableCloudFront =
+      String(this.node.tryGetContext('enableCloudFront') ?? 'true').toLowerCase() === 'true';
     const hostedZone = new route53.PublicHostedZone(this, 'PublicHostedZone', {
       zoneName: customDomainName,
       comment:
@@ -132,7 +167,7 @@ export class StayDemoStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       lifecycleRules: [{ expiration: Duration.days(90) }],
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
     const websiteBucket = new s3.Bucket(this, 'WebsiteBucket', {
       encryption: s3.BucketEncryption.KMS_MANAGED,
@@ -141,40 +176,42 @@ export class StayDemoStack extends Stack {
       versioned: true,
       serverAccessLogsBucket: websiteLogs,
       serverAccessLogsPrefix: 'website/',
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
-    const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
-      ...(customDomainCertificate
-        ? { certificate: customDomainCertificate, domainNames: [customDomainName] }
-        : {}),
-      defaultRootObject: 'index.html',
-      httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
-      enableLogging: true,
-      logBucket: websiteLogs,
-      logFilePrefix: 'cloudfront/',
-      defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(websiteBucket),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        compress: true,
-        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
-      },
-      errorResponses: [
-        {
-          httpStatus: 403,
-          responseHttpStatus: 200,
-          responsePagePath: '/index.html',
-          ttl: Duration.minutes(1),
-        },
-        {
-          httpStatus: 404,
-          responseHttpStatus: 200,
-          responsePagePath: '/index.html',
-          ttl: Duration.minutes(1),
-        },
-      ],
-    });
-    if (enableCustomDomain) {
+    const distribution = enableCloudFront
+      ? new cloudfront.Distribution(this, 'WebDistribution', {
+          ...(customDomainCertificate
+            ? { certificate: customDomainCertificate, domainNames: [customDomainName] }
+            : {}),
+          defaultRootObject: 'index.html',
+          httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+          enableLogging: true,
+          logBucket: websiteLogs,
+          logFilePrefix: 'cloudfront/',
+          defaultBehavior: {
+            origin: origins.S3BucketOrigin.withOriginAccessControl(websiteBucket),
+            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            compress: true,
+            cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+            responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+          },
+          errorResponses: [
+            {
+              httpStatus: 403,
+              responseHttpStatus: 200,
+              responsePagePath: '/index.html',
+              ttl: Duration.minutes(1),
+            },
+            {
+              httpStatus: 404,
+              responseHttpStatus: 200,
+              responsePagePath: '/index.html',
+              ttl: Duration.minutes(1),
+            },
+          ],
+        })
+      : undefined;
+    if (enableCustomDomain && distribution) {
       const cloudFrontTarget = route53.RecordTarget.fromAlias(
         new route53Targets.CloudFrontTarget(distribution),
       );
@@ -187,12 +224,94 @@ export class StayDemoStack extends Stack {
         target: cloudFrontTarget,
       });
     }
-    const cloudFrontOrigin = `https://${distribution.distributionDomainName}`;
+    const cloudFrontOrigin = distribution
+      ? `https://${distribution.distributionDomainName}`
+      : undefined;
     const customDomainOrigin = `https://${customDomainName}`;
+    const corsOrigins = [
+      ...(enableCustomDomain ? [customDomainOrigin] : []),
+      ...(cloudFrontOrigin ? [cloudFrontOrigin] : []),
+    ];
+    const httpAccessLogs = new logs.LogGroup(this, 'HttpAccessLogs', {
+      logGroupName: '/aws/apigateway/stay-demo-http',
+      retention: logs.RetentionDays.ONE_MONTH,
+      encryptionKey: dataKey,
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+    });
+    const apiAccessLogFormat = apigateway.AccessLogFormat.custom(
+      JSON.stringify({
+        requestId: apigateway.AccessLogField.contextRequestId(),
+        routeKey: apigateway.AccessLogField.contextRouteKey(),
+        status: apigateway.AccessLogField.contextStatus(),
+        integrationStatus: apigateway.AccessLogField.contextIntegrationStatus(),
+        integrationLatency: apigateway.AccessLogField.contextIntegrationLatency(),
+        responseLength: apigateway.AccessLogField.contextResponseLength(),
+        integrationError: apigateway.AccessLogField.contextIntegrationErrorMessage(),
+      }),
+    );
+    const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
+      apiName: 'stay-demo-api',
+      ...(corsOrigins.length > 0
+        ? {
+            corsPreflight: {
+              allowOrigins: corsOrigins,
+              allowHeaders: [
+                'authorization',
+                'content-type',
+                'idempotency-key',
+                'x-stay-demo-session',
+                'mcp-protocol-version',
+              ],
+              allowMethods: [apigwv2.CorsHttpMethod.ANY],
+              maxAge: Duration.hours(1),
+            },
+          }
+        : {}),
+      createDefaultStage: false,
+    });
+    const httpStage = new apigwv2.HttpStage(this, 'HttpStage', {
+      httpApi,
+      autoDeploy: true,
+      detailedMetricsEnabled: true,
+      accessLogSettings: {
+        destination: new apigwv2.LogGroupLogDestination(httpAccessLogs),
+        format: apiAccessLogFormat,
+      },
+    });
+    if (enableCustomDomain && customDomainCertificate && !distribution) {
+      const apiDomain = new apigwv2.DomainName(this, 'ApiCustomDomain', {
+        domainName: customDomainName,
+        certificate: customDomainCertificate,
+        endpointType: apigwv2.EndpointType.REGIONAL,
+        securityPolicy: apigwv2.SecurityPolicy.TLS_1_2,
+      });
+      new apigwv2.ApiMapping(this, 'ApiCustomDomainMapping', {
+        api: httpApi,
+        domainName: apiDomain,
+        stage: httpStage,
+      });
+      const apiTarget = route53.RecordTarget.fromAlias(
+        new route53Targets.ApiGatewayv2DomainProperties(
+          apiDomain.regionalDomainName,
+          apiDomain.regionalHostedZoneId,
+        ),
+      );
+      new route53.ARecord(this, 'CustomDomainAliasA', {
+        zone: hostedZone,
+        target: apiTarget,
+      });
+      new route53.AaaaRecord(this, 'CustomDomainAliasAaaa', {
+        zone: hostedZone,
+        target: apiTarget,
+      });
+    }
+    const transportOrigin = cloudFrontOrigin ?? httpApi.apiEndpoint;
     const allowedWebOrigins = enableCustomDomain
-      ? [customDomainOrigin, cloudFrontOrigin]
-      : [cloudFrontOrigin];
-    const preferredDemoUrl = enableCustomDomain ? customDomainOrigin : cloudFrontOrigin;
+      ? [customDomainOrigin, transportOrigin]
+      : [transportOrigin];
+    const preferredDemoUrl = enableCustomDomain ? customDomainOrigin : transportOrigin;
+    const apiBaseUrl =
+      enableCustomDomain && !distribution ? customDomainOrigin : httpApi.apiEndpoint;
 
     const userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: 'stay-demo-users',
@@ -216,13 +335,14 @@ export class StayDemoStack extends Stack {
       },
       featurePlan: cognito.FeaturePlan.PLUS,
       standardThreatProtectionMode: cognito.StandardThreatProtectionMode.FULL_FUNCTION,
-      deletionProtection: true,
-      removalPolicy: RemovalPolicy.RETAIN,
+      deletionProtection: enableDeletionProtection,
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
     const domain = userPool.addDomain('ManagedLoginDomain', {
       cognitoDomain: { domainPrefix: `stay-demo-${this.account}` },
       managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     });
+    const cognitoBaseUrl = `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`;
     const resourceServer = userPool.addResourceServer('StayResourceServer', {
       identifier: 'stay',
       scopes: [
@@ -245,6 +365,10 @@ export class StayDemoStack extends Stack {
           cognito.OAuthScope.resourceServer(resourceServer, {
             scopeName: 'app',
             scopeDescription: 'Use the STAY resident and Circle application',
+          }),
+          cognito.OAuthScope.resourceServer(resourceServer, {
+            scopeName: 'mcp',
+            scopeDescription: 'Use STAY goal-level MCP tools',
           }),
         ],
         callbackUrls: allowedWebOrigins.map((origin) => `${origin}/auth/callback`),
@@ -270,6 +394,16 @@ export class StayDemoStack extends Stack {
         callbackUrls: ['https://alexa.amazon.com/api/skill/link/M2M-STAY-DEMO'],
       },
     });
+    new cognito.CfnManagedLoginBranding(this, 'PublicWebManagedLoginBranding', {
+      userPoolId: userPool.userPoolId,
+      clientId: publicClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
+    new cognito.CfnManagedLoginBranding(this, 'AlexaManagedLoginBranding', {
+      userPoolId: userPool.userPoolId,
+      clientId: alexaClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
     const alexaCredentials = new secretsmanager.Secret(this, 'AlexaAccountLinkingSecret', {
       description: 'Confidential Cognito client credentials for Alexa account linking.',
       encryptionKey: dataKey,
@@ -281,28 +415,28 @@ export class StayDemoStack extends Stack {
 
     const bus = new events.EventBus(this, 'DomainBus', { eventBusName: 'stay-demo-domain' });
     const domainDlq = new sqs.Queue(this, 'DomainDlq', {
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
     const notificationDlq = new sqs.Queue(this, 'NotificationDlq', {
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
     const notificationQueue = new sqs.Queue(this, 'NotificationQueue', {
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       visibilityTimeout: Duration.seconds(90),
       deadLetterQueue: { queue: notificationDlq, maxReceiveCount: 4 },
     });
     const metricsDlq = new sqs.Queue(this, 'MetricsDlq', {
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
     const metricsQueue = new sqs.Queue(this, 'MetricsQueue', {
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       visibilityTimeout: Duration.seconds(90),
       deadLetterQueue: { queue: metricsDlq, maxReceiveCount: 4 },
@@ -334,7 +468,7 @@ export class StayDemoStack extends Stack {
         logGroupName: `/aws/lambda/${functionName}`,
         retention: logs.RetentionDays.ONE_MONTH,
         encryptionKey: dataKey,
-        removalPolicy: RemovalPolicy.RETAIN,
+        removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
       });
       return new nodeLambda.NodejsFunction(this, name, {
         ...functionDefaults,
@@ -362,8 +496,9 @@ export class StayDemoStack extends Stack {
       timeout: Duration.seconds(25),
       environment: {
         MCP_ALLOWED_ORIGINS: allowedWebOrigins.join(','),
-        MCP_RESOURCE_URL: 'set-after-http-api-created',
+        MCP_RESOURCE_URL: `${apiBaseUrl}/mcp`,
         COGNITO_ISSUER_URL: userPool.userPoolProviderUrl,
+        COGNITO_AUTHORIZATION_BASE_URL: cognitoBaseUrl,
       },
     });
     const schedulerFunction = fn('SchedulerFunction', 'services/functions/src/scheduler.ts');
@@ -380,6 +515,13 @@ export class StayDemoStack extends Stack {
     );
     const metricsFunction = fn('MetricsFunction', 'services/functions/src/metrics-worker.ts');
     const websocketFunction = fn('WebsocketFunction', 'services/functions/src/websocket.ts');
+    const staticSiteFunction = distribution
+      ? undefined
+      : fn('StaticSiteFunction', 'services/functions/src/static-site.ts', {
+          memorySize: 256,
+          environment: { WEBSITE_BUCKET: websiteBucket.bucketName },
+        });
+    if (staticSiteFunction) websiteBucket.grantRead(staticSiteFunction);
 
     for (const functionItem of [
       apiFunction,
@@ -429,15 +571,26 @@ export class StayDemoStack extends Stack {
     notificationFunction.addToRolePolicy(
       new iam.PolicyStatement({ actions: ['ses:SendEmail'], resources: ['*'] }),
     );
-    apiFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['bedrock:InvokeModel'],
-        resources: [
-          `arn:${this.partition}:bedrock:us-east-1::foundation-model/*`,
-          `arn:${this.partition}:bedrock:us-east-1:${this.account}:inference-profile/*`,
+    const bedrockInvokePolicy = new iam.CfnPolicy(this, 'BedrockInvokePolicy', {
+      policyName: 'stay-demo-bedrock-invoke',
+      roles: [apiFunction.role!.roleName],
+      policyDocument: {
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Action: 'bedrock:InvokeModel',
+            Resource: [
+              `arn:${this.partition}:bedrock:us-east-1:${this.account}:inference-profile/${bedrockModelId.valueAsString}`,
+              `arn:${this.partition}:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0`,
+              `arn:${this.partition}:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0`,
+              `arn:${this.partition}:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0`,
+            ],
+          },
         ],
-      }),
-    );
+      },
+    });
+    bedrockInvokePolicy.cfnOptions.condition = bedrockEnabled;
     apiFunction.addEnvironment('BEDROCK_MODEL_ID', bedrockModelId.valueAsString);
 
     const jwtAuthorizer = new apigwv2authorizers.HttpJwtAuthorizer(
@@ -447,53 +600,11 @@ export class StayDemoStack extends Stack {
         jwtAudience: [publicClient.userPoolClientId, alexaClient.userPoolClientId],
       },
     );
-    const httpAccessLogs = new logs.LogGroup(this, 'HttpAccessLogs', {
-      logGroupName: '/aws/apigateway/stay-demo-http',
-      retention: logs.RetentionDays.ONE_MONTH,
-      encryptionKey: dataKey,
-      removalPolicy: RemovalPolicy.RETAIN,
-    });
     const webSocketAccessLogs = new logs.LogGroup(this, 'WebSocketAccessLogs', {
       logGroupName: '/aws/apigateway/stay-demo-websocket',
       retention: logs.RetentionDays.ONE_MONTH,
       encryptionKey: dataKey,
-      removalPolicy: RemovalPolicy.RETAIN,
-    });
-    const apiAccessLogFormat = apigateway.AccessLogFormat.custom(
-      JSON.stringify({
-        requestId: apigateway.AccessLogField.contextRequestId(),
-        routeKey: apigateway.AccessLogField.contextRouteKey(),
-        status: apigateway.AccessLogField.contextStatus(),
-        integrationStatus: apigateway.AccessLogField.contextIntegrationStatus(),
-        integrationLatency: apigateway.AccessLogField.contextIntegrationLatency(),
-        responseLength: apigateway.AccessLogField.contextResponseLength(),
-        integrationError: apigateway.AccessLogField.contextIntegrationErrorMessage(),
-      }),
-    );
-    const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
-      apiName: 'stay-demo-api',
-      corsPreflight: {
-        allowOrigins: allowedWebOrigins,
-        allowHeaders: [
-          'authorization',
-          'content-type',
-          'idempotency-key',
-          'x-stay-demo-session',
-          'mcp-protocol-version',
-        ],
-        allowMethods: [apigwv2.CorsHttpMethod.ANY],
-        maxAge: Duration.hours(1),
-      },
-      createDefaultStage: false,
-    });
-    new apigwv2.HttpStage(this, 'HttpStage', {
-      httpApi,
-      autoDeploy: true,
-      detailedMetricsEnabled: true,
-      accessLogSettings: {
-        destination: new apigwv2.LogGroupLogDestination(httpAccessLogs),
-        format: apiAccessLogFormat,
-      },
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
     httpApi.addRoutes({
       path: '/v1/demo-sessions',
@@ -534,7 +645,19 @@ export class StayDemoStack extends Stack {
           : {}),
       });
     }
-    mcpFunction.addEnvironment('MCP_RESOURCE_URL', `${httpApi.apiEndpoint}/mcp`);
+    if (staticSiteFunction) {
+      const staticIntegration = new apigwv2integrations.HttpLambdaIntegration(
+        'StaticSiteIntegration',
+        staticSiteFunction,
+      );
+      for (const pathPattern of ['/', '/{proxy+}']) {
+        httpApi.addRoutes({
+          path: pathPattern,
+          methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.HEAD],
+          integration: staticIntegration,
+        });
+      }
+    }
 
     const webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: 'stay-demo-updates',
@@ -569,6 +692,7 @@ export class StayDemoStack extends Stack {
     });
     const callbackUrl = `https://${webSocketApi.apiId}.execute-api.${this.region}.${this.urlSuffix}/${webSocketStage.stageName}`;
     websocketFunction.addEnvironment('WEBSOCKET_CALLBACK_URL', callbackUrl);
+    staticSiteFunction?.addEnvironment('WEBSOCKET_ORIGIN', webSocketStage.url);
     webSocketApi.grantManageConnections(websocketFunction);
     new events.Rule(this, 'WebSocketBroadcastRule', {
       eventBus: bus,
@@ -691,7 +815,6 @@ export class StayDemoStack extends Stack {
 
     const assetPath = path.join(workspaceRoot, 'apps/web/out');
     const demoUrl = preferredDemoUrl;
-    const cognitoBaseUrl = `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`;
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       destinationBucket: websiteBucket,
       sources: [
@@ -704,7 +827,7 @@ export class StayDemoStack extends Stack {
         s3deploy.Source.data(
           'config.json',
           JSON.stringify({
-            apiUrl: httpApi.apiEndpoint,
+            apiUrl: apiBaseUrl,
             websocketUrl: webSocketStage.url,
             cognitoBaseUrl,
             publicClientId: publicClient.userPoolClientId,
@@ -713,9 +836,9 @@ export class StayDemoStack extends Stack {
           }),
         ),
       ],
-      distribution,
-      distributionPaths: ['/*'],
+      ...(distribution ? { distribution, distributionPaths: ['/*'] } : {}),
       prune: true,
+      retainOnDelete: false,
     });
 
     // GitHub OIDC is intentionally project-scoped. Review the role and cdk diff before deployment.
@@ -771,31 +894,33 @@ export class StayDemoStack extends Stack {
       reason:
         'CDK bootstrap asset and CloudFormation change-set ARNs are account-generated; the trust policy remains repo-and-branch scoped.',
     });
-    for (const suppression of [
-      {
-        id: 'AwsSolutions-CFR1',
-        reason: 'Geo restriction is inappropriate for an eligible worldwide hackathon demo.',
-      },
-      {
-        id: 'AwsSolutions-CFR2',
-        reason:
-          'The demo uses API authorization and CloudFront security headers; WAF is an explicit post-hackathon production gate.',
-      },
-      {
-        id: 'AwsSolutions-CFR3',
-        reason: 'CloudFront access logging is enabled to the dedicated log bucket.',
-      },
-      ...(enableCustomDomain
-        ? []
-        : [
-            {
-              id: 'AwsSolutions-CFR4',
-              reason:
-                'Before saystay.site is purchased and delegated, the release uses the CloudFront-managed domain and certificate. HTTPS redirect and security headers remain enforced; the prepared activation update adds the custom certificate and TLS policy.',
-            },
-          ]),
-    ]) {
-      Validations.of(distribution).acknowledge(suppression);
+    if (distribution) {
+      for (const suppression of [
+        {
+          id: 'AwsSolutions-CFR1',
+          reason: 'Geo restriction is inappropriate for an eligible worldwide hackathon demo.',
+        },
+        {
+          id: 'AwsSolutions-CFR2',
+          reason:
+            'The demo uses API authorization and CloudFront security headers; WAF is an explicit post-hackathon production gate.',
+        },
+        {
+          id: 'AwsSolutions-CFR3',
+          reason: 'CloudFront access logging is enabled to the dedicated log bucket.',
+        },
+        ...(enableCustomDomain
+          ? []
+          : [
+              {
+                id: 'AwsSolutions-CFR4',
+                reason:
+                  'Before saystay.site is purchased and delegated, the release uses the CloudFront-managed domain and certificate. HTTPS redirect and security headers remain enforced; the prepared activation update adds the custom certificate and TLS policy.',
+              },
+            ]),
+      ]) {
+        Validations.of(distribution).acknowledge(suppression);
+      }
     }
     const tableLogicalId = this.getLogicalId(table.node.defaultChild as CfnResource);
     const schedulerFunctionLogicalId = this.getLogicalId(
@@ -838,16 +963,6 @@ export class StayDemoStack extends Stack {
         id: `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:scheduler:us-east-1:${acknowledgedAccount}:schedule/stay-demo-safety-windows/*]`,
         reason:
           'The API can manage only one-time schedules under the dedicated STAY safety-window schedule group.',
-      },
-      {
-        id: `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:bedrock:us-east-1:${acknowledgedAccount}:inference-profile/*]`,
-        reason:
-          'The exact inference profile is supplied only after the deployment gate verifies Nova Micro availability; no other Bedrock actions are granted.',
-      },
-      {
-        id: 'AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:bedrock:us-east-1::foundation-model/*]',
-        reason:
-          'The exact Nova Micro model is deployment-verified; the role has InvokeModel only and no model-management permissions.',
       },
       {
         id: `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:execute-api:us-east-1:${acknowledgedAccount}:<${webSocketApiLogicalId}>/*/*/@connections/*]`,
@@ -924,7 +1039,15 @@ export class StayDemoStack extends Stack {
     }
 
     new CfnOutput(this, 'DemoUrl', { value: preferredDemoUrl });
-    new CfnOutput(this, 'CloudFrontFallbackUrl', { value: cloudFrontOrigin });
+    if (cloudFrontOrigin) {
+      new CfnOutput(this, 'CloudFrontFallbackUrl', { value: cloudFrontOrigin });
+    }
+    new CfnOutput(this, 'HostingMode', {
+      value: distribution ? 'CLOUDFRONT_PRIVATE_S3' : 'API_GATEWAY_PRIVATE_S3_FALLBACK',
+    });
+    new CfnOutput(this, 'DeletionProtectionStatus', {
+      value: enableDeletionProtection ? 'ENABLED' : 'STAGED_INITIAL_DEPLOY_ONLY',
+    });
     new CfnOutput(this, 'CustomDomainName', { value: customDomainName });
     new CfnOutput(this, 'DomainDelegationNameServers', {
       value: Fn.join(',', hostedZone.hostedZoneNameServers ?? []),
@@ -936,8 +1059,8 @@ export class StayDemoStack extends Stack {
         ? 'ACTIVE_IN_THIS_TEMPLATE'
         : 'AWAITING_REGISTRAR_DELEGATION_AND_ACTIVATION_UPDATE',
     });
-    new CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });
-    new CfnOutput(this, 'McpUrl', { value: `${httpApi.apiEndpoint}/mcp` });
+    new CfnOutput(this, 'ApiUrl', { value: apiBaseUrl });
+    new CfnOutput(this, 'McpUrl', { value: `${apiBaseUrl}/mcp` });
     new CfnOutput(this, 'WebSocketUrl', { value: webSocketStage.url });
     new CfnOutput(this, 'ManagedLoginUrl', {
       value: `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`,

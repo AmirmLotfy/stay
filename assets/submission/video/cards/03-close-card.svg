@@ -10,6 +10,6 @@
     <text x="190" y="720" font-size="58" font-weight="500" fill="#DCE9E3">Stay in control.</text>
     <line x1="190" y1="802" x2="760" y2="802" stroke="#A9503A" stroke-width="9"/>
     <text x="190" y="878" font-size="31" fill="#B7D3C8">github.com/AmirmLotfy/stay</text>
-    <text x="190" y="930" font-size="26" fill="#B7D3C8">Public demo URL added after verified AWS deployment</text>
+    <text x="190" y="930" font-size="26" fill="#B7D3C8">Try STAY: https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com</text>
   </g>
 </svg>

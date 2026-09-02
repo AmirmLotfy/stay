@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "test:e2e": "playwright test",
+    "verify:live:mcp": "node scripts/verify-live-mcp.mjs",
     "capture:submission": "node scripts/capture-submission.mjs",
     "captions:submission": "node scripts/generate-submission-captions.mjs",
     "render:submission": "node scripts/render-submission-video.mjs"

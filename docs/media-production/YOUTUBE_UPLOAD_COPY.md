@@ -1,6 +1,6 @@
 # YouTube upload copy
 
-Use this only after the final master has passed `DELIVERY_CHECKLIST.md`. Replace the two bracketed URLs and remove this instruction before upload.
+Use this only after the final audio master has passed `DELIVERY_CHECKLIST.md`. The public demo URL is final; replace the bracketed YouTube URL in the repository after upload.
 
 ## Title
 
@@ -10,7 +10,7 @@ STAY — Adaptive Independent Living + Crisis Coordination for Alexa+
 
 STAY helps an older adult manage an ordinary day, ask a trusted Circle for help, and run a resident-defined response plan when a Safety Window is missed—without taking control away from the resident.
 
-Try the public demo: [DEPLOYED_HTTPS_URL]
+Try the public demo: https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
 
 Explore the Apache-2.0 source: https://github.com/AmirmLotfy/stay
 
@@ -18,7 +18,7 @@ The protected demonstration is deterministic: Sarah misses two Morning Safety Wi
 
 STAY combines accessible daily routines, adaptive access preferences, ordinary Help Requests, resident-defined Safety Windows, privacy-scoped Circle coordination, household playbooks, House Memory, incident ownership, a Streamable HTTP MCP server, and an Alexa+ web simulator.
 
-The AWS architecture uses Amazon Cognito, AWS Lambda, Amazon DynamoDB, Amazon EventBridge Scheduler, Amazon EventBridge, Amazon SQS, Amazon SES, API Gateway, CloudFront, S3, KMS, CloudWatch, X-Ray, Amazon Bedrock, Amazon Nova, Strands Agents SDK, and AWS CDK.
+The deployed AWS architecture uses Amazon Cognito, AWS Lambda, Amazon DynamoDB, Amazon EventBridge Scheduler, Amazon EventBridge, Amazon SQS, Amazon SES, API Gateway, private S3, KMS, CloudWatch, X-Ray, Secrets Manager, Budgets, and AWS CDK. The CloudFront/private-S3 upgrade is prepared but account-provider blocked, and the optional Amazon Bedrock/Nova/Strands intent layer remains off because this account is not yet authorized for Nova Micro invocation.
 
 STAY does not contact emergency services, diagnose a condition, detect a fall, or replace Alexa Emergency Assist. Weather, outage, maintenance, Ring, Smart Properties, travel, and physical-device observations shown in this release are explicitly labeled simulations.
 
@@ -53,7 +53,7 @@ STAY, Alexa+, Model Context Protocol, MCP, Amazon Bedrock, Amazon Nova, Strands 
 
 ## Pinned comment
 
-Try STAY: [DEPLOYED_HTTPS_URL]
+Try STAY: https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
 
 Source and setup instructions: https://github.com/AmirmLotfy/stay
 

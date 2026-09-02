@@ -12,17 +12,17 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 ## Current evidence
 
-| Capability                                                        | Status              | Evidence boundary                                                                               |
-| ----------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Implemented locally | Static Next.js build; browser-only fallback plus deployed TTL-isolated API session client       |
-| Deterministic Safety Window, help, incident, and playbook engines | Implemented locally | Versioned creation/transition tests and one-time schedule contract tests; no Bedrock dependency |
-| Streamable HTTP MCP server and ten tools                          | Implemented locally | MCP SDK protocol/origin tests, including `2025-11-25` negotiation                               |
-| Strands + Amazon Bedrock intent layer                             | Feature-gated       | Code is implemented; exact `BEDROCK_MODEL_ID` and live access are not yet verified              |
-| AWS topology                                                      | Prepared            | CDK synth/nag are local evidence only; no stack has been deployed from this checkout            |
-| SES delivery                                                      | Prepared            | Requires a verified sender/recipient and live delivery proof                                    |
-| Real Alexa+ device/add-on                                         | Unavailable         | Partner access is not assumed; the compliant web simulator is the guaranteed submission path    |
-| Simulated edge providers                                          | Implemented         | Every observation includes mode, provider, timestamp, and reason                                |
-| Payments                                                          | Not implemented     | Monetization is documentation-only                                                              |
+| Capability                                                        | Status                | Evidence boundary                                                                                                       |
+| ----------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Resident/Circle PWA and Alexa-style simulator                     | Deployed              | [Public isolated demo](https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com); direct deployed desktop/mobile captures |
+| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog          |
+| Streamable HTTP MCP server and ten tools                          | Deployed and verified | OAuth authorization code + PKCE and authenticated MCP `2025-11-25` initialize passed live                               |
+| Strands + Amazon Bedrock intent layer                             | Provider-limited      | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off      |
+| AWS topology                                                      | Deployed              | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; deletion protection is enabled                                     |
+| SES delivery                                                      | Verified, sandboxed   | One minimal application email was delivered to the verified demo identity; SES production access remains disabled       |
+| Real Alexa+ device/add-on                                         | Unavailable           | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                            |
+| Simulated edge providers                                          | Implemented           | Every observation includes mode, provider, timestamp, and reason                                                        |
+| Payments                                                          | Not implemented       | Monetization is documentation-only                                                                                      |
 
 See [release evidence](docs/release-evidence.md) for the checklist that prevents local or simulator results from being reported as cloud or device proof.
 
@@ -112,9 +112,17 @@ pnpm cdk:synth
 
 Playwright covers 20 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard, touch-only protected flow, emergency copy, automated WCAG checks, adaptive Access preferences, routine Help Board requests, resident Safety Window creation/check-in, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
 
-## AWS deployment gate
+## Public AWS demo
 
-No AWS resource should be created until the operator has reviewed the account, region, exact Bedrock model/profile, bootstrap state, tags, cost controls, and `cdk diff`.
+The current judge URL is:
+
+https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com
+
+The secure fallback serves the static PWA from a private KMS-encrypted S3 bucket through API Gateway and a Lambda reader because AWS has not yet verified this account for new CloudFront distributions. The CloudFront/private-S3 topology remains in CDK as a separately gated upgrade; no public S3 fallback is used.
+
+The deployed MCP endpoint is `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, SES, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
+
+For a reviewed redeployment:
 
 ```bash
 aws login
@@ -122,12 +130,18 @@ aws sts get-caller-identity
 aws configure get region
 pnpm build
 pnpm cdk:synth
-pnpm cdk:diff -- --parameters AlertEmail=you@example.com --parameters SesFromEmail=verified@example.com --parameters SesRecipientEmail=approved@example.com
+cd infrastructure/cdk
+pnpm exec cdk diff StayDemoStack --strict -c enableCloudFront=false -c enableDeletionProtection=true --method template
 ```
 
-The first deployment also creates the Route 53 public hosted zone for `saystay.site` and outputs the four registrar nameservers. It keeps the CloudFront URL live while the domain is unowned or undelegated. After purchase, set those exact nameservers at the registrar, verify delegation, then review a second diff with `-c enableCustomDomain=true`; that update adds the ACM certificate, CloudFront alias, DNS A/AAAA records, and Cognito callback/logout URLs.
+The current CDK CLI evaluates parameters at deploy time, not during `cdk diff`. Review the
+parameter values separately, then supply stack-qualified values to the reviewed deploy command in
+the [deployment runbook](docs/deployment-runbook.md). Leave `BedrockModelId` empty unless the exact
+Nova Micro profile passes the live invocation gate.
 
-The `$25` AWS Budget is alert-only; it does not stop spend. The Route 53 hosted zone has a recurring AWS charge even before the domain is activated. Deployment requires a separate human review and is intentionally not performed by the build.
+The deployed Route 53 hosted zone for `saystay.site` is ready. After purchase, set the registrar nameservers to `ns-349.awsdns-43.com`, `ns-1914.awsdns-47.co.uk`, `ns-816.awsdns-38.net`, and `ns-1302.awsdns-34.org`. After delegation is visible, review a second diff with `enableCustomDomain=true` and `enableCloudFront=false`; that update adds an ACM certificate, a regional API Gateway custom domain, DNS A/AAAA aliases, and Cognito callback/logout URLs. If AWS later clears the CloudFront account gate, review the separate `enableCloudFront=true` upgrade.
+
+The `$25` AWS Budget is alert-only; it does not stop spend. The Route 53 hosted zone has a recurring AWS charge even before the domain is activated.
 
 Full steps: [deployment runbook](docs/deployment-runbook.md).
 

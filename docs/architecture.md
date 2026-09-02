@@ -27,7 +27,7 @@ Bedrock cannot select escalation order, mutate policy, reveal protected data, as
 
 The MCP HTTP transport is stateless, but product state is not Lambda-memory state. Each AWS tool call loads the authorized household’s current aggregates from DynamoDB and persists commands through the shared transaction repository. The household-scoped in-memory engine exists only when `TABLE_NAME` is absent for local protocol tests.
 
-The optional simulator intent route invokes the Strands/Nova interpreter with only the typed utterance, current surface, locale, and visible synthetic entity IDs. It returns a validated interpretation and never executes a tool. Missing model configuration or a Bedrock failure returns an explicit provider-unavailable response while deterministic state machines and controls continue to operate.
+The optional simulator intent route invokes the Strands/Nova interpreter with only the typed utterance, current surface, locale, and visible synthetic entity IDs. It returns a validated interpretation and never executes a tool. Explicit emergency wording is intercepted by a deterministic domain guard before any model call, so the supplementary-service boundary remains available even when Bedrock is off. Missing model configuration or a Bedrock failure returns an explicit provider-unavailable response for non-critical interpretation while deterministic state machines and controls continue to operate.
 
 ## DynamoDB item families
 
@@ -52,13 +52,13 @@ The write transaction requires the current version, writes version `n + 1`, appe
 
 Cognito uses a version 2 pre-token-generation Lambda to copy the immutable household and resident attributes into the signed access token. Both REST and MCP require those claims for authenticated traffic and fail closed when either claim is absent; demo traffic remains isolated by its separately validated TTL session.
 
-- CloudFront uses a private, encrypted S3 origin and security headers.
+- The current public demo uses API Gateway plus a Lambda reader over a private KMS-encrypted S3 bucket because CloudFront creation is account-provider blocked. The CloudFront/private-S3 topology remains a separately gated CDK upgrade.
 - API Gateway HTTP API serves REST, MCP, OAuth metadata, and the public TTL-isolated demo API.
 - Cognito uses authorization code flow, a public no-secret PWA client, a confidential Alexa client, token revocation, refresh rotation, and no identity pool.
 - DynamoDB uses on-demand capacity, KMS, PITR, TTL, Streams, and deletion protection.
 - EventBridge Scheduler invokes one deterministic Safety Window transition Lambda through a dedicated role. Creation prepares named one-time open, first-check, and grace-expiry schedules with strict expected versions; stale, duplicate, cancelled, or resident-completed work becomes a logged no-op.
 - A domain bus fans out to SQS-backed notification, WebSocket, and metric consumers with DLQs.
-- SES sends minimal messages. Sensitive detail stays inside an authenticated, active, assigned incident.
+- SES sends minimal messages. The approved demo identity passed live delivery; the account remains sandbox-limited. Sensitive detail stays inside an authenticated, active, assigned incident.
 - Lambda uses Node 22, ARM64, X-Ray, bounded timeouts, structured logs, and adaptive AWS SDK retry.
 - CloudWatch alarms and a `$25` monthly alert-only budget surface failures and cost; they do not automatically stop resources.
 
