@@ -121,7 +121,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence: https://github.com/AmirmLotfy/stay/actions/runs/33604454177
+Public CI evidence for deployed release commit `c353f7a`: https://github.com/AmirmLotfy/stay/actions/runs/33623850717
 
 ## Screenshot Shot List
 
