@@ -128,6 +128,8 @@ Use this factual description:
 
 > This account hosts the public STAY Amazon App Dev Challenge demo in us-east-1. Creating the first CloudFront distribution fails with: “Your account must be verified before you can add new CloudFront resources.” The failed request ID is `613d3483-2414-400f-b09e-f61c4bdc438f`. Amazon Bedrock independently reports the US Nova Micro profile as active and its agreement, entitlement, and region as available, but authorization remains `NOT_AUTHORIZED`; a minimal Converse request returns `ValidationException: Operation not allowed`. Please verify the account and identify any remaining identity or payment prerequisite. No quota increase is requested.
 
+This request was submitted on 2026-09-03 as **Account and billing → Account Activation → Account Verification**, general-question severity, web response. The AWS Support case is `178838741100092`. Do not create a duplicate; follow that case until AWS confirms the account state.
+
 The shared account-verification cause for the two services is an inference until AWS confirms it. Nova is an Amazon model, so do not submit the Anthropic-only first-time-use form as a workaround. After Support confirms verification, rerun the Bedrock availability/Converse checks and a fresh CloudFront CDK diff before deploying either feature gate.
 
 ## 6. Live evidence
@@ -138,7 +140,7 @@ The shared account-verification cause for the two services is an inference until
 - Let a real EventBridge Scheduler transition fire; inspect the audit no-op for a duplicate.
 - Disconnect/reconnect WebSocket and reconcile by REST.
 - Confirm the SES identity reports `VerifiedForSendingStatus=true`, DKIM `SUCCESS`, and custom MAIL FROM `SUCCESS`.
-- Prove one delivery from `STAY <updates@saystay.site>` to a verified address. SES accepted the 2026-09-03 test; confirm it in the recipient inbox before upgrading this evidence to delivered. AWS accepted the truthful transactional production-access request on 2026-09-03, but approval is asynchronous and `ProductionAccessEnabled=false`; recheck with `aws sesv2 get-account --region us-east-1 --query '{ProductionAccessEnabled:ProductionAccessEnabled,SendingEnabled:SendingEnabled,EnforcementStatus:EnforcementStatus}'`. Unverified recipients remain blocked until AWS enables production access.
+- Prove one delivery from `STAY <updates@saystay.site>` to a verified address. SES accepted the 2026-09-03 test; confirm it in the recipient inbox before upgrading this evidence to delivered. The requested process details and message samples were sent in case `178838582000594` on 2026-09-03. Immediately afterward, the SES API still reported `ReviewDetails.Status=DENIED` and `ProductionAccessEnabled=false`; recheck with `aws sesv2 get-account --region us-east-1 --query '{ProductionAccessEnabled:ProductionAccessEnabled,SendingEnabled:SendingEnabled,EnforcementStatus:EnforcementStatus,ReviewStatus:Details.ReviewDetails.Status}'`. Unverified recipients remain blocked until AWS enables production access.
 - Inspect DLQs, logs, X-Ray, metrics, and alarms.
 - Run MCP initialize/list/call from the deployed URL with allowed and denied origins/scopes.
 - Confirm every simulated adapter label and timestamp.
@@ -167,7 +169,7 @@ AWS requested more detail in Support case `178838582000594`. Keep the current de
 >
 > Thank you for reviewing the request.
 
-Sending this reply is an external communication and requires action-time confirmation. After it is sent, record AWS's next response and continue to report the account as sandbox-limited until `ProductionAccessEnabled=true` is observed through the SES API.
+The reply was sent with action-time confirmation on 2026-09-03 and is recorded in the case correspondence. Support shows the customer action as completed, but the SES API still reports review `DENIED` and `ProductionAccessEnabled=false`. Continue to report the account as sandbox-limited until `ProductionAccessEnabled=true` is observed through the SES API.
 
 Current public endpoints:
 
