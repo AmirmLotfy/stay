@@ -30,6 +30,7 @@
   },
   "submission": {
     "draft_file": "devpost-submission.md",
+    "private_answers_file": "devpost-private-answers.md",
     "status": "drafting"
   },
   "next_command": "prepare-submission"

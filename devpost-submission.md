@@ -1,6 +1,6 @@
 # STAY — Devpost submission copy pack
 
-> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment fields are final; only the YouTube URL and participant assertions remain bracketed.
+> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment and media fields are final; the YouTube URL remains bracketed. Private participant assertions are stored locally in the ignored `devpost-private-answers.md` handoff.
 
 Official requirements were rechecked on 2026-09-02 against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
 
@@ -166,23 +166,23 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 
 ## Official Form Fields — Copy Pack
 
-Official requirements fetched from Devpost on 2026-09-02. Do not submit the bracketed participant assertions without Amir’s confirmation.
+Official requirements fetched from Devpost on 2026-09-02. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
 
 ### 28285 — Submitter Type
 
-`[CONFIRM: Individual]`
+`[PRIVATE ANSWER — see devpost-private-answers.md]`
 
 ### 28286 — Organization Name (if applicable)
 
-`[CONFIRM: N/A]`
+`[PRIVATE ANSWER — see devpost-private-answers.md]`
 
 ### 28287 — Submitter Country of Residence
 
-`[CONFIRM COUNTRY]`
+`[PRIVATE ANSWER — see devpost-private-answers.md]`
 
 ### 28288 — Canadian province
 
-`[CONFIRM: N/A]`
+`[PRIVATE ANSWER — see devpost-private-answers.md]`
 
 ### 28289 — Primary Track(s)
 
@@ -270,19 +270,19 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 ### 28308 — Age
 
-`[AMIR MUST CONFIRM TRUE IN THE FINAL DEVPOST FORM]`
+`[PRIVATE ELIGIBILITY ANSWER — see devpost-private-answers.md]`
 
 ### 28309 — Eligible Jurisdiction
 
-`[AMIR MUST CONFIRM TRUE IN THE FINAL DEVPOST FORM]`
+`[PRIVATE ELIGIBILITY ANSWER — see devpost-private-answers.md]`
 
 ### 28310 — Employee
 
-`[AMIR MUST CONFIRM TRUE IN THE FINAL DEVPOST FORM]`
+`[PRIVATE ELIGIBILITY ANSWER — see devpost-private-answers.md]`
 
 ## Submission Readiness Notes
 
-- **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-02T07:11Z).
+- **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-02T19:14Z).
 - **Official deadline:** 2026-10-23T19:00:00Z.
 - **Optional AWS credit deadline:** registered individuals may use the [official credit request form](https://forms.gle/5hyhr1u6x3fuV2aW7) to request the advertised $150 AWS promotional credit by 2026-10-21 at 12:00 PM Pacific Time while supplies last; this is not required for submission and has not been requested.
 - **Judging availability:** keep the public repository, public video, and free judge demo available without restriction through 2026-11-20T20:00:00Z.
@@ -292,8 +292,8 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; current `main` CI green with 20/20 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** six tracked screenshots recaptured from the public AWS demo, a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
-- **AWS/public demo:** deployed and verified at `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`; the current hosting mode is the secure API Gateway/private-S3 fallback.
-- **Video:** 170-second picture-only candidate exists; final approved Higgsfield voice/audio and the user's public YouTube upload remain.
-- **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits were explicitly approved but not generated; the skill bundle is present, but the current tool inventory exposes no Higgsfield generation action, so no plugin job can be dispatched and no credits were spent. Native Higgsfield music generation was unavailable in the authenticated Audio surface.
-- **Participant assertions:** submitter type, organization, country, Canadian province, age, eligible jurisdiction, and employee status require Amir’s explicit confirmation.
+- **AWS/public demo:** deployed and verified at `https://saystay.site`; the original execute-api URL remains a working fallback and the hosting mode remains secure API Gateway/private-S3.
+- **Video:** finished 170-second H.264/AAC master, identical upload copy, 34-cue English captions, and real-product thumbnail are packaged; human final review and the user's public YouTube upload remain.
+- **Higgsfield:** selected Recraft V4.1 logo, locked Faye Seed Audio narration, and Sonilo Music tonal bed were generated, reviewed, integrated, and provenance-locked. The recorded spend is 56.93 credits.
+- **Participant assertions:** stored only in the ignored local handoff. The current values do not pass the official eligibility gate and must not be changed unless the user confirms they were mistakes and truthfully corrects them.
 - **Final action:** do not submit without the dedicated final confirmation.

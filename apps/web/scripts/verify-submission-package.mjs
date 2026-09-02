@@ -143,16 +143,32 @@ if (await exists(finalMaster)) {
 }
 
 const devpostCopy = await readFile(path.join(workspaceRoot, 'devpost-submission.md'), 'utf8');
-const unresolved = devpostCopy.match(
-  /\[(?:PUBLIC_YOUTUBE_URL|CONFIRM[^\]]*|AMIR MUST CONFIRM[^\]]*)\]/g,
-);
+const privateAnswersPath = path.join(workspaceRoot, 'devpost-private-answers.md');
+const privateAnswers = (await exists(privateAnswersPath))
+  ? await readFile(privateAnswersPath, 'utf8')
+  : '';
+
+function privateFieldAnswer(fieldId) {
+  const privateField = privateAnswers.match(
+    new RegExp(`\\*\\*${fieldId}[^\\n]*\\*\\*\\s*([^\\n]+)`, 'i'),
+  );
+  return privateField?.[1]?.trim();
+}
+
+const unresolvedPublic =
+  devpostCopy.match(/\[(?:PUBLIC_YOUTUBE_URL|CONFIRM[^\]]*|AMIR MUST CONFIRM[^\]]*)\]/g) ?? [];
+const privateFieldIds = ['28285', '28286', '28287', '28288', '28308', '28309', '28310'];
+const missingPrivateFields = privateFieldIds.filter((fieldId) => !privateFieldAnswer(fieldId));
+const unresolvedCount = unresolvedPublic.length + missingPrivateFields.length;
 record(
-  unresolved ? 'pending' : 'passed',
+  unresolvedCount > 0 ? 'pending' : 'passed',
   'Devpost copy placeholders',
-  unresolved ? `${unresolved.length} unresolved form fields` : 'none',
+  unresolvedCount > 0 ? `${unresolvedCount} unresolved form fields` : 'none',
 );
 
 function formFieldAnswer(fieldId) {
+  const privateField = privateFieldAnswer(fieldId);
+  if (privateField) return privateField;
   const field = devpostCopy.match(new RegExp(`### ${fieldId}[^\\n]*\\n\\n([^\\n]+)`, 'i'));
   return field?.[1]?.trim();
 }
