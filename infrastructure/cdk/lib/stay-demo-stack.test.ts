@@ -35,6 +35,22 @@ describe('StayDemoStack', () => {
     template.hasResourceProperties('AWS::Events::Rule', {
       EventPattern: { source: ['stay.domain'] },
     });
-    expect(template.toJSON()).toBeTruthy();
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['sts:AssumeRole', 'sts:TagSession']),
+            Effect: 'Allow',
+            Resource: Match.anyValue(),
+          }),
+        ]),
+      },
+    });
+    template.hasOutput('GitHubDeploymentRoleArn', { Value: Match.anyValue() });
+    const synthesized = JSON.stringify(template.toJSON());
+    expect(synthesized).toContain('cdk-hnb659fds-deploy-role-');
+    expect(synthesized).toContain('cdk-hnb659fds-file-publishing-role-');
+    expect(synthesized).toContain('cdk-hnb659fds-image-publishing-role-');
+    expect(synthesized).toContain('cdk-hnb659fds-lookup-role-');
   }, 30_000);
 });

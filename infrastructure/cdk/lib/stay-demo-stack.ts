@@ -655,6 +655,17 @@ export class StayDemoStack extends Stack {
         resources: ['*'],
       }),
     );
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole', 'sts:TagSession'],
+        resources: [
+          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-${this.region}`,
+          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-file-publishing-role-${this.account}-${this.region}`,
+          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-image-publishing-role-${this.account}-${this.region}`,
+          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-lookup-role-${this.account}-${this.region}`,
+        ],
+      }),
+    );
 
     Validations.of(notificationFunction).acknowledge({
       id: 'AwsSolutions-IAM5',
@@ -827,6 +838,7 @@ export class StayDemoStack extends Stack {
       value: `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`,
     });
     new CfnOutput(this, 'AlexaCredentialsSecretArn', { value: alexaCredentials.secretArn });
+    new CfnOutput(this, 'GitHubDeploymentRoleArn', { value: deploymentRole.roleArn });
     new CfnOutput(this, 'BudgetNotice', {
       value: 'Alert only: this budget does not stop AWS spend.',
     });

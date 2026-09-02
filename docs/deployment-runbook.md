@@ -31,7 +31,9 @@ pnpm diff -- --parameters AlertEmail=ALERT_EMAIL --parameters SesFromEmail=VERIF
 
 Review IAM broadening, Cognito callback URLs, deletion protection, KMS, public routes, budget email, resource tags, and the GitHub OIDC trust restricted to `AmirmLotfy/stay` main.
 
-The manual GitHub workflow enforces the same two-run gate: run it once with `operation=diff`, review the exact output, then start a separate `operation=deploy` run with `confirm_reviewed_diff=true`.
+The first deployment must use the reviewed local AWS session because the project-scoped GitHub OIDC role is created by this stack. After that initial deployment, record the `GitHubDeploymentRoleArn` stack output as the repository secret `AWS_DEPLOY_ROLE_ARN`. Also configure `ALERT_EMAIL`, `SES_FROM_EMAIL`, and `SES_RECIPIENT_EMAIL` as repository secrets without copying their values into logs or documentation.
+
+The OIDC role may assume only the four modern CDK bootstrap roles for this exact account and `us-east-1`. The manual GitHub workflow then enforces the same two-run gate: run it once with `operation=diff`, review the exact output, then start a separate `operation=deploy` run with `confirm_reviewed_diff=true`.
 
 ## 4. Deploy
 
