@@ -17,6 +17,9 @@ const actor: ActorContext = {
     'incident:resolve',
     'help:request',
     'help:respond',
+    'access:manage',
+    'privacy:manage',
+    'memory:manage',
     'playbook:execute',
   ],
 };
@@ -236,5 +239,95 @@ describe('StayEngine protected demonstration', () => {
     });
     expect(escalated.entity.state).toBe('escalated');
     expect(escalated.entity.timeline.at(-1)?.detail).toContain('No emergency service');
+  });
+
+  it('persists access preferences as a versioned aggregate', () => {
+    const engine = new StayEngine();
+    const current = engine.snapshot().access;
+    const result = engine.updateAccessPreferences(
+      { ...current, textScale: 'extra-large', reducedLoad: true },
+      {
+        actor,
+        idempotencyKey: 'access-update',
+        expectedVersion: current.version,
+      },
+    );
+    expect(result.entity).toMatchObject({
+      id: 'access-resident-sarah',
+      textScale: 'extra-large',
+      reducedLoad: true,
+      version: 2,
+    });
+    expect(result.emittedEvents[0]?.data).toEqual({ changed: ['reducedLoad', 'textScale'] });
+  });
+
+  it('adds and updates House Memory without placing the detail value in events', () => {
+    const engine = new StayEngine();
+    const added = engine.addHouseMemory(
+      {
+        label: 'Porch bulb',
+        value: 'Warm LED, E26 base',
+        category: 'maintenance',
+        sensitivity: 'routine',
+      },
+      { actor, idempotencyKey: 'memory-porch-bulb' },
+    );
+    expect(added.entity).toMatchObject({ version: 1, label: 'Porch bulb' });
+    expect(JSON.stringify(added.emittedEvents)).not.toContain('Warm LED');
+
+    const updated = engine.updateHouseMemory(
+      added.entity.id,
+      { ...added.entity, value: 'Warm LED, E26 base, 800 lumens' },
+      {
+        actor,
+        idempotencyKey: 'memory-porch-bulb-update',
+        expectedVersion: added.entity.version,
+      },
+    );
+    expect(updated.entity).toMatchObject({ version: 2, value: expect.stringContaining('800') });
+  });
+
+  it('requires a scoped confirmation before ending active private time', () => {
+    const engine = new StayEngine();
+    const started = engine.updatePrivacy(
+      { temporaryPrivateUntil: '2026-09-02T10:00:00.000Z' },
+      {
+        actor,
+        idempotencyKey: 'privacy-start',
+        expectedVersion: 1,
+        now: new Date('2026-09-02T08:00:00.000Z'),
+      },
+    );
+    expect(started.entity.version).toBe(2);
+    expect(() =>
+      engine.updatePrivacy(
+        { temporaryPrivateUntil: null },
+        {
+          actor,
+          idempotencyKey: 'privacy-end-missing-confirmation',
+          expectedVersion: 2,
+          now: new Date('2026-09-02T08:05:00.000Z'),
+        },
+      ),
+    ).toThrowError(/current explicit confirmation/);
+
+    const ended = engine.updatePrivacy(
+      { temporaryPrivateUntil: null },
+      {
+        actor,
+        idempotencyKey: 'privacy-end-confirmed',
+        expectedVersion: 2,
+        now: new Date('2026-09-02T08:05:00.000Z'),
+      },
+      {
+        token: 'confirmation-token-long-enough',
+        purpose: 'destructive-privacy-change',
+        subject: actor.subject,
+        entityId: started.entity.id,
+        expiresAt: '2026-09-02T08:10:00.000Z',
+      },
+    );
+    expect(ended.entity.temporaryPrivateUntil).toBeUndefined();
+    expect(ended.entity.version).toBe(3);
   });
 });

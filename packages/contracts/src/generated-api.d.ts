@@ -262,7 +262,7 @@ export interface paths {
           };
           content: {
             'application/json': {
-              data: components['schemas']['AccessPreferences'];
+              data: components['schemas']['AccessSettings'];
               provenance: {
                 /** @enum {string} */
                 mode: 'live' | 'simulated' | 'unavailable';
@@ -327,9 +327,11 @@ export interface paths {
       requestBody: {
         content: {
           'application/json': {
-            action: string;
+            /** @constant */
+            action: 'update';
             entityId?: string;
             expectedVersion?: number;
+            preferences: components['schemas']['AccessPreferences'];
           };
         };
       };
@@ -1156,7 +1158,7 @@ export interface paths {
           };
           content: {
             'application/json': {
-              data: unknown;
+              data: components['schemas']['PrivacySettings'];
               provenance: {
                 /** @enum {string} */
                 mode: 'live' | 'simulated' | 'unavailable';
@@ -1207,7 +1209,7 @@ export interface paths {
       };
     };
     put?: never;
-    /** Request a privacy change */
+    /** Update privacy or request a scoped confirmation */
     post: {
       parameters: {
         query?: never;
@@ -1221,9 +1223,22 @@ export interface paths {
       requestBody: {
         content: {
           'application/json': {
-            action: string;
+            /** @enum {string} */
+            action: 'update' | 'request-confirmation';
             entityId?: string;
             expectedVersion?: number;
+            /** @enum {string} */
+            confirmationPurpose?:
+              | 'change-escalation-plan'
+              | 'disclose-access-instructions'
+              | 'share-location'
+              | 'remove-primary-contact'
+              | 'destructive-privacy-change';
+            confirmationToken?: string;
+            routineSharing?: boolean;
+            /** @enum {string} */
+            locationSharing?: 'off' | 'incident-only' | 'always';
+            temporaryPrivateUntil?: string | null;
           };
         };
       };
@@ -1235,6 +1250,17 @@ export interface paths {
           };
           content: {
             'application/json': components['schemas']['CommandResult'];
+          };
+        };
+        /** @description Short-lived scoped confirmation prepared */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              confirmation: components['schemas']['ConfirmationToken'];
+            };
           };
         };
         /** @description Invalid or missing command metadata */
@@ -1370,9 +1396,16 @@ export interface paths {
       requestBody: {
         content: {
           'application/json': {
-            action: string;
+            /** @enum {string} */
+            action: 'add' | 'update';
             entityId?: string;
             expectedVersion?: number;
+            label: string;
+            value: string;
+            /** @enum {string} */
+            category: 'home' | 'routine' | 'maintenance' | 'contact';
+            /** @enum {string} */
+            sensitivity: 'routine' | 'sensitive' | 'incident-only';
           };
         };
       };
@@ -1554,6 +1587,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AccessPreferences: {
+      /** @enum {string} */
+      interactionMode: 'voice-first' | 'touch-first' | 'balanced';
+      reducedLoad: boolean;
+      highLegibility: boolean;
+      captions: boolean;
+      extraResponseTime: boolean;
+      repeatInformation: boolean;
+      highContrast: boolean;
+      reducedMotion: boolean;
+      /** @enum {string} */
+      textScale: 'default' | 'large' | 'extra-large';
+    };
     ApiError: {
       /** @enum {string} */
       code:
@@ -1599,7 +1645,7 @@ export interface components {
         reason?: string;
       };
     };
-    AccessPreferences: {
+    AccessSettings: {
       /** @enum {string} */
       interactionMode: 'voice-first' | 'touch-first' | 'balanced';
       reducedLoad: boolean;
@@ -1611,6 +1657,8 @@ export interface components {
       reducedMotion: boolean;
       /** @enum {string} */
       textScale: 'default' | 'large' | 'extra-large';
+      id: string;
+      version: number;
     };
     CircleMember: {
       id: string;
@@ -1764,6 +1812,33 @@ export interface components {
       };
       version: number;
     };
+    PrivacySettings: {
+      id: string;
+      version: number;
+      routineSharing: boolean;
+      /** @enum {string} */
+      locationSharing: 'off' | 'incident-only' | 'always';
+      /** Format: date-time */
+      temporaryPrivateUntil?: string;
+      /** @constant */
+      auditRetention: true;
+    };
+    ConfirmationToken: {
+      token: string;
+      /** @enum {string} */
+      purpose:
+        | 'change-escalation-plan'
+        | 'disclose-access-instructions'
+        | 'share-location'
+        | 'remove-primary-contact'
+        | 'destructive-privacy-change';
+      subject: string;
+      entityId: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      consumedAt?: string;
+    };
     HouseMemoryItem: {
       id: string;
       label: string;
@@ -1774,6 +1849,7 @@ export interface components {
       sensitivity: 'routine' | 'sensitive' | 'incident-only';
       /** Format: date-time */
       updatedAt: string;
+      version: number;
     };
     DemoSession: {
       id: string;

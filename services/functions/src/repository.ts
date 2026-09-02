@@ -7,12 +7,11 @@ import {
   TransactWriteCommand,
   type TransactWriteCommandInput,
 } from '@aws-sdk/lib-dynamodb';
-import type { DomainEvent } from '@stay/contracts';
+import type { ConfirmationPurpose, ConfirmationToken, DomainEvent } from '@stay/contracts';
 
 export interface VersionedEntity {
   id: string;
   version: number;
-  [key: string]: unknown;
 }
 
 export interface WriteEntityCommand<T extends VersionedEntity> {
@@ -24,12 +23,18 @@ export interface WriteEntityCommand<T extends VersionedEntity> {
   event: DomainEvent;
   idempotencyExpiresAt: number;
   entityExpiresAt?: number;
+  confirmation?: StoredConfirmation;
 }
 
 export interface IdempotencyRecord {
   aggregateType: string;
   aggregateId: string;
   version: number;
+}
+
+export interface StoredConfirmation extends ConfirmationToken {
+  tokenHash: string;
+  expectedVersion: number;
 }
 
 export class DynamoStayRepository {
@@ -127,6 +132,61 @@ export class DynamoStayRepository {
     );
   }
 
+  public async createConfirmation(
+    householdId: string,
+    confirmation: ConfirmationToken,
+    expectedVersion: number,
+  ): Promise<void> {
+    const tokenHash = await this.#sha256(confirmation.token);
+    await this.#client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          PK: `HOUSEHOLD#${householdId}`,
+          SK: `CONFIRMATION#${tokenHash}`,
+          tokenHash,
+          purpose: confirmation.purpose,
+          subject: confirmation.subject,
+          entityId: confirmation.entityId,
+          expectedVersion,
+          expiresAt: Math.floor(new Date(confirmation.expiresAt).getTime() / 1000),
+          expiresAtIso: confirmation.expiresAt,
+        },
+        ConditionExpression: 'attribute_not_exists(PK)',
+      }),
+    );
+  }
+
+  public async getConfirmation(
+    householdId: string,
+    rawToken: string,
+  ): Promise<StoredConfirmation | null> {
+    const tokenHash = await this.#sha256(rawToken);
+    const result = await this.#client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { PK: `HOUSEHOLD#${householdId}`, SK: `CONFIRMATION#${tokenHash}` },
+        ConsistentRead: true,
+      }),
+    );
+    if (
+      !result.Item ||
+      result.Item.consumedAt ||
+      Number(result.Item.expiresAt) <= Math.floor(Date.now() / 1000)
+    ) {
+      return null;
+    }
+    return {
+      token: rawToken,
+      tokenHash,
+      purpose: result.Item.purpose as ConfirmationPurpose,
+      subject: String(result.Item.subject),
+      entityId: String(result.Item.entityId),
+      expectedVersion: Number(result.Item.expectedVersion),
+      expiresAt: String(result.Item.expiresAtIso),
+    };
+  }
+
   public async demoSessionExists(id: string): Promise<boolean> {
     const result = await this.#client.send(
       new GetCommand({
@@ -191,8 +251,36 @@ export class DynamoStayRepository {
             ConditionExpression: 'attribute_not_exists(PK)',
           },
         },
+        ...(command.confirmation
+          ? [
+              {
+                Update: {
+                  TableName: this.tableName,
+                  Key: {
+                    PK: partition,
+                    SK: `CONFIRMATION#${command.confirmation.tokenHash}`,
+                  },
+                  UpdateExpression: 'SET consumedAt = :consumedAt',
+                  ConditionExpression:
+                    'attribute_not_exists(consumedAt) AND purpose = :purpose AND subject = :subject AND entityId = :entityId AND expectedVersion = :expectedVersion',
+                  ExpressionAttributeValues: {
+                    ':consumedAt': command.event.occurredAt,
+                    ':purpose': command.confirmation.purpose,
+                    ':subject': command.confirmation.subject,
+                    ':entityId': command.confirmation.entityId,
+                    ':expectedVersion': command.expectedVersion,
+                  },
+                },
+              },
+            ]
+          : []),
       ],
     };
     await this.#client.send(new TransactWriteCommand(input));
+  }
+
+  async #sha256(value: string): Promise<string> {
+    const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 }

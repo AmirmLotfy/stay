@@ -180,6 +180,22 @@ export const AccessPreferencesSchema = z.object({
 });
 export type AccessPreferences = z.infer<typeof AccessPreferencesSchema>;
 
+export const AccessSettingsSchema = AccessPreferencesSchema.extend({
+  id: z.string().min(1),
+  version: z.number().int().positive(),
+});
+export type AccessSettings = z.infer<typeof AccessSettingsSchema>;
+
+export const PrivacySettingsSchema = z.object({
+  id: z.string().min(1),
+  version: z.number().int().positive(),
+  routineSharing: z.boolean(),
+  locationSharing: z.enum(['off', 'incident-only', 'always']),
+  temporaryPrivateUntil: z.iso.datetime().optional(),
+  auditRetention: z.literal(true),
+});
+export type PrivacySettings = z.infer<typeof PrivacySettingsSchema>;
+
 export const SafetyWindowTemplateSchema = z.enum([
   'morning-check-in',
   'arrived-home',
@@ -251,6 +267,7 @@ export const HouseMemoryItemSchema = z.object({
   category: z.enum(['home', 'routine', 'maintenance', 'contact']),
   sensitivity: z.enum(['routine', 'sensitive', 'incident-only']),
   updatedAt: z.iso.datetime(),
+  version: z.number().int().positive(),
 });
 export type HouseMemoryItem = z.infer<typeof HouseMemoryItemSchema>;
 

@@ -1,8 +1,12 @@
 import type {
+  AccessPreferences,
   ActorContext,
   CommandResult,
+  ConfirmationPurpose,
+  ConfirmationToken,
   DomainEvent,
   HelpRequest,
+  HouseMemoryItem,
   Incident,
   Playbook,
   SafetyWindow,
@@ -24,6 +28,12 @@ export interface CommandMeta {
   idempotencyKey: string;
   expectedVersion: number;
   now?: Date;
+}
+
+export interface PrivacyUpdateInput {
+  routineSharing?: boolean;
+  locationSharing?: HomeState['privacy']['locationSharing'];
+  temporaryPrivateUntil?: string | null;
 }
 
 export class StayEngine {
@@ -405,6 +415,93 @@ export class StayEngine {
     });
   }
 
+  public updateAccessPreferences(
+    preferences: AccessPreferences,
+    meta: CommandMeta,
+  ): CommandResult<HomeState['access']> {
+    requirePermission(meta.actor, 'access:manage');
+    return this.#idempotent<HomeState['access']>(meta.idempotencyKey, () => {
+      const current = this.#state.access;
+      this.#version(current.version, meta.expectedVersion);
+      const changed = (Object.keys(preferences) as Array<keyof AccessPreferences>).filter(
+        (key) => current[key] !== preferences[key],
+      );
+      if (!changed.length) {
+        throw new StayDomainError('CONFLICT', 'Those access preferences are already active.');
+      }
+      const now = this.#now(meta);
+      this.#state.access = {
+        ...preferences,
+        id: current.id,
+        version: current.version + 1,
+      };
+      const event = this.#event(
+        'AccessPreferences.Updated',
+        'access',
+        current.id,
+        now,
+        meta.actor,
+        { changed },
+      );
+      this.#outbox(event);
+      return this.#result(this.#state.access, [event]);
+    });
+  }
+
+  public updatePrivacy(
+    input: PrivacyUpdateInput,
+    meta: CommandMeta,
+    confirmation?: ConfirmationToken,
+  ): CommandResult<HomeState['privacy']> {
+    requirePermission(meta.actor, 'privacy:manage');
+    return this.#idempotent<HomeState['privacy']>(meta.idempotencyKey, () => {
+      const current = this.#state.privacy;
+      this.#version(current.version, meta.expectedVersion);
+      const now = this.#now(meta);
+      if (
+        input.temporaryPrivateUntil &&
+        new Date(input.temporaryPrivateUntil).getTime() <= new Date(now).getTime()
+      ) {
+        throw new StayDomainError('BAD_REQUEST', 'Private time must end in the future.');
+      }
+      const next: HomeState['privacy'] = {
+        ...current,
+        ...(typeof input.routineSharing === 'boolean'
+          ? { routineSharing: input.routineSharing }
+          : {}),
+        ...(input.locationSharing ? { locationSharing: input.locationSharing } : {}),
+        version: current.version + 1,
+      };
+      if (input.temporaryPrivateUntil === null) delete next.temporaryPrivateUntil;
+      else if (input.temporaryPrivateUntil)
+        next.temporaryPrivateUntil = input.temporaryPrivateUntil;
+
+      const confirmationPurpose = this.#privacyConfirmationPurpose(current, next, now);
+      if (confirmationPurpose) {
+        this.#validateConfirmation(
+          confirmation,
+          confirmationPurpose,
+          current.id,
+          meta.actor.subject,
+          now,
+        );
+      }
+      const comparableCurrent = { ...current, version: next.version };
+      if (JSON.stringify(comparableCurrent) === JSON.stringify(next)) {
+        throw new StayDomainError('CONFLICT', 'Those privacy settings are already active.');
+      }
+      this.#state.privacy = next;
+      const event = this.#event('Privacy.Updated', 'privacy', next.id, now, meta.actor, {
+        routineSharing: next.routineSharing,
+        locationSharing: next.locationSharing,
+        temporaryPrivate: Boolean(next.temporaryPrivateUntil),
+        confirmationPurpose,
+      });
+      this.#outbox(event);
+      return this.#result(next, [event]);
+    });
+  }
+
   public requestHelp(
     request: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>,
     meta: Omit<CommandMeta, 'expectedVersion'>,
@@ -413,7 +510,7 @@ export class StayEngine {
     return this.#idempotent<HelpRequest>(meta.idempotencyKey, () => {
       const now = this.#now(meta);
       const help: HelpRequest = {
-        id: `help-${this.#state.helpRequests.length + 1}`,
+        id: this.#entityId('help', meta.idempotencyKey),
         residentId: meta.actor.residentId,
         title: request.title,
         detail: request.detail,
@@ -561,6 +658,69 @@ export class StayEngine {
     });
   }
 
+  public addHouseMemory(
+    input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>,
+    meta: Omit<CommandMeta, 'expectedVersion'>,
+  ): CommandResult<HomeState['houseMemory'][number]> {
+    requirePermission(meta.actor, 'memory:manage');
+    return this.#idempotent<HomeState['houseMemory'][number]>(meta.idempotencyKey, () => {
+      const label = input.label.trim();
+      const value = input.value.trim();
+      if (!label || !value) {
+        throw new StayDomainError('BAD_REQUEST', 'A label and house detail are required.');
+      }
+      const now = this.#now(meta);
+      const item: HomeState['houseMemory'][number] = {
+        id: this.#entityId('memory', meta.idempotencyKey),
+        label,
+        value,
+        category: input.category,
+        sensitivity: input.sensitivity,
+        updatedAt: now,
+        version: 1,
+      };
+      this.#state.houseMemory.unshift(item);
+      const event = this.#event('HouseMemory.Added', 'house-memory', item.id, now, meta.actor, {
+        category: item.category,
+        sensitivity: item.sensitivity,
+      });
+      this.#outbox(event);
+      return this.#result(item, [event]);
+    });
+  }
+
+  public updateHouseMemory(
+    itemId: string,
+    input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>,
+    meta: CommandMeta,
+  ): CommandResult<HomeState['houseMemory'][number]> {
+    requirePermission(meta.actor, 'memory:manage');
+    return this.#idempotent<HomeState['houseMemory'][number]>(meta.idempotencyKey, () => {
+      const item = this.#memory(itemId);
+      this.#version(item.version, meta.expectedVersion);
+      const label = input.label.trim();
+      const value = input.value.trim();
+      if (!label || !value) {
+        throw new StayDomainError('BAD_REQUEST', 'A label and house detail are required.');
+      }
+      const now = this.#now(meta);
+      Object.assign(item, {
+        label,
+        value,
+        category: input.category,
+        sensitivity: input.sensitivity,
+        updatedAt: now,
+        version: item.version + 1,
+      });
+      const event = this.#event('HouseMemory.Updated', 'house-memory', item.id, now, meta.actor, {
+        category: item.category,
+        sensitivity: item.sensitivity,
+      });
+      this.#outbox(event);
+      return this.#result(item, [event]);
+    });
+  }
+
   public executePlaybook(playbookId: string, meta: CommandMeta): CommandResult<Playbook> {
     requirePermission(meta.actor, 'playbook:execute');
     return this.#idempotent<Playbook>(meta.idempotencyKey, () => {
@@ -604,6 +764,65 @@ export class StayEngine {
     const entity = this.#state.helpRequests.find((request) => request.id === id);
     if (!entity) throw new StayDomainError('NOT_FOUND', 'Help request was not found.');
     return entity;
+  }
+
+  #memory(id: string): HomeState['houseMemory'][number] {
+    const entity = this.#state.houseMemory.find((item) => item.id === id);
+    if (!entity) throw new StayDomainError('NOT_FOUND', 'House Memory detail was not found.');
+    return entity;
+  }
+
+  #entityId(prefix: string, idempotencyKey: string): string {
+    const suffix = idempotencyKey
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 96);
+    return `${prefix}-${suffix || 'request'}`;
+  }
+
+  #privacyConfirmationPurpose(
+    current: HomeState['privacy'],
+    next: HomeState['privacy'],
+    now: string,
+  ): ConfirmationPurpose | null {
+    const locationRank = { off: 0, 'incident-only': 1, always: 2 } as const;
+    if (locationRank[next.locationSharing] > locationRank[current.locationSharing]) {
+      return 'share-location';
+    }
+    const privateTimeWasActive = Boolean(
+      current.temporaryPrivateUntil &&
+      new Date(current.temporaryPrivateUntil).getTime() > new Date(now).getTime(),
+    );
+    if (
+      (!current.routineSharing && next.routineSharing) ||
+      (privateTimeWasActive && !next.temporaryPrivateUntil)
+    ) {
+      return 'destructive-privacy-change';
+    }
+    return null;
+  }
+
+  #validateConfirmation(
+    confirmation: ConfirmationToken | undefined,
+    purpose: ConfirmationPurpose,
+    entityId: string,
+    subject: string,
+    now: string,
+  ): void {
+    if (
+      !confirmation ||
+      confirmation.purpose !== purpose ||
+      confirmation.entityId !== entityId ||
+      confirmation.subject !== subject ||
+      confirmation.consumedAt ||
+      new Date(confirmation.expiresAt).getTime() <= new Date(now).getTime()
+    ) {
+      throw new StayDomainError(
+        'CONFIRMATION_REQUIRED',
+        'This privacy change needs a current explicit confirmation.',
+      );
+    }
   }
 
   #version(actual: number, expected: number): void {

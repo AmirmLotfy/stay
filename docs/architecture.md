@@ -32,15 +32,17 @@ The table uses `PK = HOUSEHOLD#{householdId}` and typed sort keys. Incidents are
 | Sort key                                             | Purpose                                      |
 | ---------------------------------------------------- | -------------------------------------------- |
 | `HOUSEHOLD#...`, `RESIDENT#...`                      | Household and resident profile               |
-| `CIRCLE#...`, `ACCESS#...`, `MEMORY#...`             | Membership, adaptive access, House Memory    |
-| `TASK#...`, `WINDOW#...`, `HELP#...`, `PLAYBOOK#...` | Versioned product workflows                  |
+| `CIRCLE#...`, `ACCESS#...`, `HOUSE-MEMORY#...`       | Membership, adaptive access, House Memory    |
+| `TASK#...`, `SAFETY-WINDOW#...`, `HELP-REQUEST#...`  | Versioned product workflows                  |
+| `PLAYBOOK#...`, `PRIVACY#...`                        | Versioned plan and privacy workflows         |
 | `INCIDENT#...`                                       | Independent incident metadata and assignment |
 | `INCIDENT#...#EVENT#...`                             | Append-only incident timeline                |
 | `OUTBOX#{time}#{eventId}`                            | Transactional domain event                   |
 | `IDEMPOTENCY#{key}`                                  | TTL duplicate-suppression record             |
+| `CONFIRMATION#{tokenHash}`                           | TTL-scoped sensitive-action approval         |
 | `CONNECTION#{id}`, `DEMO#{id}`                       | TTL WebSocket and isolated demo records      |
 
-The write transaction requires the current version, writes version `n + 1`, appends the outbox event, and reserves the idempotency key. Stale or duplicate Scheduler events become observable no-ops.
+The write transaction requires the current version, writes version `n + 1`, appends the outbox event, and reserves the idempotency key. Sensitive privacy changes also consume an actor-, entity-, purpose-, and version-scoped confirmation token in that same transaction. Raw confirmation tokens are never stored. Stale or duplicate Scheduler events become observable no-ops.
 
 ## AWS topology
 

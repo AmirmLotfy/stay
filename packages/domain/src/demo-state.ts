@@ -1,10 +1,11 @@
 import type {
-  AccessPreferences,
+  AccessSettings,
   CircleMember,
   HelpRequest,
   HouseMemoryItem,
   Incident,
   Playbook,
+  PrivacySettings,
   SafetyWindow,
   TimelineEvent,
 } from '@stay/contracts';
@@ -25,7 +26,7 @@ export interface HomeState {
     timezone: string;
     status: 'home' | 'away' | 'resting';
   };
-  access: AccessPreferences;
+  access: AccessSettings;
   oneThing: {
     id: string;
     title: string;
@@ -41,12 +42,7 @@ export interface HomeState {
   incidents: Incident[];
   playbooks: Playbook[];
   houseMemory: HouseMemoryItem[];
-  privacy: {
-    routineSharing: boolean;
-    locationSharing: 'off' | 'incident-only' | 'always';
-    temporaryPrivateUntil?: string;
-    auditRetention: true;
-  };
+  privacy: PrivacySettings;
   outbox: Array<{
     id: string;
     eventType: string;
@@ -79,6 +75,8 @@ export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): Hom
       status: 'home',
     },
     access: {
+      id: 'access-resident-sarah',
+      version: 1,
       interactionMode: 'balanced',
       reducedLoad: false,
       highLegibility: true,
@@ -240,6 +238,7 @@ export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): Hom
         category: 'home',
         sensitivity: 'sensitive',
         updatedAt: iso,
+        version: 1,
       },
       {
         id: 'memory-bin',
@@ -248,6 +247,7 @@ export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): Hom
         category: 'routine',
         sensitivity: 'routine',
         updatedAt: iso,
+        version: 1,
       },
       {
         id: 'memory-key',
@@ -256,9 +256,12 @@ export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): Hom
         category: 'home',
         sensitivity: 'incident-only',
         updatedAt: iso,
+        version: 1,
       },
     ],
     privacy: {
+      id: 'privacy-resident-sarah',
+      version: 1,
       routineSharing: true,
       locationSharing: 'incident-only',
       auditRetention: true,

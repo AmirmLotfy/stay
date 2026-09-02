@@ -966,7 +966,8 @@ svg {
 }
 .safety-callout,
 .provider-disclosure,
-.confirmation-row {
+.confirmation-row,
+.confirmation-callout {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -978,11 +979,13 @@ svg {
 }
 .safety-callout svg,
 .provider-disclosure svg,
-.confirmation-row svg {
+.confirmation-row svg,
+.confirmation-callout svg {
   flex: 0 0 auto;
   color: var(--pine);
 }
-.safety-callout p {
+.safety-callout p,
+.confirmation-callout p {
   margin: 0;
 }
 .window-hero {
@@ -1634,6 +1637,41 @@ svg {
   color: var(--clay);
   background: color-mix(in srgb, var(--clay) 12%, var(--surface));
 }
+.memory-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-block-start: 16px;
+}
+.memory-form > div:not(.form-actions) {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 6px;
+}
+.memory-form label {
+  font-weight: 650;
+}
+.memory-form input,
+.memory-form select,
+.memory-form textarea {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text);
+  background: var(--chalk);
+}
+.memory-form textarea {
+  min-block-size: 96px;
+  resize: vertical;
+}
+.memory-form > small,
+.memory-form .form-actions {
+  grid-column: 1 / -1;
+}
 .add-memory {
   margin-block-start: 16px;
 }
@@ -1733,6 +1771,7 @@ svg {
   .template-grid,
   .request-grid,
   .help-request-form,
+  .memory-form,
   .playbook-grid,
   .memory-grid,
   .simulator-rail {

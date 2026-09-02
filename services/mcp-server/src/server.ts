@@ -327,21 +327,62 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     {
       title: 'Manage House Memory',
       description:
-        'Read routine house details. Sensitive and incident-only entries are filtered from model context.',
-      inputSchema: EntityActionSchema,
+        'Read or save routine house details. Sensitive and incident-only entries are filtered from model context and cannot be written through this tool.',
+      inputSchema: EntityActionSchema.extend({
+        idempotencyKey: z.string().min(8).max(180).optional(),
+        label: z.string().min(1).max(120).optional(),
+        value: z.string().min(1).max(800).optional(),
+        category: z.enum(['home', 'routine', 'maintenance', 'contact']).optional(),
+        sensitivity: z.literal('routine').optional(),
+      }),
       annotations: { idempotentHint: false, destructiveHint: false, openWorldHint: false },
     },
-    async ({ action }) => {
+    async ({
+      action,
+      entityId,
+      expectedVersion = 1,
+      idempotencyKey,
+      label,
+      value,
+      category,
+      sensitivity,
+    }) => {
       const visible = engine
         .snapshot()
         .houseMemory.filter((item) => item.sensitivity === 'routine');
+      if (action === 'list') {
+        return toolResult(
+          'manage_house_memory',
+          `${visible.length} routine house details are available.`,
+          { items: visible, confirmationRequired: null },
+          liveProvenance(),
+          'setup',
+        );
+      }
+      if (!idempotencyKey || !label || !value || !category || sensitivity !== 'routine') {
+        throw new StayDomainError(
+          'BAD_REQUEST',
+          'Routine label, value, category, sensitivity, and idempotencyKey are required.',
+        );
+      }
+      const input = { label, value, category, sensitivity };
+      const result =
+        action === 'add'
+          ? engine.addHouseMemory(input, { actor: actor(context), idempotencyKey })
+          : action === 'update' && entityId
+            ? engine.updateHouseMemory(entityId, input, {
+                actor: actor(context),
+                idempotencyKey,
+                expectedVersion,
+              })
+            : (() => {
+                throw new StayDomainError('BAD_REQUEST', 'Unsupported House Memory action.');
+              })();
       return toolResult(
         'manage_house_memory',
-        action === 'list'
-          ? `${visible.length} routine house details are available.`
-          : 'That House Memory change requires application confirmation.',
-        { items: visible, confirmationRequired: action !== 'list' },
-        liveProvenance(),
+        `${result.entity.label} was saved as a routine house detail.`,
+        result,
+        result.provenance,
         'setup',
       );
     },
@@ -380,12 +421,36 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       title: 'Manage privacy',
       description:
         'Read privacy state or request a confirmed change. Active authorized help and audit records cannot be suppressed.',
-      inputSchema: EntityActionSchema,
+      inputSchema: EntityActionSchema.extend({
+        idempotencyKey: z.string().min(8).max(180).optional(),
+        temporaryPrivateUntil: z.iso.datetime().optional(),
+      }),
       annotations: { idempotentHint: false, destructiveHint: true, openWorldHint: false },
     },
-    async ({ action }) => {
+    async ({ action, expectedVersion = 1, idempotencyKey, temporaryPrivateUntil }) => {
       const privacy = engine.snapshot().privacy;
+      if (action === 'private-for-two-hours') {
+        if (!idempotencyKey || !temporaryPrivateUntil) {
+          throw new StayDomainError(
+            'BAD_REQUEST',
+            'idempotencyKey and temporaryPrivateUntil are required.',
+          );
+        }
+        const result = engine.updatePrivacy(
+          { temporaryPrivateUntil },
+          { actor: actor(context), idempotencyKey, expectedVersion },
+        );
+        return toolResult(
+          'manage_privacy',
+          'Routine sharing is temporarily paused. Requested help, active authorized incidents, and audit records still work.',
+          result,
+          result.provenance,
+          'setup',
+        );
+      }
       const destructive = [
+        'end-private-time',
+        'resume-routine-sharing',
         'disable-audit',
         'hide-active-incident',
         'share-location-always',

@@ -102,4 +102,120 @@ describe('REST API contract', () => {
       assignedTo: 'member-tom',
     });
   });
+
+  it('updates access settings and creates a bounded House Memory aggregate', async () => {
+    const access = (await handler(
+      event(
+        '/v1/demo/access',
+        'POST',
+        {
+          action: 'update',
+          entityId: 'access-resident-sarah',
+          expectedVersion: 1,
+          preferences: {
+            interactionMode: 'touch-first',
+            reducedLoad: true,
+            highLegibility: true,
+            captions: true,
+            extraResponseTime: true,
+            repeatInformation: false,
+            highContrast: true,
+            reducedMotion: true,
+            textScale: 'large',
+          },
+        },
+        { 'x-stay-demo-session': 'test-access', 'idempotency-key': 'api-update-access' },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(access.statusCode).toBe(200);
+    expect(JSON.parse(access.body).entity).toMatchObject({
+      interactionMode: 'touch-first',
+      reducedLoad: true,
+      version: 2,
+    });
+
+    const memory = (await handler(
+      event(
+        '/v1/demo/house-memory',
+        'POST',
+        {
+          action: 'add',
+          label: 'Porch bulb',
+          value: 'Warm LED, E26 base',
+          category: 'maintenance',
+          sensitivity: 'routine',
+        },
+        { 'x-stay-demo-session': 'test-memory', 'idempotency-key': 'api-add-memory' },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(memory.statusCode).toBe(200);
+    expect(JSON.parse(memory.body).entity).toMatchObject({
+      label: 'Porch bulb',
+      sensitivity: 'routine',
+      version: 1,
+    });
+  });
+
+  it('uses a short-lived scoped token before ending private time', async () => {
+    const headers = {
+      'x-stay-demo-session': 'test-privacy',
+      'idempotency-key': 'api-start-private-time',
+    };
+    const started = (await handler(
+      event(
+        '/v1/demo/privacy',
+        'POST',
+        {
+          action: 'update',
+          entityId: 'privacy-resident-sarah',
+          expectedVersion: 1,
+          temporaryPrivateUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        },
+        headers,
+      ),
+    )) as { statusCode: number; body: string };
+    expect(started.statusCode).toBe(200);
+    expect(JSON.parse(started.body).entity.version).toBe(2);
+
+    const prepared = (await handler(
+      event(
+        '/v1/demo/privacy',
+        'POST',
+        {
+          action: 'request-confirmation',
+          entityId: 'privacy-resident-sarah',
+          expectedVersion: 2,
+          confirmationPurpose: 'destructive-privacy-change',
+        },
+        {
+          'x-stay-demo-session': 'test-privacy',
+          'idempotency-key': 'api-prepare-private-time-end',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(prepared.statusCode).toBe(201);
+    const token = JSON.parse(prepared.body).confirmation.token as string;
+    expect(token.length).toBeGreaterThanOrEqual(24);
+
+    const ended = (await handler(
+      event(
+        '/v1/demo/privacy',
+        'POST',
+        {
+          action: 'update',
+          entityId: 'privacy-resident-sarah',
+          expectedVersion: 2,
+          temporaryPrivateUntil: null,
+          confirmationToken: token,
+        },
+        {
+          'x-stay-demo-session': 'test-privacy',
+          'idempotency-key': 'api-confirm-private-time-end',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(ended.statusCode).toBe(200);
+    expect(JSON.parse(ended.body).entity).toMatchObject({ version: 3 });
+    expect(JSON.parse(ended.body).entity.temporaryPrivateUntil).toBeUndefined();
+  });
 });

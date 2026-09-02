@@ -305,7 +305,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/AccessPreferences"
+                      "$ref": "#/components/schemas/AccessSettings"
                     },
                     "provenance": {
                       "type": "object",
@@ -402,7 +402,8 @@
                 "type": "object",
                 "properties": {
                   "action": {
-                    "type": "string"
+                    "type": "string",
+                    "const": "update"
                   },
                   "entityId": {
                     "type": "string"
@@ -411,9 +412,12 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "preferences": {
+                    "$ref": "#/components/schemas/AccessPreferences"
                   }
                 },
-                "required": ["action"]
+                "required": ["action", "preferences"]
               }
             }
           }
@@ -1393,7 +1397,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {},
+                    "data": {
+                      "$ref": "#/components/schemas/PrivacySettings"
+                    },
                     "provenance": {
                       "type": "object",
                       "properties": {
@@ -1466,7 +1472,7 @@
         }
       },
       "post": {
-        "summary": "Request a privacy change",
+        "summary": "Update privacy or request a scoped confirmation",
         "parameters": [
           {
             "in": "header",
@@ -1489,7 +1495,8 @@
                 "type": "object",
                 "properties": {
                   "action": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": ["update", "request-confirmation"]
                   },
                   "entityId": {
                     "type": "string"
@@ -1498,6 +1505,39 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "confirmationPurpose": {
+                    "type": "string",
+                    "enum": [
+                      "change-escalation-plan",
+                      "disclose-access-instructions",
+                      "share-location",
+                      "remove-primary-contact",
+                      "destructive-privacy-change"
+                    ]
+                  },
+                  "confirmationToken": {
+                    "type": "string",
+                    "minLength": 24
+                  },
+                  "routineSharing": {
+                    "type": "boolean"
+                  },
+                  "locationSharing": {
+                    "type": "string",
+                    "enum": ["off", "incident-only", "always"]
+                  },
+                  "temporaryPrivateUntil": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": ["action"]
@@ -1512,6 +1552,23 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CommandResult"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Short-lived scoped confirmation prepared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "confirmation": {
+                      "$ref": "#/components/schemas/ConfirmationToken"
+                    }
+                  },
+                  "required": ["confirmation"],
+                  "additionalProperties": false
                 }
               }
             }
@@ -1671,7 +1728,8 @@
                 "type": "object",
                 "properties": {
                   "action": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": ["add", "update"]
                   },
                   "entityId": {
                     "type": "string"
@@ -1680,9 +1738,27 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": ["home", "routine", "maintenance", "contact"]
+                  },
+                  "sensitivity": {
+                    "type": "string",
+                    "enum": ["routine", "sensitive", "incident-only"]
                   }
                 },
-                "required": ["action"]
+                "required": ["action", "label", "value", "category", "sensitivity"]
               }
             }
           }
@@ -1854,6 +1930,51 @@
   },
   "components": {
     "schemas": {
+      "AccessPreferences": {
+        "type": "object",
+        "properties": {
+          "interactionMode": {
+            "type": "string",
+            "enum": ["voice-first", "touch-first", "balanced"]
+          },
+          "reducedLoad": {
+            "type": "boolean"
+          },
+          "highLegibility": {
+            "type": "boolean"
+          },
+          "captions": {
+            "type": "boolean"
+          },
+          "extraResponseTime": {
+            "type": "boolean"
+          },
+          "repeatInformation": {
+            "type": "boolean"
+          },
+          "highContrast": {
+            "type": "boolean"
+          },
+          "reducedMotion": {
+            "type": "boolean"
+          },
+          "textScale": {
+            "type": "string",
+            "enum": ["default", "large", "extra-large"]
+          }
+        },
+        "required": [
+          "interactionMode",
+          "reducedLoad",
+          "highLegibility",
+          "captions",
+          "extraResponseTime",
+          "repeatInformation",
+          "highContrast",
+          "reducedMotion",
+          "textScale"
+        ]
+      },
       "ApiError": {
         "type": "object",
         "properties": {
@@ -1989,7 +2110,7 @@
         "required": ["entity", "version", "emittedEvents", "confirmationRequired", "provenance"],
         "additionalProperties": false
       },
-      "AccessPreferences": {
+      "AccessSettings": {
         "type": "object",
         "properties": {
           "interactionMode": {
@@ -2020,6 +2141,15 @@
           "textScale": {
             "type": "string",
             "enum": ["default", "large", "extra-large"]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -2031,7 +2161,9 @@
           "repeatInformation",
           "highContrast",
           "reducedMotion",
-          "textScale"
+          "textScale",
+          "id",
+          "version"
         ],
         "additionalProperties": false
       },
@@ -2483,6 +2615,77 @@
         "required": ["id", "title", "kind", "state", "steps", "provenance", "version"],
         "additionalProperties": false
       },
+      "PrivacySettings": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "routineSharing": {
+            "type": "boolean"
+          },
+          "locationSharing": {
+            "type": "string",
+            "enum": ["off", "incident-only", "always"]
+          },
+          "temporaryPrivateUntil": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "auditRetention": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": ["id", "version", "routineSharing", "locationSharing", "auditRetention"],
+        "additionalProperties": false
+      },
+      "ConfirmationToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 24
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "change-escalation-plan",
+              "disclose-access-instructions",
+              "share-location",
+              "remove-primary-contact",
+              "destructive-privacy-change"
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "entityId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "consumedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": ["token", "purpose", "subject", "entityId", "expiresAt"],
+        "additionalProperties": false
+      },
       "HouseMemoryItem": {
         "type": "object",
         "properties": {
@@ -2507,9 +2710,14 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
-        "required": ["id", "label", "value", "category", "sensitivity", "updatedAt"],
+        "required": ["id", "label", "value", "category", "sensitivity", "updatedAt", "version"],
         "additionalProperties": false
       },
       "DemoSession": {

@@ -1,4 +1,10 @@
-import type { CommandResult } from '@stay/contracts';
+import type {
+  AccessPreferences,
+  CommandResult,
+  ConfirmationPurpose,
+  ConfirmationToken,
+  HouseMemoryItem,
+} from '@stay/contracts';
 import type { HomeState } from '@stay/domain';
 import type { StayRuntimeConfig } from './auth';
 
@@ -28,7 +34,15 @@ interface DemoView<T> {
 }
 
 interface DemoCommand {
-  group: 'tasks' | 'safety-windows' | 'incidents' | 'help-requests' | 'playbooks';
+  group:
+    | 'tasks'
+    | 'access'
+    | 'safety-windows'
+    | 'incidents'
+    | 'help-requests'
+    | 'playbooks'
+    | 'privacy'
+    | 'house-memory';
   action: string;
   idempotencyKey: string;
   entityId?: string;
@@ -37,6 +51,16 @@ interface DemoCommand {
   title?: string;
   detail?: string;
   urgency?: 'normal' | 'time-sensitive' | 'urgent';
+  preferences?: AccessPreferences;
+  label?: string;
+  value?: string;
+  category?: HouseMemoryItem['category'];
+  sensitivity?: HouseMemoryItem['sensitivity'];
+  confirmationPurpose?: ConfirmationPurpose;
+  confirmationToken?: string;
+  routineSharing?: boolean;
+  locationSharing?: HomeState['privacy']['locationSharing'];
+  temporaryPrivateUntil?: string | null;
 }
 
 function parseStoredSession(raw: string | null): DemoSessionRecord | null {
@@ -157,10 +181,52 @@ export async function runDemoCommand<T>(
       ...(command.title ? { title: command.title } : {}),
       ...(command.detail ? { detail: command.detail } : {}),
       ...(command.urgency ? { urgency: command.urgency } : {}),
+      ...(command.preferences ? { preferences: command.preferences } : {}),
+      ...(command.label ? { label: command.label } : {}),
+      ...(command.value ? { value: command.value } : {}),
+      ...(command.category ? { category: command.category } : {}),
+      ...(command.sensitivity ? { sensitivity: command.sensitivity } : {}),
+      ...(command.confirmationPurpose ? { confirmationPurpose: command.confirmationPurpose } : {}),
+      ...(command.confirmationToken ? { confirmationToken: command.confirmationToken } : {}),
+      ...(typeof command.routineSharing === 'boolean'
+        ? { routineSharing: command.routineSharing }
+        : {}),
+      ...(command.locationSharing ? { locationSharing: command.locationSharing } : {}),
+      ...(command.temporaryPrivateUntil !== undefined
+        ? { temporaryPrivateUntil: command.temporaryPrivateUntil }
+        : {}),
     }),
     cache: 'no-store',
   });
   return json<CommandResult<T>>(response);
+}
+
+export async function requestDemoConfirmation(
+  config: StayRuntimeConfig,
+  session: DemoSessionRecord,
+  input: {
+    entityId: string;
+    expectedVersion: number;
+    purpose: ConfirmationPurpose;
+    idempotencyKey: string;
+  },
+): Promise<ConfirmationToken> {
+  const response = await fetch(`${config.apiUrl}/v1/demo/privacy`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'idempotency-key': input.idempotencyKey,
+      'x-stay-demo-session': session.id,
+    },
+    body: JSON.stringify({
+      action: 'request-confirmation',
+      entityId: input.entityId,
+      expectedVersion: input.expectedVersion,
+      confirmationPurpose: input.purpose,
+    }),
+    cache: 'no-store',
+  });
+  return (await json<{ confirmation: ConfirmationToken }>(response)).confirmation;
 }
 
 export function connectDemoUpdates(

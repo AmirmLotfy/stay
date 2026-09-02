@@ -37,7 +37,9 @@ test('shows a clear emergency boundary in the voice simulator', async ({ page })
 test('makes adaptive access, routine help, and resident check-in controls functional', async ({
   page,
 }) => {
-  const navigate = async (name: 'Today' | 'Access' | 'Windows' | 'Circle') => {
+  const navigate = async (
+    name: 'Today' | 'Access' | 'Windows' | 'Circle' | 'Privacy' | 'House Memory',
+  ) => {
     const menu = page.getByRole('button', { name: 'Open menu' });
     if (await menu.isVisible()) await menu.click();
     await page.getByRole('button', { name }).click();
@@ -78,6 +80,22 @@ test('makes adaptive access, routine help, and resident check-in controls functi
     .fill('Please bring a warm LED bulb before tomorrow evening.');
   await page.getByRole('button', { name: 'Post to my Circle' }).click();
   await expect(page.getByRole('heading', { name: 'Replace the porch light' })).toBeVisible();
+
+  await navigate('House Memory');
+  await page.getByRole('button', { name: 'Add a house detail' }).click();
+  await page.getByLabel('Short label').fill('Porch bulb');
+  await page.getByLabel('House detail').fill('Warm LED, E26 base');
+  await page.getByLabel('Category').selectOption('maintenance');
+  await page.getByRole('button', { name: 'Save house detail' }).click();
+  await expect(page.getByRole('heading', { name: 'Porch bulb' })).toBeVisible();
+
+  await navigate('Privacy');
+  await page.getByRole('button', { name: 'Private for 2 hours' }).click();
+  await expect(page.getByRole('heading', { name: 'Routine sharing paused' })).toBeVisible();
+  await page.getByRole('button', { name: 'End private time' }).click();
+  await expect(page.getByRole('button', { name: 'Confirm end private time' })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm end private time' }).click();
+  await expect(page.getByRole('heading', { name: 'Everyday sharing' })).toBeVisible();
 });
 
 test('uses the deployed TTL-isolated API session when runtime configuration is present', async ({

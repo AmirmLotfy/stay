@@ -1,8 +1,11 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import {
+  AccessPreferencesSchema,
+  ConfirmationPurposeSchema,
   RouteGroups,
   type ActorContext,
   type CommandResult,
+  type ConfirmationToken,
   type HelpRequest,
   type Incident,
   type Playbook,
@@ -12,9 +15,14 @@ import {
 import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
 import { z } from 'zod';
 import { log } from './logging.js';
-import { DynamoStayRepository, type VersionedEntity } from './repository.js';
+import {
+  DynamoStayRepository,
+  type StoredConfirmation,
+  type VersionedEntity,
+} from './repository.js';
 
 const localEngine = new StayEngine();
+const localConfirmations = new Map<string, StoredConfirmation>();
 const CommandBodySchema = z.object({
   action: z.string(),
   entityId: z.string().optional(),
@@ -23,6 +31,16 @@ const CommandBodySchema = z.object({
   title: z.string().optional(),
   detail: z.string().optional(),
   urgency: z.enum(['normal', 'time-sensitive', 'urgent']).optional(),
+  preferences: AccessPreferencesSchema.optional(),
+  label: z.string().min(1).max(120).optional(),
+  value: z.string().min(1).max(800).optional(),
+  category: z.enum(['home', 'routine', 'maintenance', 'contact']).optional(),
+  sensitivity: z.enum(['routine', 'sensitive', 'incident-only']).optional(),
+  confirmationPurpose: ConfirmationPurposeSchema.optional(),
+  confirmationToken: z.string().min(24).optional(),
+  routineSharing: z.boolean().optional(),
+  locationSharing: z.enum(['off', 'incident-only', 'always']).optional(),
+  temporaryPrivateUntil: z.iso.datetime().nullable().optional(),
 });
 
 function response(
@@ -106,8 +124,25 @@ async function commandEngine(
   const state = createDemoState();
   state.householdId = actor.householdId;
   state.resident.id = actor.residentId;
-  if (!id) return new StayEngine(state);
-  if (group === 'safety-windows') {
+  state.access.id = `access-${actor.residentId}`;
+  state.privacy.id = `privacy-${actor.residentId}`;
+  if (group === 'access') {
+    const entity = await store.get<HomeState['access']>(
+      actor.householdId,
+      'access',
+      id ?? state.access.id,
+    );
+    if (entity) state.access = entity;
+  } else if (group === 'privacy') {
+    const entity = await store.get<HomeState['privacy']>(
+      actor.householdId,
+      'privacy',
+      id ?? state.privacy.id,
+    );
+    if (entity) state.privacy = entity;
+  } else if (!id) {
+    return new StayEngine(state);
+  } else if (group === 'safety-windows') {
     const entity = await store.get<SafetyWindow>(actor.householdId, 'safety-window', id);
     if (entity) state.safetyWindows = [entity];
   } else if (group === 'tasks') {
@@ -128,6 +163,13 @@ async function commandEngine(
   } else if (group === 'help-requests') {
     const entity = await store.get<HelpRequest>(actor.householdId, 'help-request', id);
     if (entity) state.helpRequests = [entity];
+  } else if (group === 'house-memory') {
+    const entity = await store.get<HomeState['houseMemory'][number]>(
+      actor.householdId,
+      'house-memory',
+      id,
+    );
+    if (entity) state.houseMemory = [entity];
   } else if (group === 'playbooks') {
     const entity = await store.get<Playbook>(actor.householdId, 'playbook', id);
     if (entity) state.playbooks = [entity];
@@ -142,6 +184,9 @@ function aggregateType(group: string): string {
       incidents: 'incident',
       'help-requests': 'help-request',
       playbooks: 'playbook',
+      access: 'access',
+      privacy: 'privacy',
+      'house-memory': 'house-memory',
     }[group] ?? group.replace(/s$/, '')
   );
 }
@@ -151,7 +196,10 @@ async function persistedView(
   householdId: string,
   group: string,
 ): Promise<VersionedEntity[] | null> {
-  if (!['safety-windows', 'help-requests', 'incidents', 'playbooks'].includes(group)) return null;
+  if (
+    !['safety-windows', 'help-requests', 'incidents', 'playbooks', 'house-memory'].includes(group)
+  )
+    return null;
   const values = await store.list(householdId, aggregateType(group));
   return values.length ? values : null;
 }
@@ -210,10 +258,20 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       const state = localEngine.snapshot();
       state.householdId = actor.householdId;
       state.resident.id = actor.residentId;
+      state.access.id = `access-${actor.residentId}`;
+      state.privacy.id = `privacy-${actor.residentId}`;
       const storedTask = store
         ? await store.get<HomeState['oneThing']>(actor.householdId, 'task', 'task-one-thing')
         : null;
       if (storedTask) state.oneThing = storedTask;
+      const storedAccess = store
+        ? await store.get<HomeState['access']>(actor.householdId, 'access', state.access.id)
+        : null;
+      if (storedAccess) state.access = storedAccess;
+      const storedPrivacy = store
+        ? await store.get<HomeState['privacy']>(actor.householdId, 'privacy', state.privacy.id)
+        : null;
+      if (storedPrivacy) state.privacy = storedPrivacy;
       const view: Record<string, unknown> = {
         home: { resident: state.resident, oneThing: state.oneThing, calendar: state.calendar },
         tasks: { oneThing: state.oneThing },
@@ -230,10 +288,21 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         },
       };
       const stored = store ? await persistedView(store, actor.householdId, group) : null;
+      const fallback = view[group];
+      const data =
+        stored && Array.isArray(fallback)
+          ? [
+              ...stored,
+              ...fallback.filter(
+                (candidate) =>
+                  !stored.some((persisted) => persisted.id === (candidate as { id?: string }).id),
+              ),
+            ]
+          : (stored ?? fallback);
       return response(
         200,
         {
-          data: stored ?? view[group],
+          data,
           provenance: { mode: 'live', provider: 'STAY API', observedAt: new Date().toISOString() },
         },
         correlationId,
@@ -245,6 +314,33 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       throw new StayDomainError('IDEMPOTENCY_REQUIRED', 'Idempotency-Key is required for writes.');
     const body = CommandBodySchema.parse(event.body ? JSON.parse(event.body) : {});
     const id = body.entityId ?? entityId;
+    if (group === 'privacy' && body.action === 'request-confirmation') {
+      if (!body.confirmationPurpose || !body.expectedVersion) {
+        throw new StayDomainError(
+          'BAD_REQUEST',
+          'confirmationPurpose and expectedVersion are required.',
+        );
+      }
+      const entityIdForConfirmation = id ?? `privacy-${actor.residentId}`;
+      const token = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+      const confirmation: ConfirmationToken = {
+        token,
+        purpose: body.confirmationPurpose,
+        subject: actor.subject,
+        entityId: entityIdForConfirmation,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      };
+      if (store) {
+        await store.createConfirmation(actor.householdId, confirmation, body.expectedVersion);
+      } else {
+        localConfirmations.set(token, {
+          ...confirmation,
+          tokenHash: await sha256(token),
+          expectedVersion: body.expectedVersion,
+        });
+      }
+      return response(201, { confirmation }, correlationId);
+    }
     if (store) {
       const prior = await store.getIdempotency(actor.householdId, idempotencyKey);
       if (prior) {
@@ -273,6 +369,17 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       }
     }
     const engine = store ? await commandEngine(store, actor, group, body.action, id) : localEngine;
+    const confirmation = body.confirmationToken
+      ? store
+        ? await store.getConfirmation(actor.householdId, body.confirmationToken)
+        : (localConfirmations.get(body.confirmationToken) ?? null)
+      : null;
+    const validConfirmation =
+      confirmation &&
+      confirmation.expectedVersion === body.expectedVersion &&
+      confirmation.subject === actor.subject
+        ? confirmation
+        : undefined;
     let result: CommandResult<VersionedEntity>;
     if (group === 'safety-windows' && id && body.action === 'record-missed-check') {
       result = engine.markSafetyWindowMissed(id, {
@@ -289,6 +396,30 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (group === 'access' && body.action === 'update' && body.preferences) {
+      result = engine.updateAccessPreferences(body.preferences, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (group === 'privacy' && body.action === 'update') {
+      result = engine.updatePrivacy(
+        {
+          ...(typeof body.routineSharing === 'boolean'
+            ? { routineSharing: body.routineSharing }
+            : {}),
+          ...(body.locationSharing ? { locationSharing: body.locationSharing } : {}),
+          ...(body.temporaryPrivateUntil !== undefined
+            ? { temporaryPrivateUntil: body.temporaryPrivateUntil }
+            : {}),
+        },
+        {
+          actor,
+          idempotencyKey,
+          expectedVersion: body.expectedVersion ?? 0,
+        },
+        validConfirmation,
+      );
     } else if (
       group === 'safety-windows' &&
       id &&
@@ -372,12 +503,53 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (
+      group === 'house-memory' &&
+      body.action === 'add' &&
+      body.label &&
+      body.value &&
+      body.category &&
+      body.sensitivity
+    ) {
+      result = engine.addHouseMemory(
+        {
+          label: body.label,
+          value: body.value,
+          category: body.category,
+          sensitivity: body.sensitivity,
+        },
+        { actor, idempotencyKey },
+      );
+    } else if (
+      group === 'house-memory' &&
+      id &&
+      body.action === 'update' &&
+      body.label &&
+      body.value &&
+      body.category &&
+      body.sensitivity
+    ) {
+      result = engine.updateHouseMemory(
+        id,
+        {
+          label: body.label,
+          value: body.value,
+          category: body.category,
+          sensitivity: body.sensitivity,
+        },
+        {
+          actor,
+          idempotencyKey,
+          expectedVersion: body.expectedVersion ?? 0,
+        },
+      );
     } else {
       throw new StayDomainError('BAD_REQUEST', 'That command is not available for this route.');
     }
     if (store && result.emittedEvents[0]) {
       const expectedVersion =
         group === 'help-requests' ||
+        (group === 'house-memory' && body.action === 'add') ||
         (group === 'incidents' && body.action === 'activate-from-window')
           ? 0
           : (body.expectedVersion ?? 0);
@@ -393,6 +565,13 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyExpiresAt: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
         ...(demoExpiry ? { entityExpiresAt: demoExpiry } : {}),
         event: result.emittedEvents[0],
+        ...(validConfirmation ? { confirmation: validConfirmation } : {}),
+      });
+    }
+    if (!store && result.emittedEvents[0] && validConfirmation) {
+      localConfirmations.set(validConfirmation.token, {
+        ...validConfirmation,
+        consumedAt: result.emittedEvents[0].occurredAt,
       });
     }
     log('INFO', 'command completed', { correlationId, group, action: body.action });
@@ -405,7 +584,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         ? 403
         : code === 'NOT_FOUND'
           ? 404
-          : code === 'STALE_VERSION' || code === 'CONFLICT'
+          : code === 'STALE_VERSION' || code === 'CONFLICT' || code === 'CONFIRMATION_REQUIRED'
             ? 409
             : code === 'INTERNAL_ERROR'
               ? 500

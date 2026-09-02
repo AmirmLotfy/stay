@@ -1,7 +1,17 @@
 'use client';
 
-import type { ActorContext, HelpRequest, Incident, Playbook, SafetyWindow } from '@stay/contracts';
-import { createDemoState, StayEngine, type HomeState } from '@stay/domain';
+import type {
+  AccessPreferences,
+  ActorContext,
+  ConfirmationPurpose,
+  ConfirmationToken,
+  HelpRequest,
+  HouseMemoryItem,
+  Incident,
+  Playbook,
+  SafetyWindow,
+} from '@stay/contracts';
+import { createDemoState, StayEngine, type HomeState, type PrivacyUpdateInput } from '@stay/domain';
 import {
   Accessibility,
   BellRing,
@@ -51,6 +61,7 @@ import {
   connectDemoUpdates,
   createDemoSession,
   hydrateDemoState,
+  requestDemoConfirmation,
   runDemoCommand,
   type DemoSessionRecord,
 } from './demo-api';
@@ -189,11 +200,6 @@ export default function StayApp() {
   const [actionPending, setActionPending] = useState(false);
 
   const refresh = useCallback(() => setState(engine.current.snapshot()), []);
-  const replaceUiState = useCallback((next: HomeState) => {
-    engine.current = new StayEngine(next);
-    setState(next);
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     const useBrowserFallback = (message?: string) => {
@@ -225,7 +231,6 @@ export default function StayApp() {
         }
         const session = await createDemoSession(config);
         const hydrated = await hydrateDemoState(config, session, createDemoState());
-        hydrated.access = browserAccessPreferences(hydrated.access);
         if (cancelled) return;
         engine.current = new StayEngine(hydrated);
         setState(hydrated);
@@ -531,6 +536,143 @@ export default function StayApp() {
     }
   }, [actionPending, demoSession, refresh, runtimeConfig]);
 
+  const updateAccess = useCallback(
+    async (nextAccess: HomeState['access']) => {
+      if (actionPending) return;
+      const preferences: AccessPreferences = {
+        interactionMode: nextAccess.interactionMode,
+        reducedLoad: nextAccess.reducedLoad,
+        highLegibility: nextAccess.highLegibility,
+        captions: nextAccess.captions,
+        extraResponseTime: nextAccess.extraResponseTime,
+        repeatInformation: nextAccess.repeatInformation,
+        highContrast: nextAccess.highContrast,
+        reducedMotion: nextAccess.reducedMotion,
+        textScale: nextAccess.textScale,
+      };
+      const idempotencyKey = uid('access-update');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<HomeState['access']>(runtimeConfig, demoSession, {
+            group: 'access',
+            action: 'update',
+            entityId: nextAccess.id,
+            expectedVersion: nextAccess.version,
+            idempotencyKey,
+            preferences,
+          });
+          const next = engine.current.snapshot();
+          next.access = remote.entity;
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.updateAccessPreferences(preferences, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: nextAccess.version,
+          });
+          refresh();
+        }
+        setNotice('Sarah’s access preferences are saved. Safety policy did not change.');
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'Access preferences did not change.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const requestPrivacyConfirmation = useCallback(
+    async (purpose: ConfirmationPurpose): Promise<ConfirmationToken | null> => {
+      if (actionPending) return null;
+      const privacy = engine.current.snapshot().privacy;
+      setActionPending(true);
+      setLastError(null);
+      try {
+        const confirmation =
+          runtimeConfig && demoSession
+            ? await requestDemoConfirmation(runtimeConfig, demoSession, {
+                entityId: privacy.id,
+                expectedVersion: privacy.version,
+                purpose,
+                idempotencyKey: uid('privacy-confirmation'),
+              })
+            : {
+                token: `${crypto.randomUUID()}${crypto.randomUUID()}`,
+                purpose,
+                subject: residentActor.subject,
+                entityId: privacy.id,
+                expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+              };
+        setNotice(
+          'Review the privacy change, then confirm it once. The approval expires in 5 minutes.',
+        );
+        return confirmation;
+      } catch (error) {
+        setLastError(
+          error instanceof Error ? error.message : 'Confirmation could not be prepared.',
+        );
+        return null;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, runtimeConfig],
+  );
+
+  const updatePrivacy = useCallback(
+    async (input: PrivacyUpdateInput, confirmation?: ConfirmationToken): Promise<boolean> => {
+      if (actionPending) return false;
+      const privacy = engine.current.snapshot().privacy;
+      const idempotencyKey = uid('privacy-update');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<HomeState['privacy']>(runtimeConfig, demoSession, {
+            group: 'privacy',
+            action: 'update',
+            entityId: privacy.id,
+            expectedVersion: privacy.version,
+            idempotencyKey,
+            ...input,
+            ...(confirmation ? { confirmationToken: confirmation.token } : {}),
+          });
+          const next = engine.current.snapshot();
+          next.privacy = remote.entity;
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.updatePrivacy(
+            input,
+            {
+              actor: residentActor,
+              idempotencyKey,
+              expectedVersion: privacy.version,
+            },
+            confirmation,
+          );
+          refresh();
+        }
+        setNotice(
+          input.temporaryPrivateUntil === null
+            ? 'Private time ended after Sarah’s explicit confirmation.'
+            : 'Routine sharing is paused for 2 hours. Requested help and active incidents still work.',
+        );
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'Privacy settings did not change.');
+        return false;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
   const manageSafetyWindow = useCallback(
     async (action: 'check-in' | 'close-early' | 'cancel') => {
       if (actionPending) return;
@@ -673,6 +815,47 @@ export default function StayApp() {
         return true;
       } catch (error) {
         setLastError(error instanceof Error ? error.message : 'The help request was not created.');
+        return false;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const addHouseMemory = useCallback(
+    async (input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>) => {
+      if (actionPending) return false;
+      const idempotencyKey = uid('memory-add');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<HomeState['houseMemory'][number]>(
+            runtimeConfig,
+            demoSession,
+            {
+              group: 'house-memory',
+              action: 'add',
+              idempotencyKey,
+              ...input,
+            },
+          );
+          const next = engine.current.snapshot();
+          next.houseMemory = [
+            remote.entity,
+            ...next.houseMemory.filter((item) => item.id !== remote.entity.id),
+          ];
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.addHouseMemory(input, { actor: residentActor, idempotencyKey });
+          refresh();
+        }
+        setNotice('The house detail is saved with its sharing boundary.');
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The house detail was not saved.');
         return false;
       } finally {
         setActionPending(false);
@@ -945,7 +1128,8 @@ export default function StayApp() {
             {surface === 'access' && (
               <AccessSurface
                 state={state}
-                onChange={(next) => replaceUiState({ ...state, access: next })}
+                onChange={(next) => void updateAccess(next)}
+                pending={actionPending}
               />
             )}
             {surface === 'windows' && (
@@ -971,8 +1155,17 @@ export default function StayApp() {
             {surface === 'playbooks' && (
               <PlaybooksSurface state={state} onRun={(id) => void advancePlaybook(id)} />
             )}
-            {surface === 'privacy' && <PrivacySurface state={state} onChange={replaceUiState} />}
-            {surface === 'memory' && <MemorySurface state={state} />}
+            {surface === 'privacy' && (
+              <PrivacySurface
+                state={state}
+                onChange={updatePrivacy}
+                onRequestConfirmation={requestPrivacyConfirmation}
+                pending={actionPending}
+              />
+            )}
+            {surface === 'memory' && (
+              <MemorySurface state={state} onAdd={addHouseMemory} pending={actionPending} />
+            )}
           </section>
 
           <aside className="simulator-rail" aria-label="Alexa Plus simulator">
@@ -1231,11 +1424,13 @@ function HomeSurface({
 function AccessSurface({
   state,
   onChange,
+  pending,
 }: {
   state: HomeState;
   onChange: (next: HomeState['access']) => void;
+  pending: boolean;
 }) {
-  const toggles: Array<{ key: keyof HomeState['access']; title: string; detail: string }> = [
+  const toggles: Array<{ key: keyof AccessPreferences; title: string; detail: string }> = [
     { key: 'reducedLoad', title: 'One Thing Mode', detail: 'Show one decision or task at a time.' },
     {
       key: 'highLegibility',
@@ -1285,6 +1480,7 @@ function AccessSurface({
               aria-checked={state.access.interactionMode === mode}
               className={state.access.interactionMode === mode ? 'selected' : ''}
               onClick={() => onChange({ ...state.access, interactionMode: mode })}
+              disabled={pending}
               key={mode}
             >
               {mode.replace('-', ' ')}
@@ -1301,6 +1497,7 @@ function AccessSurface({
               aria-checked={state.access.textScale === scale}
               className={state.access.textScale === scale ? 'selected' : ''}
               onClick={() => onChange({ ...state.access, textScale: scale })}
+              disabled={pending}
               key={scale}
             >
               {scale.replace('-', ' ')}
@@ -1323,6 +1520,7 @@ function AccessSurface({
                 aria-checked={checked}
                 aria-label={item.title}
                 onClick={() => onChange({ ...state.access, [item.key]: !checked })}
+                disabled={pending}
               >
                 <span />
               </button>
@@ -1862,10 +2060,33 @@ function PlaybooksSurface({ state, onRun }: { state: HomeState; onRun: (id: stri
 function PrivacySurface({
   state,
   onChange,
+  onRequestConfirmation,
+  pending,
 }: {
   state: HomeState;
-  onChange: (state: HomeState) => void;
+  onChange: (input: PrivacyUpdateInput, confirmation?: ConfirmationToken) => Promise<boolean>;
+  onRequestConfirmation: (purpose: ConfirmationPurpose) => Promise<ConfirmationToken | null>;
+  pending: boolean;
 }) {
+  const [confirmation, setConfirmation] = useState<ConfirmationToken | null>(null);
+  const privateTimeActive = Boolean(
+    state.privacy.temporaryPrivateUntil &&
+    new Date(state.privacy.temporaryPrivateUntil).getTime() > Date.now(),
+  );
+  const managePrivateTime = async () => {
+    if (!privateTimeActive) {
+      setConfirmation(null);
+      await onChange({
+        temporaryPrivateUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      });
+      return;
+    }
+    if (!confirmation) {
+      setConfirmation(await onRequestConfirmation('destructive-privacy-change'));
+      return;
+    }
+    if (await onChange({ temporaryPrivateUntil: null }, confirmation)) setConfirmation(null);
+  };
   return (
     <>
       <PageIntro
@@ -1880,41 +2101,34 @@ function PrivacySurface({
         </div>
         <div>
           <span className="eyebrow">CURRENT MODE</span>
-          <h2>
-            {state.privacy.temporaryPrivateUntil ? 'Routine sharing paused' : 'Everyday sharing'}
-          </h2>
+          <h2>{privateTimeActive ? 'Routine sharing paused' : 'Everyday sharing'}</h2>
           <p>
             Location: {state.privacy.locationSharing.replace('-', ' ')} · Audit record: always on
           </p>
         </div>
         <button
           className="secondary-button"
-          onClick={() =>
-            onChange(
-              state.privacy.temporaryPrivateUntil
-                ? {
-                    ...state,
-                    privacy: {
-                      routineSharing: state.privacy.routineSharing,
-                      locationSharing: state.privacy.locationSharing,
-                      auditRetention: true,
-                    },
-                  }
-                : {
-                    ...state,
-                    privacy: {
-                      ...state.privacy,
-                      temporaryPrivateUntil: new Date(
-                        Date.now() + 2 * 60 * 60 * 1000,
-                      ).toISOString(),
-                    },
-                  },
-            )
-          }
+          onClick={() => void managePrivateTime()}
+          disabled={pending}
         >
-          {state.privacy.temporaryPrivateUntil ? 'End private time' : 'Private for 2 hours'}
+          {privateTimeActive
+            ? confirmation
+              ? 'Confirm end private time'
+              : 'End private time'
+            : 'Private for 2 hours'}
         </button>
       </div>
+      {confirmation && (
+        <div className="confirmation-callout" role="status">
+          <ShieldCheck />
+          <p>
+            <strong>Confirm once to resume routine sharing.</strong>
+            <br />
+            Requested help, active authorized incidents, and audit records were never suppressed.
+            This approval expires at {confirmation.expiresAt.slice(11, 16)} UTC.
+          </p>
+        </div>
+      )}
       <section className="panel-card permission-matrix">
         <div className="section-heading compact">
           <div>
@@ -1967,7 +2181,39 @@ function PrivacySurface({
   );
 }
 
-function MemorySurface({ state }: { state: HomeState }) {
+function MemorySurface({
+  state,
+  onAdd,
+  pending,
+}: {
+  state: HomeState;
+  onAdd: (
+    input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>,
+  ) => Promise<boolean>;
+  pending: boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [label, setLabel] = useState('');
+  const [value, setValue] = useState('');
+  const [category, setCategory] = useState<HouseMemoryItem['category']>('home');
+  const [sensitivity, setSensitivity] = useState<HouseMemoryItem['sensitivity']>('routine');
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (
+      await onAdd({
+        label: label.trim(),
+        value: value.trim(),
+        category,
+        sensitivity,
+      })
+    ) {
+      setLabel('');
+      setValue('');
+      setCategory('home');
+      setSensitivity('routine');
+      setCreating(false);
+    }
+  };
   return (
     <>
       <PageIntro
@@ -1994,8 +2240,75 @@ function MemorySurface({ state }: { state: HomeState }) {
           </article>
         ))}
       </div>
-      <button className="secondary-button add-memory">
-        <Plus /> Add a house detail
+      {creating && (
+        <form className="panel-card memory-form" onSubmit={(event) => void submit(event)}>
+          <div>
+            <label htmlFor="memory-label">Short label</label>
+            <input
+              id="memory-label"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              maxLength={120}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="memory-detail">House detail</label>
+            <textarea
+              id="memory-detail"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              maxLength={800}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="memory-category">Category</label>
+            <select
+              id="memory-category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value as HouseMemoryItem['category'])}
+            >
+              <option value="home">Home</option>
+              <option value="routine">Routine</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="contact">Contact</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="memory-sensitivity">Sharing boundary</label>
+            <select
+              id="memory-sensitivity"
+              value={sensitivity}
+              onChange={(event) =>
+                setSensitivity(event.target.value as HouseMemoryItem['sensitivity'])
+              }
+            >
+              <option value="routine">Routine</option>
+              <option value="sensitive">Sensitive</option>
+              <option value="incident-only">Assigned incident only</option>
+            </select>
+          </div>
+          <small>
+            Sensitive values stay out of Bedrock context. Incident-only details require an active,
+            assigned incident before disclosure.
+          </small>
+          <div className="form-actions">
+            <button type="button" className="text-button" onClick={() => setCreating(false)}>
+              Cancel
+            </button>
+            <button className="primary-button" type="submit" disabled={pending}>
+              Save house detail
+            </button>
+          </div>
+        </form>
+      )}
+      <button
+        className="secondary-button add-memory"
+        onClick={() => setCreating((value) => !value)}
+        aria-expanded={creating}
+      >
+        <Plus /> {creating ? 'Close form' : 'Add a house detail'}
       </button>
     </>
   );

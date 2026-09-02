@@ -5,14 +5,17 @@ import { createDocument } from 'zod-openapi';
 import { z } from 'zod';
 import {
   AccessPreferencesSchema,
+  AccessSettingsSchema,
   ApiErrorSchema,
   CircleMemberSchema,
   CommandResultSchema,
+  ConfirmationTokenSchema,
   DemoSessionSchema,
   HelpRequestSchema,
   HouseMemoryItemSchema,
   IncidentSchema,
   PlaybookSchema,
+  PrivacySettingsSchema,
   SafetyWindowSchema,
 } from './openapi-schemas.js';
 
@@ -27,6 +30,33 @@ const VersionedCommand = z.object({
   action: z.string(),
   entityId: z.string().optional(),
   expectedVersion: z.number().int().positive().optional(),
+});
+const AccessCommand = VersionedCommand.extend({
+  action: z.literal('update'),
+  preferences: AccessPreferencesSchema,
+});
+const HouseMemoryCommand = VersionedCommand.extend({
+  action: z.enum(['add', 'update']),
+  label: z.string().min(1).max(120),
+  value: z.string().min(1).max(800),
+  category: z.enum(['home', 'routine', 'maintenance', 'contact']),
+  sensitivity: z.enum(['routine', 'sensitive', 'incident-only']),
+});
+const PrivacyCommand = VersionedCommand.extend({
+  action: z.enum(['update', 'request-confirmation']),
+  confirmationPurpose: z
+    .enum([
+      'change-escalation-plan',
+      'disclose-access-instructions',
+      'share-location',
+      'remove-primary-contact',
+      'destructive-privacy-change',
+    ])
+    .optional(),
+  confirmationToken: z.string().min(24).optional(),
+  routineSharing: z.boolean().optional(),
+  locationSharing: z.enum(['off', 'incident-only', 'always']).optional(),
+  temporaryPrivateUntil: z.iso.datetime().nullable().optional(),
 });
 const envelope = <T extends z.ZodType>(schema: T) =>
   z.object({
@@ -90,9 +120,9 @@ const document = createDocument({
     '/v1/access': {
       get: {
         summary: 'Get access preferences',
-        responses: responses(envelope(AccessPreferencesSchema)),
+        responses: responses(envelope(AccessSettingsSchema)),
       },
-      post: command('Update access preferences'),
+      post: command('Update access preferences', AccessCommand),
     },
     '/v1/circle': {
       get: {
@@ -130,15 +160,18 @@ const document = createDocument({
       post: command('Advance a playbook run'),
     },
     '/v1/privacy': {
-      get: { summary: 'Get privacy controls', responses: responses(envelope(z.unknown())) },
-      post: command('Request a privacy change'),
+      get: {
+        summary: 'Get privacy controls',
+        responses: responses(envelope(PrivacySettingsSchema)),
+      },
+      post: privacyCommand(),
     },
     '/v1/house-memory': {
       get: {
         summary: 'Get authorized House Memory',
         responses: responses(envelope(z.array(HouseMemoryItemSchema))),
       },
-      post: command('Manage House Memory'),
+      post: command('Manage House Memory', HouseMemoryCommand),
     },
     '/v1/metrics': {
       get: {
@@ -175,12 +208,29 @@ const document = createDocument({
   },
 });
 
-function command(summary: string) {
+function command(summary: string, schema: z.ZodType = VersionedCommand) {
   return {
     summary,
     requestParams: { header: z.object({ 'Idempotency-Key': IdempotencyHeader }) },
-    requestBody: { required: true, content: { 'application/json': { schema: VersionedCommand } } },
+    requestBody: { required: true, content: { 'application/json': { schema } } },
     responses: responses(CommandResultSchema),
+  };
+}
+
+function privacyCommand() {
+  return {
+    ...command('Update privacy or request a scoped confirmation', PrivacyCommand),
+    responses: {
+      ...responses(CommandResultSchema),
+      '201': {
+        description: 'Short-lived scoped confirmation prepared',
+        content: {
+          'application/json': {
+            schema: z.object({ confirmation: ConfirmationTokenSchema }),
+          },
+        },
+      },
+    },
   };
 }
 
