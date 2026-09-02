@@ -71,6 +71,7 @@ import {
   connectDemoUpdates,
   createDemoSession,
   hydrateDemoState,
+  interpretDemoIntent,
   requestDemoConfirmation,
   runDemoCommand,
   type DemoSessionRecord,
@@ -209,6 +210,7 @@ export default function StayApp() {
     },
   ]);
   const [phrase, setPhrase] = useState('');
+  const [voicePending, setVoicePending] = useState(false);
   const [sessionLabel, setSessionLabel] = useState('Starting isolated demo…');
   const [ready, setReady] = useState(false);
   const [runtimeConfig, setRuntimeConfig] = useState<StayRuntimeConfig | null>(null);
@@ -1080,14 +1082,41 @@ export default function StayApp() {
     [actionPending, demoSession, refresh, runtimeConfig],
   );
 
-  const submitPhrase = (event: FormEvent) => {
+  const submitPhrase = async (event: FormEvent) => {
     event.preventDefault();
     const clean = phrase.trim();
     if (!clean) return;
     const normalized = clean.toLowerCase();
     let reply =
       'I can help with your home, Safety Windows, Circle, plans, privacy, or House Memory.';
-    if (normalized.includes('help') || normalized.includes('emergency')) {
+    if (runtimeConfig && demoSession) {
+      setVoicePending(true);
+      try {
+        const intent = await interpretDemoIntent(runtimeConfig, demoSession, {
+          utterance: clean,
+          currentSurface: surface,
+          visibleEntityIds: [
+            state.oneThing.id,
+            ...state.safetyWindows.map((item) => item.id),
+            ...state.incidents.map((item) => item.id),
+            ...state.playbooks.map((item) => item.id),
+          ].slice(0, 20),
+          locale: 'en-US',
+        });
+        reply = intent.explicitEmergencyLanguage
+          ? 'STAY can coordinate your preconfigured Circle. It does not contact emergency services or replace Alexa Emergency Assist. No action was taken.'
+          : /no action (?:has been|was) taken[.!]?$/i.test(intent.explanation.trim())
+            ? intent.explanation
+            : `${intent.explanation} No action was taken.`;
+      } catch (error) {
+        reply =
+          error instanceof Error
+            ? `${error.message} You can still use every deterministic touch control.`
+            : 'AI interpretation is unavailable. You can still use every deterministic touch control.';
+      } finally {
+        setVoicePending(false);
+      }
+    } else if (normalized.includes('help') || normalized.includes('emergency')) {
       reply =
         'STAY can coordinate your preconfigured Circle. It does not contact emergency services or replace Alexa Emergency Assist. Should I ask your Circle now?';
     } else if (normalized.includes('morning') || normalized.includes('today')) {
@@ -1404,9 +1433,13 @@ export default function StayApp() {
                   value={phrase}
                   onChange={(event) => setPhrase(event.target.value)}
                   placeholder="Try “What’s happening today?”"
-                  disabled={!ready}
+                  disabled={!ready || voicePending}
                 />
-                <button aria-label="Send phrase" disabled={!ready}>
+                <button
+                  aria-label="Send phrase"
+                  disabled={!ready || voicePending}
+                  aria-busy={voicePending}
+                >
                   <ChevronRight />
                 </button>
               </form>

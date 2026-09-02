@@ -1,42 +1,13 @@
 import { Agent, BedrockModel } from '@strands-agents/sdk';
-import { z } from 'zod';
+import {
+  IntentSchema,
+  MinimalIntentContextSchema,
+  type InterpretedIntent,
+  type MinimalIntentContext,
+} from '@stay/contracts';
 
-export const IntentSchema = z.object({
-  toolName: z.enum([
-    'get_home_overview',
-    'manage_task_session',
-    'manage_safety_window',
-    'request_help',
-    'get_circle_availability',
-    'manage_incident',
-    'manage_house_memory',
-    'execute_playbook',
-    'manage_privacy',
-    'perform_home_action',
-  ]),
-  action: z.string().max(80),
-  entityId: z.string().max(120).optional(),
-  explanation: z.string().max(240),
-  explicitEmergencyLanguage: z.boolean(),
-});
-export type InterpretedIntent = z.infer<typeof IntentSchema>;
-
-export const MinimalIntentContextSchema = z.object({
-  utterance: z.string().min(1).max(600),
-  currentSurface: z.enum([
-    'home',
-    'tasks',
-    'windows',
-    'circle',
-    'incidents',
-    'playbooks',
-    'privacy',
-    'memory',
-  ]),
-  visibleEntityIds: z.array(z.string().max(120)).max(20),
-  locale: z.string().max(20),
-});
-export type MinimalIntentContext = z.infer<typeof MinimalIntentContextSchema>;
+export { IntentSchema, MinimalIntentContextSchema } from '@stay/contracts';
+export type { InterpretedIntent, MinimalIntentContext } from '@stay/contracts';
 
 export class AgentUnavailableError extends Error {
   public constructor(message: string) {
@@ -93,6 +64,7 @@ export async function interpretIntent(
       'Never choose escalation order, modify safety policy, disclose sensitive data, or resolve an incident.',
       'Do not infer medical conditions, falls, emergencies, addresses, contacts, access codes, or location.',
       'Set explicitEmergencyLanguage true only when the resident uses explicit urgent or emergency wording.',
+      'The explanation may describe what you understood, but must say that no action has been taken.',
       'Return only the validated structured output.',
     ].join(' '),
   });

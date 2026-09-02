@@ -19,6 +19,7 @@
     "@aws-sdk/client-sesv2": "3.1124.0",
     "@aws-sdk/lib-dynamodb": "3.1124.0",
     "@aws-sdk/util-dynamodb": "3.996.9",
+    "@stay/agent": "workspace:*",
     "@stay/contracts": "workspace:*",
     "@stay/domain": "workspace:*",
     "@stay/persistence": "workspace:*",

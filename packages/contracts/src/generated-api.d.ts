@@ -1569,6 +1569,198 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/intent': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Interpret a redacted resident utterance without executing it */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['MinimalIntentContext'];
+        };
+      };
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              intent: components['schemas']['InterpretedIntent'];
+              provenance: {
+                /** @enum {string} */
+                mode: 'live' | 'simulated' | 'unavailable';
+                provider: string;
+                /** Format: date-time */
+                observedAt: string;
+                reason?: string;
+              };
+            };
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description The optional Bedrock interpreter is unavailable */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/demo/intent': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Interpret a synthetic demo utterance without executing it */
+    post: {
+      parameters: {
+        query?: never;
+        header: {
+          'X-STAY-Demo-Session': string;
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['MinimalIntentContext'];
+        };
+      };
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              intent: components['schemas']['InterpretedIntent'];
+              provenance: {
+                /** @enum {string} */
+                mode: 'live' | 'simulated' | 'unavailable';
+                provider: string;
+                /** Format: date-time */
+                observedAt: string;
+                reason?: string;
+              };
+            };
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description The optional Bedrock interpreter is unavailable */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/demo-sessions': {
     parameters: {
       query?: never;
@@ -1625,6 +1817,22 @@ export interface components {
     /** @enum {string} */
     SafetyWindowTemplate:
       'morning-check-in' | 'arrived-home' | 'medication-routine' | 'meal-check' | 'custom';
+    MinimalIntentContext: {
+      utterance: string;
+      /** @enum {string} */
+      currentSurface:
+        | 'home'
+        | 'tasks'
+        | 'access'
+        | 'windows'
+        | 'circle'
+        | 'incidents'
+        | 'playbooks'
+        | 'privacy'
+        | 'memory';
+      visibleEntityIds: string[];
+      locale: string;
+    };
     ApiError: {
       /** @enum {string} */
       code:
@@ -1875,6 +2083,24 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
       version: number;
+    };
+    InterpretedIntent: {
+      /** @enum {string} */
+      toolName:
+        | 'get_home_overview'
+        | 'manage_task_session'
+        | 'manage_safety_window'
+        | 'request_help'
+        | 'get_circle_availability'
+        | 'manage_incident'
+        | 'manage_house_memory'
+        | 'execute_playbook'
+        | 'manage_privacy'
+        | 'perform_home_action';
+      action: string;
+      entityId?: string;
+      explanation: string;
+      explicitEmergencyLanguage: boolean;
     };
     DemoSession: {
       id: string;

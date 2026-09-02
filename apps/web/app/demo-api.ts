@@ -4,6 +4,7 @@ import type {
   ConfirmationPurpose,
   ConfirmationToken,
   HouseMemoryItem,
+  InterpretedIntent,
   SafetyWindowTemplate,
 } from '@stay/contracts';
 import type { HomeState } from '@stay/domain';
@@ -240,6 +241,37 @@ export async function requestDemoConfirmation(
     cache: 'no-store',
   });
   return (await json<{ confirmation: ConfirmationToken }>(response)).confirmation;
+}
+
+export async function interpretDemoIntent(
+  config: StayRuntimeConfig,
+  session: DemoSessionRecord,
+  input: {
+    utterance: string;
+    currentSurface:
+      | 'home'
+      | 'tasks'
+      | 'access'
+      | 'windows'
+      | 'circle'
+      | 'incidents'
+      | 'playbooks'
+      | 'privacy'
+      | 'memory';
+    visibleEntityIds: string[];
+    locale: string;
+  },
+): Promise<InterpretedIntent> {
+  const response = await fetch(`${config.apiUrl}/v1/demo/intent`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-stay-demo-session': session.id,
+    },
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  });
+  return (await json<{ intent: InterpretedIntent }>(response)).intent;
 }
 
 export function connectDemoUpdates(

@@ -10,6 +10,8 @@ import {
   HelpRequestSchema as HelpRequest,
   HouseMemoryItemSchema as HouseMemoryItem,
   IncidentSchema as Incident,
+  IntentSchema as Intent,
+  MinimalIntentContextSchema as MinimalIntentContext,
   PlaybookSchema as Playbook,
   PrivacySettingsSchema as PrivacySettings,
   SafetyWindowSchema as SafetyWindow,
@@ -26,6 +28,10 @@ export const DemoSessionSchema = DemoSession.meta({ id: 'DemoSession' });
 export const HelpRequestSchema = HelpRequest.meta({ id: 'HelpRequest' });
 export const HouseMemoryItemSchema = HouseMemoryItem.meta({ id: 'HouseMemoryItem' });
 export const IncidentSchema = Incident.meta({ id: 'Incident' });
+export const IntentSchema = Intent.meta({ id: 'InterpretedIntent' });
+export const MinimalIntentContextSchema = MinimalIntentContext.meta({
+  id: 'MinimalIntentContext',
+});
 export const PlaybookSchema = Playbook.meta({ id: 'Playbook' });
 export const PrivacySettingsSchema = PrivacySettings.meta({ id: 'PrivacySettings' });
 export const SafetyWindowSchema = SafetyWindow.meta({ id: 'SafetyWindow' });

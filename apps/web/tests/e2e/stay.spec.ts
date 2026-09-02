@@ -176,6 +176,26 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
     }
     if (request.method() === 'POST') {
       const body = request.postDataJSON() as Record<string, unknown>;
+      if (path.endsWith('/intent')) {
+        expect(Object.keys(body).sort()).toEqual([
+          'currentSurface',
+          'locale',
+          'utterance',
+          'visibleEntityIds',
+        ]);
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            intent: {
+              toolName: 'get_home_overview',
+              action: 'read',
+              explanation: 'I understood that you want today’s home overview.',
+              explicitEmergencyLanguage: false,
+            },
+          }),
+        });
+        return;
+      }
       commands.push(body);
       let entity: typeof safetyWindow | NonNullable<typeof incident>;
       if (body.action === 'record-missed-check') {
@@ -269,6 +289,12 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
   await page.getByRole('button', { name: 'Sarah asks Tom' }).click();
   await page.getByRole('button', { name: 'Tom accepts' }).click();
   await expect(page.getByText('Tom is on the way.', { exact: true }).first()).toBeVisible();
+  const phrase = page.getByLabel('Type an Alexa phrase');
+  await phrase.fill('What is happening today?');
+  await phrase.press('Enter');
+  await expect(
+    page.getByText('I understood that you want today’s home overview. No action was taken.'),
+  ).toBeVisible();
   expect(commands.map((command) => command.action)).toEqual([
     'record-missed-check',
     'record-missed-check',

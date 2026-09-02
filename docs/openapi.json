@@ -1996,6 +1996,230 @@
         }
       }
     },
+    "/v1/intent": {
+      "post": {
+        "summary": "Interpret a redacted resident utterance without executing it",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MinimalIntentContext"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "$ref": "#/components/schemas/InterpretedIntent"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": ["live", "simulated", "unavailable"]
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "observedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["mode", "provider", "observedAt"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["intent", "provenance"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or missing command metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Optimistic concurrency or state conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The optional Bedrock interpreter is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/demo/intent": {
+      "post": {
+        "summary": "Interpret a synthetic demo utterance without executing it",
+        "security": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-STAY-Demo-Session",
+            "schema": {
+              "type": "string",
+              "minLength": 20
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MinimalIntentContext"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "$ref": "#/components/schemas/InterpretedIntent"
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": ["live", "simulated", "unavailable"]
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "observedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["mode", "provider", "observedAt"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["intent", "provenance"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or missing command metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Optimistic concurrency or state conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The optional Bedrock interpreter is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/demo-sessions": {
       "post": {
         "summary": "Create a per-browser isolated demo session",
@@ -2065,6 +2289,43 @@
       "SafetyWindowTemplate": {
         "type": "string",
         "enum": ["morning-check-in", "arrived-home", "medication-routine", "meal-check", "custom"]
+      },
+      "MinimalIntentContext": {
+        "type": "object",
+        "properties": {
+          "utterance": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "currentSurface": {
+            "type": "string",
+            "enum": [
+              "home",
+              "tasks",
+              "access",
+              "windows",
+              "circle",
+              "incidents",
+              "playbooks",
+              "privacy",
+              "memory"
+            ]
+          },
+          "visibleEntityIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 20
+          }
+        },
+        "required": ["utterance", "currentSurface", "visibleEntityIds", "locale"]
       },
       "ApiError": {
         "type": "object",
@@ -2811,6 +3072,43 @@
         "required": ["id", "label", "value", "category", "sensitivity", "updatedAt", "version"],
         "additionalProperties": false
       },
+      "InterpretedIntent": {
+        "type": "object",
+        "properties": {
+          "toolName": {
+            "type": "string",
+            "enum": [
+              "get_home_overview",
+              "manage_task_session",
+              "manage_safety_window",
+              "request_help",
+              "get_circle_availability",
+              "manage_incident",
+              "manage_house_memory",
+              "execute_playbook",
+              "manage_privacy",
+              "perform_home_action"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "entityId": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "explicitEmergencyLanguage": {
+            "type": "boolean"
+          }
+        },
+        "required": ["toolName", "action", "explanation", "explicitEmergencyLanguage"],
+        "additionalProperties": false
+      },
       "DemoSession": {
         "type": "object",
         "properties": {
@@ -2850,6 +3148,7 @@
             "authorizationUrl": "https://example.invalid/oauth2/authorize",
             "tokenUrl": "https://example.invalid/oauth2/token",
             "scopes": {
+              "stay/app": "Use the STAY resident and Circle application",
               "stay/mcp": "Use STAY goal-level tools"
             }
           }

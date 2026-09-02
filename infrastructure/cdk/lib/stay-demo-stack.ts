@@ -381,7 +381,7 @@ export class StayDemoStack extends Stack {
     notificationFunction.addToRolePolicy(
       new iam.PolicyStatement({ actions: ['ses:SendEmail'], resources: ['*'] }),
     );
-    mcpFunction.addToRolePolicy(
+    apiFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:InvokeModel'],
         resources: [
@@ -390,7 +390,7 @@ export class StayDemoStack extends Stack {
         ],
       }),
     );
-    mcpFunction.addEnvironment('BEDROCK_MODEL_ID', bedrockModelId.valueAsString);
+    apiFunction.addEnvironment('BEDROCK_MODEL_ID', bedrockModelId.valueAsString);
 
     const jwtAuthorizer = new apigwv2authorizers.HttpJwtAuthorizer(
       'CognitoJwtAuthorizer',

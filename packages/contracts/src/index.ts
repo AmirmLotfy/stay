@@ -306,6 +306,33 @@ export const McpToolNameSchema = z.enum([
 ]);
 export type McpToolName = z.infer<typeof McpToolNameSchema>;
 
+export const IntentSchema = z.object({
+  toolName: McpToolNameSchema,
+  action: z.string().max(80),
+  entityId: z.string().max(120).optional(),
+  explanation: z.string().max(240),
+  explicitEmergencyLanguage: z.boolean(),
+});
+export type InterpretedIntent = z.infer<typeof IntentSchema>;
+
+export const MinimalIntentContextSchema = z.object({
+  utterance: z.string().min(1).max(600),
+  currentSurface: z.enum([
+    'home',
+    'tasks',
+    'access',
+    'windows',
+    'circle',
+    'incidents',
+    'playbooks',
+    'privacy',
+    'memory',
+  ]),
+  visibleEntityIds: z.array(z.string().max(120)).max(20),
+  locale: z.string().max(20),
+});
+export type MinimalIntentContext = z.infer<typeof MinimalIntentContextSchema>;
+
 export const RouteGroups = [
   'home',
   'tasks',

@@ -4,6 +4,7 @@ import {
   ConfirmationPurposeSchema,
   RouteGroups,
   SafetyWindowTemplateSchema,
+  MinimalIntentContextSchema,
   type ActorContext,
   type CommandResult,
   type ConfirmationToken,
@@ -14,6 +15,7 @@ import {
   type SourceProvenance,
 } from '@stay/contracts';
 import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
+import { AgentUnavailableError, interpretIntent } from '@stay/agent';
 import { z } from 'zod';
 import { log } from './logging.js';
 import {
@@ -226,6 +228,40 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     const demoRoute = event.rawPath.startsWith('/v1/demo/');
     const path = event.rawPath.replace(/^\/v1\/(?:demo\/)?/, '');
     const [group, entityId] = path.split('/');
+    if (group === 'intent') {
+      if (event.requestContext.http.method !== 'POST') {
+        return response(
+          405,
+          {
+            code: 'METHOD_NOT_ALLOWED',
+            message: 'Use POST for intent interpretation.',
+            correlationId,
+          },
+          correlationId,
+        );
+      }
+      actorFrom(event, correlationId, demoRoute);
+      const store = repository();
+      const demoSession = demoRoute ? event.headers['x-stay-demo-session'] : undefined;
+      if (demoRoute && store && !(await store.demoSessionExists(demoSession as string))) {
+        throw new StayDomainError('FORBIDDEN', 'The isolated demo session is invalid or expired.');
+      }
+      const intent = await interpretIntent(
+        MinimalIntentContextSchema.parse(event.body ? JSON.parse(event.body) : {}),
+      );
+      return response(
+        200,
+        {
+          intent,
+          provenance: {
+            mode: 'live',
+            provider: 'Amazon Bedrock through Strands Agents SDK',
+            observedAt: new Date().toISOString(),
+          } satisfies SourceProvenance,
+        },
+        correlationId,
+      );
+    }
     if (!group || !RouteGroups.includes(group as (typeof RouteGroups)[number])) {
       return response(
         404,
@@ -625,7 +661,14 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     return response(200, result, correlationId);
   } catch (error) {
     const domain = error instanceof StayDomainError ? error : null;
-    const code = domain?.code ?? (error instanceof z.ZodError ? 'BAD_REQUEST' : 'INTERNAL_ERROR');
+    const agentUnavailable = error instanceof AgentUnavailableError;
+    const code =
+      domain?.code ??
+      (error instanceof z.ZodError
+        ? 'BAD_REQUEST'
+        : agentUnavailable
+          ? 'PROVIDER_UNAVAILABLE'
+          : 'INTERNAL_ERROR');
     const status =
       code === 'FORBIDDEN'
         ? 403
@@ -651,7 +694,9 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
           domain?.message ??
           (error instanceof z.ZodError
             ? 'The request body is invalid.'
-            : 'The request could not be completed.'),
+            : agentUnavailable
+              ? 'AI interpretation is unavailable. Deterministic controls remain available.'
+              : 'The request could not be completed.'),
         correlationId,
       },
       correlationId,

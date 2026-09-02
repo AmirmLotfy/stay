@@ -14,6 +14,8 @@ import {
   HelpRequestSchema,
   HouseMemoryItemSchema,
   IncidentSchema,
+  IntentSchema,
+  MinimalIntentContextSchema,
   PlaybookSchema,
   PrivacySettingsSchema,
   SafetyWindowSchema,
@@ -116,6 +118,15 @@ const responses = (schema: z.ZodType) => ({
     content: { 'application/json': { schema: ApiErrorSchema } },
   },
 });
+const IntentResponseSchema = z.object({
+  intent: IntentSchema,
+  provenance: z.object({
+    mode: z.enum(['live', 'simulated', 'unavailable']),
+    provider: z.string(),
+    observedAt: z.iso.datetime(),
+    reason: z.string().optional(),
+  }),
+});
 
 const document = createDocument({
   openapi: '3.1.0',
@@ -208,6 +219,18 @@ const document = createDocument({
         responses: responses(envelope(z.record(z.string(), z.number()))),
       },
     },
+    '/v1/intent': {
+      post: intentInterpretation('Interpret a redacted resident utterance without executing it'),
+    },
+    '/v1/demo/intent': {
+      post: {
+        ...intentInterpretation('Interpret a synthetic demo utterance without executing it'),
+        security: [],
+        requestParams: {
+          header: z.object({ 'X-STAY-Demo-Session': z.string().min(20) }),
+        },
+      },
+    },
     '/v1/demo-sessions': {
       post: {
         summary: 'Create a per-browser isolated demo session',
@@ -229,7 +252,10 @@ const document = createDocument({
           authorizationCode: {
             authorizationUrl: 'https://example.invalid/oauth2/authorize',
             tokenUrl: 'https://example.invalid/oauth2/token',
-            scopes: { 'stay/mcp': 'Use STAY goal-level tools' },
+            scopes: {
+              'stay/app': 'Use the STAY resident and Circle application',
+              'stay/mcp': 'Use STAY goal-level tools',
+            },
           },
         },
       },
@@ -243,6 +269,23 @@ function command(summary: string, schema: z.ZodType = VersionedCommand) {
     requestParams: { header: z.object({ 'Idempotency-Key': IdempotencyHeader }) },
     requestBody: { required: true, content: { 'application/json': { schema } } },
     responses: responses(CommandResultSchema),
+  };
+}
+
+function intentInterpretation(summary: string) {
+  return {
+    summary,
+    requestBody: {
+      required: true,
+      content: { 'application/json': { schema: MinimalIntentContextSchema } },
+    },
+    responses: {
+      ...responses(IntentResponseSchema),
+      '503': {
+        description: 'The optional Bedrock interpreter is unavailable',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+    },
   };
 }
 

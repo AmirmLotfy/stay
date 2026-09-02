@@ -58,6 +58,35 @@ describe('REST API contract', () => {
     expect(JSON.parse(result.body)).toMatchObject({ mode: 'isolated-demo' });
   });
 
+  it('reports the optional AI feature gate without falling back silently', async () => {
+    const priorModel = process.env.BEDROCK_MODEL_ID;
+    delete process.env.BEDROCK_MODEL_ID;
+    try {
+      const result = (await handler(
+        event(
+          '/v1/demo/intent',
+          'POST',
+          {
+            utterance: 'What is happening today?',
+            currentSurface: 'home',
+            visibleEntityIds: ['task-one-thing'],
+            locale: 'en-US',
+          },
+          { 'x-stay-demo-session': 'test-intent' },
+        ),
+      )) as { statusCode: number; body: string };
+
+      expect(result.statusCode).toBe(503);
+      expect(JSON.parse(result.body)).toMatchObject({
+        code: 'PROVIDER_UNAVAILABLE',
+        message: 'AI interpretation is unavailable. Deterministic controls remain available.',
+      });
+    } finally {
+      if (priorModel === undefined) delete process.env.BEDROCK_MODEL_ID;
+      else process.env.BEDROCK_MODEL_ID = priorModel;
+    }
+  });
+
   it('requires an idempotency key for writes', async () => {
     const result = (await handler(
       event(
