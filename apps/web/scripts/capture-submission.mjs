@@ -81,6 +81,9 @@ const mobile = await browser.newPage({
 });
 await ready(mobile);
 await shot(mobile, '06-home-mobile.png', true);
+await mobile.getByRole('button', { name: /Open notifications/ }).click();
+await mobile.getByRole('region', { name: 'Updates' }).waitFor();
+await shot(mobile, '07-mobile-updates.png');
 
 if (captureVideo) {
   const videoContext = await browser.newContext({
@@ -137,7 +140,7 @@ if (captureVideo) {
 }
 await browser.close();
 
-process.stdout.write(`Captured six screenshots in ${screenshotDir}\n`);
+process.stdout.write(`Captured seven screenshots in ${screenshotDir}\n`);
 if (captureVideo) {
   process.stdout.write(`Captured the picture-only walkthrough in ${videoDir}\n`);
 }

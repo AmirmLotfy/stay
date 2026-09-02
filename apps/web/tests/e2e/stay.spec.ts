@@ -46,8 +46,12 @@ test('makes adaptive access, routine help, and resident check-in controls functi
     await page.getByRole('button', { name }).click();
   };
   await page.goto('/');
-  await page.getByRole('button', { name: 'Notifications' }).click();
-  await expect(page.getByText('No new notifications. Sarah’s home remains settled.')).toBeVisible();
+  await page.getByRole('button', { name: /Open notifications/ }).click();
+  const updates = page.getByRole('region', { name: 'Updates' });
+  await expect(updates).toBeVisible();
+  await expect(updates.getByText('Bring in a grocery delivery')).toBeVisible();
+  await expect(updates.getByText('Sarah’s home is settled.')).toBeVisible();
+  await page.getByRole('button', { name: 'Close updates panel' }).click();
   await page.getByRole('button', { name: 'Tell me more' }).click();
   await expect(
     page.locator('.transcript p.stay').filter({ hasText: 'The bin is beside the back door.' }),
@@ -137,6 +141,24 @@ test('makes adaptive access, routine help, and resident check-in controls functi
   await expect(page.getByRole('button', { name: 'Confirm end private time' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirm end private time' }).click();
   await expect(page.getByRole('heading', { name: 'Everyday sharing' })).toBeVisible();
+});
+
+test('keeps the mobile header compact and makes updates keyboard-operable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  await expect(page.getByLabel('STAY, Sarah’s home is settled')).toBeVisible();
+  await expect(page.getByText('Home settled', { exact: true })).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  const notifications = page.getByRole('button', { name: /Open notifications/ });
+  await notifications.click();
+  await expect(page.getByRole('region', { name: 'Updates' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('region', { name: 'Updates' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Open notifications' })).toBeFocused();
 });
 
 test('uses the deployed TTL-isolated API session when runtime configuration is present', async ({

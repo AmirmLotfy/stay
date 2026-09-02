@@ -204,6 +204,9 @@ export default function StayApp() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [demoStep, setDemoStep] = useState(0);
   const [notice, setNotice] = useState('Your home is settled. Sarah is in control.');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsSeen, setNotificationsSeen] = useState(false);
+  const notificationsButtonRef = useRef<HTMLButtonElement>(null);
   const [transcript, setTranscript] = useState<Array<{ from: 'resident' | 'stay'; text: string }>>([
     { from: 'resident', text: 'Alexa, open STAY.' },
     {
@@ -326,6 +329,25 @@ export default function StayApp() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setNotificationsOpen(false);
+      notificationsButtonRef.current?.focus();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [notificationsOpen]);
+
+  const notificationFingerprint = [
+    ...state.helpRequests.map((request) => `${request.id}:${request.state}:${request.version}`),
+    ...state.incidents.map((incident) => `${incident.id}:${incident.state}:${incident.version}`),
+  ].join('|');
+  useEffect(() => {
+    setNotificationsSeen(false);
+  }, [notificationFingerprint]);
 
   useEffect(() => {
     if (!ready) return;
@@ -1219,6 +1241,7 @@ export default function StayApp() {
                 onClick={() => {
                   setSurface(item.id);
                   setMenuOpen(false);
+                  setNotificationsOpen(false);
                 }}
                 aria-current={surface === item.id ? 'page' : undefined}
               >
@@ -1229,6 +1252,17 @@ export default function StayApp() {
           })}
         </nav>
         <div className="sidebar-foot">
+          {runtimeConfig && (
+            <button
+              className="auth-button sidebar-auth"
+              onClick={() =>
+                void (authenticated ? signOut(runtimeConfig) : beginSignIn(runtimeConfig))
+              }
+            >
+              {authenticated ? <LogOut /> : <LogIn />}
+              {authenticated ? 'Sign out' : 'Sign in'}
+            </button>
+          )}
           <div className="resident-chip">
             <span className="avatar">SB</span>
             <span>
@@ -1256,6 +1290,12 @@ export default function StayApp() {
           >
             <Menu />
           </button>
+          <div className="mobile-home-context" aria-label="STAY, Sarah’s home is settled">
+            <strong>STAY</strong>
+            <span>
+              <span className="status-dot" aria-hidden="true" /> Settled
+            </span>
+          </div>
           <div className="live-status">
             <span className="status-dot" /> <span>Home settled</span>
           </div>
@@ -1265,7 +1305,7 @@ export default function StayApp() {
             </span>
             {runtimeConfig && (
               <button
-                className="auth-button"
+                className="auth-button topbar-auth"
                 onClick={() =>
                   void (authenticated ? signOut(runtimeConfig) : beginSignIn(runtimeConfig))
                 }
@@ -1282,14 +1322,111 @@ export default function StayApp() {
               {theme === 'light' ? <Moon /> : <Sun />}
             </button>
             <button
+              ref={notificationsButtonRef}
               className="icon-button"
-              aria-label="Notifications"
-              onClick={() => setNotice('No new notifications. Sarah’s home remains settled.')}
+              aria-label={
+                notificationsOpen
+                  ? 'Close notifications'
+                  : notificationsSeen
+                    ? 'Open notifications'
+                    : 'Open notifications, new updates'
+              }
+              aria-expanded={notificationsOpen}
+              aria-controls="notification-panel"
+              onClick={() => {
+                const nextOpen = !notificationsOpen;
+                setNotificationsOpen(nextOpen);
+                if (nextOpen) setNotificationsSeen(true);
+              }}
             >
               <BellRing />
-              <span className="notification-dot" />
+              {!notificationsSeen && <span className="notification-dot" aria-hidden="true" />}
             </button>
           </div>
+          {notificationsOpen && (
+            <section
+              className="notification-panel"
+              id="notification-panel"
+              aria-labelledby="notification-panel-title"
+            >
+              <div className="notification-panel-header">
+                <div>
+                  <span className="eyebrow">Sarah’s home</span>
+                  <h2 id="notification-panel-title">Updates</h2>
+                </div>
+                <button
+                  className="icon-button small"
+                  onClick={() => {
+                    setNotificationsOpen(false);
+                    notificationsButtonRef.current?.focus();
+                  }}
+                  aria-label="Close updates panel"
+                >
+                  <X />
+                </button>
+              </div>
+              <div className="notification-list">
+                {activeIncident && activeIncident.state !== 'resolved' && (
+                  <button
+                    className="notification-item notification-item-action"
+                    onClick={() => {
+                      setSurface('circle');
+                      setCircleSurface('incidents');
+                      setNotificationsOpen(false);
+                    }}
+                  >
+                    <span className="notification-symbol incident" aria-hidden="true">
+                      <Navigation />
+                    </span>
+                    <span>
+                      <small>Circle response</small>
+                      <strong>
+                        {activeIncident.state === 'responding'
+                          ? 'Tom is on the way.'
+                          : 'Sarah’s Circle plan is active.'}
+                      </strong>
+                      <span>Open the incident timeline and current ownership.</span>
+                    </span>
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                )}
+                {state.helpRequests
+                  .filter((request) => request.state === 'open')
+                  .slice(0, 1)
+                  .map((request) => (
+                    <button
+                      className="notification-item notification-item-action"
+                      key={request.id}
+                      onClick={() => {
+                        setSurface('circle');
+                        setCircleSurface('help');
+                        setNotificationsOpen(false);
+                      }}
+                    >
+                      <span className="notification-symbol" aria-hidden="true">
+                        <HandHeart />
+                      </span>
+                      <span>
+                        <small>Open Help Board request</small>
+                        <strong>{request.title}</strong>
+                        <span>Offered to Tom · {request.urgency}</span>
+                      </span>
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  ))}
+                <div className="notification-item home-update">
+                  <span className="notification-symbol settled" aria-hidden="true">
+                    <Home />
+                  </span>
+                  <span>
+                    <small>Home status</small>
+                    <strong>Sarah’s home is settled.</strong>
+                    <span>No new safety action is needed.</span>
+                  </span>
+                </div>
+              </div>
+            </section>
+          )}
         </header>
 
         <div className="content-grid" id="main-content">

@@ -316,6 +316,10 @@ svg {
   align-items: center;
   gap: 9px;
 }
+.mobile-home-context,
+.sidebar-auth {
+  display: none;
+}
 .live-status {
   font-weight: 600;
 }
@@ -362,6 +366,101 @@ svg {
   background: var(--clay);
   border: 2px solid var(--surface);
   border-radius: 50%;
+}
+.notification-panel {
+  position: absolute;
+  z-index: 40;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-end: clamp(14px, 4vw, 50px);
+  inline-size: min(390px, calc(100vw - 28px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 20px 55px rgba(22, 59, 52, 0.16);
+}
+.notification-panel-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 22px 16px;
+  border-block-end: 1px solid var(--line);
+}
+.notification-panel-header .eyebrow {
+  margin-block-end: 5px;
+}
+.notification-panel-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+.notification-list {
+  display: grid;
+}
+.notification-item {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 13px;
+  min-block-size: 96px;
+  padding: 16px 20px;
+  border: 0;
+  border-block-end: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: start;
+}
+.notification-item:last-child {
+  border-block-end: 0;
+}
+.notification-item-action {
+  inline-size: 100%;
+  cursor: pointer;
+}
+.notification-item-action:hover {
+  background: var(--surface-muted);
+}
+.notification-item > span:nth-child(2) {
+  display: grid;
+  min-inline-size: 0;
+  gap: 2px;
+}
+.notification-item small,
+.notification-item > span:nth-child(2) > span {
+  color: var(--text-soft);
+}
+.notification-item strong {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+.notification-item > svg {
+  inline-size: 18px;
+  block-size: 18px;
+  color: var(--text-soft);
+}
+.notification-symbol {
+  display: grid;
+  place-items: center;
+  inline-size: 42px;
+  block-size: 42px;
+  border-radius: 50%;
+  color: var(--pine-deep);
+  background: var(--sea-pale);
+}
+.notification-symbol svg {
+  inline-size: 19px;
+  block-size: 19px;
+}
+.notification-symbol.incident {
+  color: var(--clay);
+  background: color-mix(in srgb, var(--clay) 12%, var(--surface));
+}
+.notification-symbol.settled {
+  color: var(--pine);
+}
+.home-update {
+  grid-template-columns: 42px minmax(0, 1fr);
 }
 .menu-button,
 .close-menu {
@@ -1861,10 +1960,69 @@ svg {
     font-size: 16px;
   }
   .topbar {
-    padding-inline: 14px;
+    justify-content: flex-start;
+    gap: 10px;
+    min-block-size: 72px;
+    padding-inline: 12px;
   }
-  .provenance-label {
+  .live-status,
+  .provenance-label,
+  .topbar-auth {
     display: none;
+  }
+  .mobile-home-context {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-inline-size: 0;
+    line-height: 1.1;
+  }
+  .mobile-home-context strong {
+    overflow: hidden;
+    font-size: 0.96rem;
+    letter-spacing: 0.12em;
+    text-overflow: ellipsis;
+  }
+  .mobile-home-context > span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-block-start: 5px;
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .mobile-home-context .status-dot {
+    inline-size: 7px;
+    block-size: 7px;
+  }
+  .topbar-actions {
+    flex: 0 0 auto;
+    gap: 8px;
+  }
+  .sidebar-auth {
+    display: inline-flex;
+    inline-size: 100%;
+    justify-content: center;
+    min-block-size: 48px;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fffefa;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .notification-panel {
+    position: fixed;
+    inset-block-start: 82px;
+    inset-inline: 12px;
+    inline-size: auto;
+    max-block-size: calc(100dvh - 94px);
+    overflow-y: auto;
+  }
+  .notification-panel-header {
+    padding: 18px 18px 14px;
+  }
+  .notification-item {
+    min-block-size: 92px;
+    padding: 15px 17px;
   }
   .content-grid {
     padding: 34px 16px 60px;
