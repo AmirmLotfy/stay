@@ -4,7 +4,7 @@
 | -------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Local deterministic domain | Unit tests for legal/illegal transitions, race, duplicate, stale version, DST, privacy, notification dedupe | Passed locally on 2026-09-02                                                       |
 | Contracts                  | Generated OpenAPI/client types; MCP origin, initialize, schema, and error tests                             | Passed locally on 2026-09-02                                                       |
-| Browser UX                 | Production build; Playwright/axe across target viewports and input modes                                    | 12/12 Playwright scenarios passed locally                                          |
+| Browser UX                 | Production build; Playwright/axe across target viewports and input modes                                    | 16/16 scenarios passed, including mocked deployed API-session path                 |
 | Submission media           | Direct product screenshots and picture-only walkthrough with checksums                                      | Six screenshots and 150.68-second 1080p candidate verified locally                 |
 | Clean CI                   | Public GitHub Actions run on the submitted commit                                                           | [Passed on `e14f6f9`](https://github.com/AmirmLotfy/stay/actions/runs/33571703604) |
 | CDK                        | `cdk synth --strict`, cdk-nag report, reviewed `cdk diff`                                                   | Strict synth passed again after redesign; diff blocked on AWS login                |
@@ -12,7 +12,7 @@
 | SES                        | Delivered message to an approved address                                                                    | Unverified; provider access not assumed                                            |
 | Bedrock                    | Exact Nova Micro/profile in `us-east-1`, minimal Converse test, logging disabled                            | Blocked by expired AWS session                                                     |
 | Public judge access        | Fresh browser, no auth for isolated demo, HTTPS, working URL                                                | Unverified until deploy                                                            |
-| Alexa simulator            | Protected demo, captions, touch/keyboard, provider labels                                                   | Implemented; desktop/mobile/Echo 8/15 E2E passed                                   |
+| Alexa simulator            | Protected demo, captions, touch/keyboard, provider labels                                                   | Implemented; desktop/mobile/Echo 8/15 E2E and isolated API client passed           |
 | Real Alexa                 | Account linking, Local Inspector, physical/simulator device                                                 | Unavailable unless partner access arrives                                          |
 | Submission                 | Public repo, license detection, video under 3 min, thumbnail, feedback, tracks, final Devpost confirmation  | Not submitted                                                                      |
 

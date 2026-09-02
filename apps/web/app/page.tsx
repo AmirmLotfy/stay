@@ -1,6 +1,6 @@
 'use client';
 
-import type { ActorContext, Incident } from '@stay/contracts';
+import type { ActorContext, Incident, SafetyWindow } from '@stay/contracts';
 import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
 import {
   Accessibility,
@@ -47,6 +47,13 @@ import {
   signOut,
   type StayRuntimeConfig,
 } from './auth';
+import {
+  connectDemoUpdates,
+  createDemoSession,
+  hydrateDemoState,
+  runDemoCommand,
+  type DemoSessionRecord,
+} from './demo-api';
 
 type Surface = 'home' | 'access' | 'windows' | 'circle' | 'playbooks' | 'privacy' | 'memory';
 type CircleSurface = 'overview' | 'help' | 'incidents' | 'people' | 'settings';
@@ -98,6 +105,31 @@ function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function browserDemoSession(): { id: string; expiresAt: string } {
+  const key = 'stay-browser-demo-v1';
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored) as { id?: string; expiresAt?: string };
+      if (
+        typeof parsed.id === 'string' &&
+        typeof parsed.expiresAt === 'string' &&
+        new Date(parsed.expiresAt).getTime() > Date.now() + 60_000
+      ) {
+        return { id: parsed.id, expiresAt: parsed.expiresAt };
+      }
+    }
+  } catch {
+    window.localStorage.removeItem(key);
+  }
+  const session = {
+    id: uid('browser'),
+    expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+  };
+  window.localStorage.setItem(key, JSON.stringify(session));
+  return session;
+}
+
 export default function StayApp() {
   const engine = useRef(new StayEngine());
   const [state, setState] = useState<HomeState>(() => createDemoState());
@@ -118,44 +150,86 @@ export default function StayApp() {
   const [sessionLabel, setSessionLabel] = useState('Starting isolated demo…');
   const [ready, setReady] = useState(false);
   const [runtimeConfig, setRuntimeConfig] = useState<StayRuntimeConfig | null>(null);
+  const [demoSession, setDemoSession] = useState<DemoSessionRecord | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
 
   const refresh = useCallback(() => setState(engine.current.snapshot()), []);
 
   useEffect(() => {
-    const key = 'stay-demo-session-v1';
-    const stored = window.localStorage.getItem(key);
-    if (stored) {
-      const parsed = JSON.parse(stored) as { id: string; expiresAt: string };
-      if (new Date(parsed.expiresAt).getTime() > Date.now()) {
-        setSessionLabel(`Isolated demo · ${parsed.id.slice(-5)}`);
-        return;
-      }
-    }
-    const session = {
-      id: uid('demo'),
-      expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+    let cancelled = false;
+    const useBrowserFallback = (message?: string) => {
+      if (cancelled) return;
+      const session = browserDemoSession();
+      setDemoSession(null);
+      setSessionLabel(`Browser-only demo · ${session.id.slice(-5)}`);
+      setReady(true);
+      if (message) setLastError(message);
     };
-    window.localStorage.setItem(key, JSON.stringify(session));
-    setSessionLabel(`Isolated demo · ${session.id.slice(-5)}`);
-  }, []);
-
-  useEffect(() => {
-    if (sessionLabel !== 'Starting isolated demo…') setReady(true);
-  }, [sessionLabel]);
-
-  useEffect(() => {
-    void loadRuntimeConfig()
-      .then(async (config) => {
-        if (!config) return;
+    void (async () => {
+      try {
+        const config = await loadRuntimeConfig();
+        if (!config) {
+          useBrowserFallback();
+          return;
+        }
+        if (cancelled) return;
         setRuntimeConfig(config);
-        setAuthenticated((await completeSignIn(config)) || hasAuthenticatedSession());
-      })
-      .catch((error: unknown) => {
-        setLastError(error instanceof Error ? error.message : 'Sign-in setup is unavailable.');
-      });
+        try {
+          setAuthenticated((await completeSignIn(config)) || hasAuthenticatedSession());
+        } catch (error) {
+          if (!cancelled)
+            setLastError(error instanceof Error ? error.message : 'Sign-in setup is unavailable.');
+        }
+        const session = await createDemoSession(config);
+        const hydrated = await hydrateDemoState(config, session, createDemoState());
+        if (cancelled) return;
+        engine.current = new StayEngine(hydrated);
+        setState(hydrated);
+        setDemoSession(session);
+        setSessionLabel(`Isolated AWS demo · ${session.id.slice(-5)}`);
+        setReady(true);
+      } catch {
+        useBrowserFallback(
+          'The cloud demo is temporarily unavailable. This browser-only session still runs the deterministic safety flow.',
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!runtimeConfig || !demoSession) return;
+    let stopped = false;
+    let reconciling = false;
+    const reconcile = () => {
+      if (stopped || reconciling) return;
+      reconciling = true;
+      void hydrateDemoState(runtimeConfig, demoSession, engine.current.snapshot())
+        .then((hydrated) => {
+          if (stopped) return;
+          engine.current = new StayEngine(hydrated);
+          setState(hydrated);
+        })
+        .catch(() => {
+          if (!stopped)
+            setLastError(
+              'Live updates paused. STAY will reconcile with the API when the connection returns.',
+            );
+        })
+        .finally(() => {
+          reconciling = false;
+        });
+    };
+    const disconnect = connectDemoUpdates(runtimeConfig, demoSession, reconcile);
+    return () => {
+      stopped = true;
+      disconnect();
+    };
+  }, [demoSession, runtimeConfig]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -176,103 +250,211 @@ export default function StayApp() {
     [refresh],
   );
 
-  const runProtectedDemo = useCallback(() => {
+  const runProtectedDemo = useCallback(async () => {
+    if (actionPending) return;
+    setActionPending(true);
+    setLastError(null);
     const window = engine.current.snapshot().safetyWindows[0];
-    if (!window) return;
-    if (demoStep === 0) {
-      run(() => {
-        engine.current.markSafetyWindowMissed(window.id, {
-          actor: residentActor,
-          idempotencyKey: uid('window-check-one'),
-          expectedVersion: window.version,
-        });
-      });
-      setNotice('Sarah did not answer the first check. STAY will try once more in 10 minutes.');
-      setTranscript((items) => [
-        ...items,
-        { from: 'stay', text: 'Sarah, your Morning Window is still open. Are you okay?' },
-      ]);
-      setDemoStep(1);
+    if (!window) {
+      setActionPending(false);
       return;
     }
-    if (demoStep === 1) {
-      run(() => {
-        const missed = engine.current.markSafetyWindowMissed(window.id, {
-          actor: residentActor,
-          idempotencyKey: uid('window-check-two'),
-          expectedVersion: window.version,
-        });
-        engine.current.activateMissedWindowIncident(window.id, {
-          actor: residentActor,
-          idempotencyKey: uid('incident-activate'),
-          expectedVersion: missed.entity.version,
-        });
-      });
-      setNotice(
-        'Two checks were missed. Sarah’s Circle plan is active; no emergency service was contacted.',
-      );
-      setTranscript((items) => [
-        ...items,
+    try {
+      if (demoStep === 0) {
+        const idempotencyKey = uid('window-check-one');
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<SafetyWindow>(runtimeConfig, demoSession, {
+            group: 'safety-windows',
+            action: 'record-missed-check',
+            entityId: window.id,
+            expectedVersion: window.version,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.safetyWindows = next.safetyWindows.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.markSafetyWindowMissed(window.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: window.version,
+          });
+          refresh();
+        }
+        setNotice('Sarah did not answer the first check. STAY will try once more in 10 minutes.');
+        setTranscript((items) => [
+          ...items,
+          { from: 'stay', text: 'Sarah, your Morning Window is still open. Are you okay?' },
+        ]);
+        setDemoStep(1);
+        return;
+      }
+      if (demoStep === 1) {
+        const missKey = uid('window-check-two');
+        const activateKey = uid('incident-activate');
+        if (runtimeConfig && demoSession) {
+          const remoteMissed = await runDemoCommand<SafetyWindow>(runtimeConfig, demoSession, {
+            group: 'safety-windows',
+            action: 'record-missed-check',
+            entityId: window.id,
+            expectedVersion: window.version,
+            idempotencyKey: missKey,
+          });
+          const remoteIncident = await runDemoCommand<Incident>(runtimeConfig, demoSession, {
+            group: 'incidents',
+            action: 'activate-from-window',
+            entityId: window.id,
+            expectedVersion: remoteMissed.version,
+            idempotencyKey: activateKey,
+          });
+          const next = engine.current.snapshot();
+          next.safetyWindows = next.safetyWindows.map((item) =>
+            item.id === remoteMissed.entity.id ? remoteMissed.entity : item,
+          );
+          next.incidents = [
+            remoteIncident.entity,
+            ...next.incidents.filter((item) => item.id !== remoteIncident.entity.id),
+          ];
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          const missed = engine.current.markSafetyWindowMissed(window.id, {
+            actor: residentActor,
+            idempotencyKey: missKey,
+            expectedVersion: window.version,
+          });
+          engine.current.activateMissedWindowIncident(window.id, {
+            actor: residentActor,
+            idempotencyKey: activateKey,
+            expectedVersion: missed.entity.version,
+          });
+          refresh();
+        }
+        setNotice(
+          'Two checks were missed. Sarah’s Circle plan is active; no emergency service was contacted.',
+        );
+        setTranscript((items) => [
+          ...items,
+          {
+            from: 'stay',
+            text: 'I could not confirm Sarah’s check-in. I’m starting her Circle plan now.',
+          },
+        ]);
+        setDemoStep(2);
+        setSurface('circle');
+        setCircleSurface('incidents');
+        return;
+      }
+      const incident = engine.current.snapshot().incidents[0];
+      if (!incident) return;
+      if (demoStep === 2) {
+        const idempotencyKey = uid('ask-tom');
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<Incident>(runtimeConfig, demoSession, {
+            group: 'incidents',
+            action: 'ask-responder',
+            entityId: incident.id,
+            memberId: 'member-tom',
+            expectedVersion: incident.version,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.incidents = next.incidents.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.offerIncidentToMember(incident.id, 'member-tom', {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: incident.version,
+          });
+          refresh();
+        }
+        setNotice(
+          'Sarah asked Tom, her nearby helper. Only the minimum incident detail was shared.',
+        );
+        setTranscript((items) => [
+          ...items,
+          { from: 'resident', text: 'Ask Tom to check on me.' },
+          { from: 'stay', text: 'I asked Tom. I’ll let your Circle know when he responds.' },
+        ]);
+        setDemoStep(3);
+        return;
+      }
+      if (demoStep === 3) {
+        const idempotencyKey = uid('tom-accepts');
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<Incident>(runtimeConfig, demoSession, {
+            group: 'incidents',
+            action: 'accept',
+            entityId: incident.id,
+            memberId: 'member-tom',
+            expectedVersion: incident.version,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.incidents = next.incidents.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          next.circle = next.circle.map((member) =>
+            member.id === 'member-tom' ? { ...member, availability: 'responding' } : member,
+          );
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.acceptIncident(incident.id, 'member-tom', {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: incident.version,
+          });
+          refresh();
+        }
+        setNotice(
+          'Tom is on the way. He now owns the response, and Sarah’s Circle can see the update.',
+        );
+        setTranscript((items) => [
+          ...items,
+          { from: 'stay', text: 'Tom accepted. Tom is on the way.' },
+        ]);
+        setDemoStep(4);
+        return;
+      }
+      if (runtimeConfig && demoSession) {
+        const nextSession = await createDemoSession(runtimeConfig, true);
+        const hydrated = await hydrateDemoState(runtimeConfig, nextSession, createDemoState());
+        engine.current = new StayEngine(hydrated);
+        setState(hydrated);
+        setDemoSession(nextSession);
+        setSessionLabel(`Isolated AWS demo · ${nextSession.id.slice(-5)}`);
+      } else {
+        engine.current.reset();
+        refresh();
+      }
+      setDemoStep(0);
+      setSurface('home');
+      setNotice('Demo reset. Sarah’s isolated household is ready.');
+      setTranscript([
+        { from: 'resident', text: 'Alexa, open STAY.' },
         {
           from: 'stay',
-          text: 'I could not confirm Sarah’s check-in. I’m starting her Circle plan now.',
+          text: 'Good morning, Sarah. Your home is settled. You have one thing to remember.',
         },
       ]);
-      setDemoStep(2);
-      setSurface('circle');
-      setCircleSurface('incidents');
-      return;
-    }
-    const incident = engine.current.snapshot().incidents[0];
-    if (!incident) return;
-    if (demoStep === 2) {
-      run(() => {
-        engine.current.offerIncidentToMember(incident.id, 'member-tom', {
-          actor: residentActor,
-          idempotencyKey: uid('ask-tom'),
-          expectedVersion: incident.version,
-        });
-      });
-      setNotice('Sarah asked Tom, her nearby helper. Only the minimum incident detail was shared.');
-      setTranscript((items) => [
-        ...items,
-        { from: 'resident', text: 'Ask Tom to check on me.' },
-        { from: 'stay', text: 'I asked Tom. I’ll let your Circle know when he responds.' },
-      ]);
-      setDemoStep(3);
-      return;
-    }
-    if (demoStep === 3) {
-      run(() => {
-        engine.current.acceptIncident(incident.id, 'member-tom', {
-          actor: residentActor,
-          idempotencyKey: uid('tom-accepts'),
-          expectedVersion: incident.version,
-        });
-      });
-      setNotice(
-        'Tom is on the way. He now owns the response, and Sarah’s Circle can see the update.',
+    } catch (error) {
+      setLastError(
+        error instanceof Error
+          ? error.message
+          : 'That demo action could not be completed. No unsafe transition was applied.',
       );
-      setTranscript((items) => [
-        ...items,
-        { from: 'stay', text: 'Tom accepted. Tom is on the way.' },
-      ]);
-      setDemoStep(4);
-      return;
+    } finally {
+      setActionPending(false);
     }
-    engine.current.reset();
-    refresh();
-    setDemoStep(0);
-    setSurface('home');
-    setNotice('Demo reset. Sarah’s isolated household is ready.');
-    setTranscript([
-      { from: 'resident', text: 'Alexa, open STAY.' },
-      {
-        from: 'stay',
-        text: 'Good morning, Sarah. Your home is settled. You have one thing to remember.',
-      },
-    ]);
-  }, [demoStep, refresh, run]);
+  }, [actionPending, demoSession, demoStep, refresh, runtimeConfig]);
 
   const submitPhrase = (event: FormEvent) => {
     event.preventDefault();
@@ -483,10 +665,12 @@ export default function StayApp() {
               <p>{notice}</p>
               <button
                 className={demoStep === 3 ? 'primary-button clay' : 'primary-button'}
-                onClick={runProtectedDemo}
-                disabled={!ready}
+                onClick={() => void runProtectedDemo()}
+                disabled={!ready || actionPending}
+                aria-busy={actionPending}
               >
-                {demoStep === 4 ? <RefreshCw /> : <Play />} {demoLabel}
+                {actionPending ? <RefreshCw /> : demoStep === 4 ? <RefreshCw /> : <Play />}{' '}
+                {actionPending ? 'Saving…' : demoLabel}
               </button>
               <small className="safety-copy">
                 Circle coordination only. No emergency service is contacted.

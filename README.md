@@ -14,7 +14,7 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 | Capability                                                        | Status              | Evidence boundary                                                                            |
 | ----------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Implemented locally | Static Next.js production build and browser tests                                            |
+| Resident/Circle PWA and Alexa-style simulator                     | Implemented locally | Static Next.js build; browser-only fallback plus deployed TTL-isolated API session client    |
 | Deterministic Safety Window, help, incident, and playbook engines | Implemented locally | Unit and contract tests; no Bedrock dependency                                               |
 | Streamable HTTP MCP server and ten tools                          | Implemented locally | MCP SDK protocol/origin tests, including `2025-11-25` negotiation                            |
 | Strands + Amazon Bedrock intent layer                             | Feature-gated       | Code is implemented; exact `BEDROCK_MODEL_ID` and live access are not yet verified           |
@@ -39,7 +39,7 @@ pnpm --filter @stay/web dev
 
 Open `http://localhost:3000`. Use **Miss the first check**, **Miss the second check**, **Sarah asks Tom**, and **Tom accepts** in the protected demo card.
 
-The public demo creates a four-hour browser-local session. Its fixed fixture is separate from authenticated household routes and contains no real personal data.
+The local fallback creates a four-hour browser-only session. When deployed, the same surface creates a four-hour DynamoDB-backed demo session, sends protected-flow writes through the isolated `/v1/demo/*` routes, hydrates after refresh, and reconnects WebSocket updates with REST reconciliation. Demo session IDs are validated before API and WebSocket access; they cannot address authenticated household partitions. The fixture contains no real personal data.
 
 ## Repository map
 
@@ -107,7 +107,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Playwright covers desktop, mobile, simulated Echo Show 8/15 viewports, keyboard, touch-only protected flow, emergency copy, and automated WCAG checks. Additional manual screen-reader and real-device evidence remains a release gate.
+Playwright covers 16 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard, touch-only protected flow, emergency copy, automated WCAG checks, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
 
 ## AWS deployment gate
 

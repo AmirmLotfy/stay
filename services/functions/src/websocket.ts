@@ -7,6 +7,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DeleteCommand,
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
@@ -51,7 +52,17 @@ export async function connectionHandler(
     if (!demoSession || !/^demo-[a-f0-9-]{20,}$/i.test(demoSession)) {
       return { statusCode: 401, body: 'A valid isolated demo session is required.' };
     }
-    const householdId = `demo-household-${demoSession}`;
+    const session = await table.send(
+      new GetCommand({
+        TableName: tableName(),
+        Key: { PK: `DEMO#${demoSession}`, SK: 'SESSION' },
+        ConsistentRead: true,
+      }),
+    );
+    if (!session.Item || Number(session.Item.expiresAt) <= Math.floor(Date.now() / 1000)) {
+      return { statusCode: 401, body: 'The isolated demo session is invalid or expired.' };
+    }
+    const householdId = String(session.Item.householdId);
     await table.send(
       new PutCommand({
         TableName: tableName(),

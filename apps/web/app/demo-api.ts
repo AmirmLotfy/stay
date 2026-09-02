@@ -1,0 +1,197 @@
+import type { CommandResult } from '@stay/contracts';
+import type { HomeState } from '@stay/domain';
+import type { StayRuntimeConfig } from './auth';
+
+export const demoSessionStorageKey = 'stay-demo-session-v2';
+
+export interface DemoSessionRecord {
+  id: string;
+  mode: 'isolated-demo';
+  createdAt: string;
+  expiresAt: string;
+  isolation: string;
+}
+
+export type DemoRouteGroup =
+  | 'home'
+  | 'access'
+  | 'circle'
+  | 'safety-windows'
+  | 'help-requests'
+  | 'incidents'
+  | 'playbooks'
+  | 'privacy'
+  | 'house-memory';
+
+interface DemoView<T> {
+  data: T;
+}
+
+interface DemoCommand {
+  group: 'safety-windows' | 'incidents' | 'help-requests' | 'playbooks';
+  action: string;
+  idempotencyKey: string;
+  entityId?: string;
+  expectedVersion?: number;
+  memberId?: string;
+  title?: string;
+  detail?: string;
+  urgency?: 'normal' | 'time-sensitive' | 'urgent';
+}
+
+function parseStoredSession(raw: string | null): DemoSessionRecord | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<DemoSessionRecord>;
+    if (
+      typeof value.id !== 'string' ||
+      typeof value.expiresAt !== 'string' ||
+      new Date(value.expiresAt).getTime() <= Date.now() + 60_000
+    ) {
+      return null;
+    }
+    return {
+      id: value.id,
+      mode: 'isolated-demo',
+      createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
+      expiresAt: value.expiresAt,
+      isolation:
+        typeof value.isolation === 'string'
+          ? value.isolation
+          : 'This session cannot read or write authenticated households.',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function json<T>(response: Response): Promise<T> {
+  const body = (await response.json().catch(() => null)) as
+    { message?: string; correlationId?: string } | T | null;
+  if (!response.ok) {
+    const error = body as { message?: string; correlationId?: string } | null;
+    const suffix = error?.correlationId ? ` (${error.correlationId})` : '';
+    throw new Error(`${error?.message ?? 'The STAY demo service is unavailable.'}${suffix}`);
+  }
+  return body as T;
+}
+
+export async function createDemoSession(
+  config: StayRuntimeConfig,
+  forceNew = false,
+): Promise<DemoSessionRecord> {
+  const stored = parseStoredSession(localStorage.getItem(demoSessionStorageKey));
+  if (stored && !forceNew) return stored;
+  const response = await fetch(`${config.apiUrl}/v1/demo-sessions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+    cache: 'no-store',
+  });
+  const session = await json<DemoSessionRecord>(response);
+  localStorage.setItem(demoSessionStorageKey, JSON.stringify(session));
+  return session;
+}
+
+async function getDemoView<T>(
+  config: StayRuntimeConfig,
+  session: DemoSessionRecord,
+  group: DemoRouteGroup,
+): Promise<T> {
+  const response = await fetch(`${config.apiUrl}/v1/demo/${group}`, {
+    headers: { 'x-stay-demo-session': session.id },
+    cache: 'no-store',
+  });
+  return (await json<DemoView<T>>(response)).data;
+}
+
+export async function hydrateDemoState(
+  config: StayRuntimeConfig,
+  session: DemoSessionRecord,
+  fallback: HomeState,
+): Promise<HomeState> {
+  const [home, access, circle, safetyWindows, helpRequests, incidents, playbooks, privacy, memory] =
+    await Promise.all([
+      getDemoView<Pick<HomeState, 'resident' | 'oneThing' | 'calendar'>>(config, session, 'home'),
+      getDemoView<HomeState['access']>(config, session, 'access'),
+      getDemoView<HomeState['circle']>(config, session, 'circle'),
+      getDemoView<HomeState['safetyWindows']>(config, session, 'safety-windows'),
+      getDemoView<HomeState['helpRequests']>(config, session, 'help-requests'),
+      getDemoView<HomeState['incidents']>(config, session, 'incidents'),
+      getDemoView<HomeState['playbooks']>(config, session, 'playbooks'),
+      getDemoView<HomeState['privacy']>(config, session, 'privacy'),
+      getDemoView<HomeState['houseMemory']>(config, session, 'house-memory'),
+    ]);
+  return {
+    ...fallback,
+    householdId: `demo-household-${session.id}`,
+    ...home,
+    access,
+    circle,
+    safetyWindows,
+    helpRequests,
+    incidents,
+    playbooks,
+    privacy,
+    houseMemory: memory,
+  };
+}
+
+export async function runDemoCommand<T>(
+  config: StayRuntimeConfig,
+  session: DemoSessionRecord,
+  command: DemoCommand,
+): Promise<CommandResult<T>> {
+  const response = await fetch(`${config.apiUrl}/v1/demo/${command.group}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'idempotency-key': command.idempotencyKey,
+      'x-stay-demo-session': session.id,
+    },
+    body: JSON.stringify({
+      action: command.action,
+      ...(command.entityId ? { entityId: command.entityId } : {}),
+      ...(command.expectedVersion ? { expectedVersion: command.expectedVersion } : {}),
+      ...(command.memberId ? { memberId: command.memberId } : {}),
+      ...(command.title ? { title: command.title } : {}),
+      ...(command.detail ? { detail: command.detail } : {}),
+      ...(command.urgency ? { urgency: command.urgency } : {}),
+    }),
+    cache: 'no-store',
+  });
+  return json<CommandResult<T>>(response);
+}
+
+export function connectDemoUpdates(
+  config: StayRuntimeConfig,
+  session: DemoSessionRecord,
+  onReconcile: () => void,
+): () => void {
+  let stopped = false;
+  let attempt = 0;
+  let socket: WebSocket | null = null;
+  let retry: ReturnType<typeof setTimeout> | null = null;
+  const connect = () => {
+    const url = new URL(config.websocketUrl);
+    url.searchParams.set('demoSession', session.id);
+    socket = new WebSocket(url);
+    socket.addEventListener('open', () => {
+      attempt = 0;
+      onReconcile();
+    });
+    socket.addEventListener('message', onReconcile);
+    socket.addEventListener('close', () => {
+      if (stopped) return;
+      onReconcile();
+      attempt += 1;
+      retry = setTimeout(connect, Math.min(10_000, 500 * 2 ** attempt));
+    });
+  };
+  connect();
+  return () => {
+    stopped = true;
+    if (retry) clearTimeout(retry);
+    socket?.close(1000, 'STAY surface closed');
+  };
+}
