@@ -38,6 +38,7 @@ const CommandBodySchema = z.object({
   expectedBy: z.iso.datetime().optional(),
   graceMinutes: z.number().int().min(1).max(60).optional(),
   escalationMemberIds: z.array(z.string().min(1)).min(1).max(8).optional(),
+  steps: z.array(z.string().min(1).max(160)).min(2).max(12).optional(),
   preferences: AccessPreferencesSchema.optional(),
   label: z.string().min(1).max(120).optional(),
   value: z.string().min(1).max(800).optional(),
@@ -498,6 +499,11 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (group === 'playbooks' && body.action === 'create' && body.title && body.steps) {
+      result = engine.createPlaybook(
+        { title: body.title, steps: body.steps },
+        { actor, idempotencyKey },
+      );
     } else if (group === 'playbooks' && id && body.action === 'next-step') {
       result = engine.executePlaybook(id, {
         actor,
@@ -581,6 +587,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       const expectedVersion =
         group === 'help-requests' ||
         (group === 'safety-windows' && body.action === 'create') ||
+        (group === 'playbooks' && body.action === 'create') ||
         (group === 'house-memory' && body.action === 'add') ||
         (group === 'incidents' && body.action === 'activate-from-window')
           ? 0

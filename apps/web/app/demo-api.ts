@@ -57,6 +57,7 @@ interface DemoCommand {
   expectedBy?: string;
   graceMinutes?: number;
   escalationMemberIds?: string[];
+  steps?: string[];
   preferences?: AccessPreferences;
   label?: string;
   value?: string;
@@ -192,6 +193,7 @@ export async function runDemoCommand<T>(
       ...(command.expectedBy ? { expectedBy: command.expectedBy } : {}),
       ...(command.graceMinutes ? { graceMinutes: command.graceMinutes } : {}),
       ...(command.escalationMemberIds ? { escalationMemberIds: command.escalationMemberIds } : {}),
+      ...(command.steps ? { steps: command.steps } : {}),
       ...(command.preferences ? { preferences: command.preferences } : {}),
       ...(command.label ? { label: command.label } : {}),
       ...(command.value ? { value: command.value } : {}),

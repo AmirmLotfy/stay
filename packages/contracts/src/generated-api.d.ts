@@ -1074,7 +1074,7 @@ export interface paths {
       };
     };
     put?: never;
-    /** Advance a playbook run */
+    /** Create or advance a playbook run */
     post: {
       parameters: {
         query?: never;
@@ -1087,11 +1087,19 @@ export interface paths {
       };
       requestBody: {
         content: {
-          'application/json': {
-            action: string;
-            entityId?: string;
-            expectedVersion?: number;
-          };
+          'application/json':
+            | {
+                /** @constant */
+                action: 'create';
+                title: string;
+                steps: string[];
+              }
+            | {
+                /** @constant */
+                action: 'next-step';
+                entityId: string;
+                expectedVersion: number;
+              };
         };
       };
       responses: {

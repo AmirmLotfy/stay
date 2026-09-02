@@ -181,6 +181,27 @@ describe('StayEngine protected demonstration', () => {
     expect(result.provenance.provider).toContain('deterministic');
   });
 
+  it('creates a resident-authored custom playbook without a provider dependency', () => {
+    const result = new StayEngine().createPlaybook(
+      {
+        title: 'Elevator outage',
+        steps: ['Stay inside the apartment', 'Ask Maya to check the building notice'],
+      },
+      { actor, idempotencyKey: 'custom-elevator-plan' },
+    );
+    expect(result.entity).toMatchObject({
+      id: 'playbook-custom-elevator-plan',
+      kind: 'custom',
+      state: 'ready',
+      version: 1,
+    });
+    expect(result.entity.provenance).toMatchObject({
+      mode: 'live',
+      provider: 'Resident-authored STAY plan',
+    });
+    expect(result.emittedEvents[0]?.data).toEqual({ kind: 'custom', stepCount: 2 });
+  });
+
   it('supports resident check-in and early closure without escalation', () => {
     const checkedIn = new StayEngine().checkInSafetyWindow('window-morning', {
       actor,

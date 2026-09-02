@@ -187,6 +187,32 @@ describe('REST API contract', () => {
     });
   });
 
+  it('creates a resident-authored custom playbook', async () => {
+    const result = (await handler(
+      event(
+        '/v1/demo/playbooks',
+        'POST',
+        {
+          action: 'create',
+          title: 'Elevator outage',
+          steps: ['Stay inside the apartment', 'Ask Maya to check the building notice'],
+        },
+        {
+          'x-stay-demo-session': 'test-custom-playbook',
+          'idempotency-key': 'api-custom-elevator-plan',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).entity).toMatchObject({
+      id: 'playbook-api-custom-elevator-plan',
+      kind: 'custom',
+      state: 'ready',
+      version: 1,
+    });
+  });
+
   it('uses a short-lived scoped token before ending private time', async () => {
     const headers = {
       'x-stay-demo-session': 'test-privacy',

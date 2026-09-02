@@ -75,6 +75,18 @@ const SafetyWindowCommand = z.union([
     expectedVersion: z.number().int().positive(),
   }),
 ]);
+const PlaybookCommand = z.union([
+  z.object({
+    action: z.literal('create'),
+    title: z.string().min(1).max(120),
+    steps: z.array(z.string().min(1).max(160)).min(2).max(12),
+  }),
+  z.object({
+    action: z.literal('next-step'),
+    entityId: z.string().min(1),
+    expectedVersion: z.number().int().positive(),
+  }),
+]);
 const envelope = <T extends z.ZodType>(schema: T) =>
   z.object({
     data: schema,
@@ -174,7 +186,7 @@ const document = createDocument({
         summary: 'List house playbooks',
         responses: responses(envelope(z.array(PlaybookSchema))),
       },
-      post: command('Advance a playbook run'),
+      post: command('Create or advance a playbook run', PlaybookCommand),
     },
     '/v1/privacy': {
       get: {

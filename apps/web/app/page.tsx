@@ -17,6 +17,7 @@ import {
   formatResidentDateTimeInput,
   residentDateTimeToUtc,
   StayEngine,
+  type CreatePlaybookInput,
   type CreateSafetyWindowInput,
   type HomeState,
   type PrivacyUpdateInput,
@@ -884,10 +885,14 @@ export default function StayApp() {
     [actionPending, demoSession, refresh, runtimeConfig],
   );
 
-  const addHouseMemory = useCallback(
-    async (input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>) => {
+  const saveHouseMemory = useCallback(
+    async (
+      input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>,
+      existing?: HouseMemoryItem,
+    ) => {
       if (actionPending) return false;
-      const idempotencyKey = uid('memory-add');
+      const action = existing ? 'update' : 'add';
+      const idempotencyKey = uid(`memory-${action}`);
       setActionPending(true);
       setLastError(null);
       try {
@@ -897,23 +902,35 @@ export default function StayApp() {
             demoSession,
             {
               group: 'house-memory',
-              action: 'add',
+              action,
               idempotencyKey,
+              ...(existing ? { entityId: existing.id, expectedVersion: existing.version } : {}),
               ...input,
             },
           );
           const next = engine.current.snapshot();
-          next.houseMemory = [
-            remote.entity,
-            ...next.houseMemory.filter((item) => item.id !== remote.entity.id),
-          ];
+          next.houseMemory = existing
+            ? next.houseMemory.map((item) => (item.id === remote.entity.id ? remote.entity : item))
+            : [remote.entity, ...next.houseMemory.filter((item) => item.id !== remote.entity.id)];
           engine.current = new StayEngine(next);
           setState(next);
         } else {
-          engine.current.addHouseMemory(input, { actor: residentActor, idempotencyKey });
+          if (existing) {
+            engine.current.updateHouseMemory(existing.id, input, {
+              actor: residentActor,
+              idempotencyKey,
+              expectedVersion: existing.version,
+            });
+          } else {
+            engine.current.addHouseMemory(input, { actor: residentActor, idempotencyKey });
+          }
           refresh();
         }
-        setNotice('The house detail is saved with its sharing boundary.');
+        setNotice(
+          existing
+            ? 'The house detail and its sharing boundary are updated.'
+            : 'The house detail is saved with its sharing boundary.',
+        );
         return true;
       } catch (error) {
         setLastError(error instanceof Error ? error.message : 'The house detail was not saved.');
@@ -1018,6 +1035,44 @@ export default function StayApp() {
         setNotice(`${playbook.title} advanced one deterministic step.`);
       } catch (error) {
         setLastError(error instanceof Error ? error.message : 'The playbook did not change.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const createPlaybook = useCallback(
+    async (input: CreatePlaybookInput): Promise<boolean> => {
+      if (actionPending) return false;
+      const idempotencyKey = uid('playbook-create');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<Playbook>(runtimeConfig, demoSession, {
+            group: 'playbooks',
+            action: 'create',
+            title: input.title,
+            steps: input.steps,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.playbooks = [
+            remote.entity,
+            ...next.playbooks.filter((item) => item.id !== remote.entity.id),
+          ];
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.createPlaybook(input, { actor: residentActor, idempotencyKey });
+          refresh();
+        }
+        setNotice(`${input.title} is ready as a resident-authored plan.`);
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The custom plan was not created.');
+        return false;
       } finally {
         setActionPending(false);
       }
@@ -1164,7 +1219,11 @@ export default function StayApp() {
             >
               {theme === 'light' ? <Moon /> : <Sun />}
             </button>
-            <button className="icon-button" aria-label="Notifications">
+            <button
+              className="icon-button"
+              aria-label="Notifications"
+              onClick={() => setNotice('No new notifications. Sarah’s home remains settled.')}
+            >
               <BellRing />
               <span className="notification-dot" />
             </button>
@@ -1210,12 +1269,18 @@ export default function StayApp() {
                 onHelpAction={(id) => void manageHelpRequest(id)}
                 onCreateHelp={createHelpRequest}
                 onIncidentAction={(action) => void manageIncident(action)}
+                onRoutineSharing={(enabled) => void updatePrivacy({ routineSharing: enabled })}
                 pending={actionPending}
                 {...(activeIncident ? { activeIncident } : {})}
               />
             )}
             {surface === 'playbooks' && (
-              <PlaybooksSurface state={state} onRun={(id) => void advancePlaybook(id)} />
+              <PlaybooksSurface
+                state={state}
+                onRun={(id) => void advancePlaybook(id)}
+                onCreate={createPlaybook}
+                pending={actionPending}
+              />
             )}
             {surface === 'privacy' && (
               <PrivacySurface
@@ -1226,7 +1291,7 @@ export default function StayApp() {
               />
             )}
             {surface === 'memory' && (
-              <MemorySurface state={state} onAdd={addHouseMemory} pending={actionPending} />
+              <MemorySurface state={state} onSave={saveHouseMemory} pending={actionPending} />
             )}
           </section>
 
@@ -1293,7 +1358,20 @@ export default function StayApp() {
                       </span>
                     </div>
                   ) : (
-                    <button className="echo-action">Tell me more</button>
+                    <button
+                      className="echo-action"
+                      onClick={() =>
+                        setTranscript((items) => [
+                          ...items,
+                          {
+                            from: 'stay',
+                            text: 'Your one thing is to put the blue recycling bin out. The bin is beside the back door.',
+                          },
+                        ])
+                      }
+                    >
+                      Tell me more
+                    </button>
                   )}
                 </div>
               </div>
@@ -1358,6 +1436,7 @@ function HomeSurface({
   onTaskAction: () => void;
   pending: boolean;
 }) {
+  const [fullCheckOpen, setFullCheckOpen] = useState(false);
   return (
     <>
       <header className="page-intro home-intro">
@@ -1407,8 +1486,12 @@ function HomeSurface({
             <span className="eyebrow">A QUIET OVERVIEW</span>
             <h2>Today at home</h2>
           </div>
-          <button className="text-button">
-            Full home check <ChevronRight />
+          <button
+            className="text-button"
+            onClick={() => setFullCheckOpen((value) => !value)}
+            aria-expanded={fullCheckOpen}
+          >
+            {fullCheckOpen ? 'Close home check' : 'Full home check'} <ChevronRight />
           </button>
         </div>
         <div className="status-cards">
@@ -1435,6 +1518,25 @@ function HomeSurface({
             <span className="source-badge">Simulated · 8:40</span>
           </article>
         </div>
+        {fullCheckOpen && (
+          <section className="panel-card home-check-detail" aria-label="Full simulated home check">
+            <div>
+              <ShieldCheck />
+              <span>
+                <strong>Entry points</strong>
+                <small>Front and side doors reported closed.</small>
+              </span>
+            </div>
+            <div>
+              <Lightbulb />
+              <span>
+                <strong>Safe path</strong>
+                <small>Hall and bathroom lighting routine is ready.</small>
+              </span>
+            </div>
+            <p>Simulated home adapter · observed 8:41 AM · no live device is connected.</p>
+          </section>
+        )}
 
         <div className="two-column">
           <section className="panel-card">
@@ -1443,9 +1545,7 @@ function HomeSurface({
                 <span className="eyebrow">UP NEXT</span>
                 <h2>Calendar</h2>
               </div>
-              <button className="icon-button small" aria-label="Add calendar item">
-                <Plus />
-              </button>
+              <span className="source-badge">Household calendar</span>
             </div>
             <div className="calendar-list">
               {state.calendar.map((item) => (
@@ -1873,6 +1973,7 @@ function CircleSurfaceView({
   onHelpAction,
   onCreateHelp,
   onIncidentAction,
+  onRoutineSharing,
   pending,
   activeIncident,
 }: {
@@ -1882,6 +1983,7 @@ function CircleSurfaceView({
   onHelpAction: (id: string) => void;
   onCreateHelp: (input: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>) => Promise<boolean>;
   onIncidentAction: (action: 'escalate' | 'resolve') => void;
+  onRoutineSharing: (enabled: boolean) => void;
   pending: boolean;
   activeIncident?: Incident;
 }) {
@@ -1906,7 +2008,9 @@ function CircleSurfaceView({
           </button>
         ))}
       </div>
-      {active === 'overview' && <CircleOverview state={state} />}
+      {active === 'overview' && (
+        <CircleOverview state={state} onShowAll={() => onChange('people')} />
+      )}
       {active === 'help' && (
         <HelpBoard
           state={state}
@@ -1919,12 +2023,14 @@ function CircleSurfaceView({
         <Incidents state={state} onAction={onIncidentAction} pending={pending} />
       )}
       {active === 'people' && <People state={state} />}
-      {active === 'settings' && <CircleSettings />}
+      {active === 'settings' && (
+        <CircleSettings state={state} onRoutineSharing={onRoutineSharing} pending={pending} />
+      )}
     </>
   );
 }
 
-function CircleOverview({ state }: { state: HomeState }) {
+function CircleOverview({ state, onShowAll }: { state: HomeState; onShowAll: () => void }) {
   return (
     <>
       <div className="metric-strip">
@@ -1954,7 +2060,7 @@ function CircleOverview({ state }: { state: HomeState }) {
             <span className="eyebrow">RIGHT NOW</span>
             <h2>Circle availability</h2>
           </div>
-          <button className="text-button">
+          <button className="text-button" onClick={onShowAll}>
             View everyone <ChevronRight />
           </button>
         </div>
@@ -2173,9 +2279,7 @@ function People({ state }: { state: HomeState }) {
           <span className="eyebrow">ROLES & PRIORITY</span>
           <h2>People Sarah trusts</h2>
         </div>
-        <button className="primary-button small">
-          <Plus /> Invite
-        </button>
+        <span className="count-pill">{state.circle.length} trusted people</span>
       </div>
       <div className="people-list">
         {state.circle.map((member) => (
@@ -2186,7 +2290,15 @@ function People({ state }: { state: HomeState }) {
   );
 }
 
-function CircleSettings() {
+function CircleSettings({
+  state,
+  onRoutineSharing,
+  pending,
+}: {
+  state: HomeState;
+  onRoutineSharing: (enabled: boolean) => void;
+  pending: boolean;
+}) {
   return (
     <section className="panel-card toggle-list">
       <div className="toggle-row">
@@ -2194,7 +2306,14 @@ function CircleSettings() {
           <strong>Share routine status</strong>
           <small>“Home,” “away,” or “resting”—never continuous tracking.</small>
         </span>
-        <button className="switch on" role="switch" aria-checked="true">
+        <button
+          className={state.privacy.routineSharing ? 'switch on' : 'switch'}
+          role="switch"
+          aria-checked={state.privacy.routineSharing}
+          aria-label="Share routine status"
+          onClick={() => onRoutineSharing(!state.privacy.routineSharing)}
+          disabled={pending}
+        >
           <span />
         </button>
       </div>
@@ -2203,9 +2322,7 @@ function CircleSettings() {
           <strong>Let coordinators edit Safety Windows</strong>
           <small>Every change requires confirmation and stays in the audit trail.</small>
         </span>
-        <button className="switch on" role="switch" aria-checked="true">
-          <span />
-        </button>
+        <span className="setting-status">Enabled by Sarah</span>
       </div>
       <div className="confirmation-row">
         <ShieldCheck />
@@ -2220,13 +2337,38 @@ function CircleSettings() {
   );
 }
 
-function PlaybooksSurface({ state, onRun }: { state: HomeState; onRun: (id: string) => void }) {
+function PlaybooksSurface({
+  state,
+  onRun,
+  onCreate,
+  pending,
+}: {
+  state: HomeState;
+  onRun: (id: string) => void;
+  onCreate: (input: CreatePlaybookInput) => Promise<boolean>;
+  pending: boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [title, setTitle] = useState('');
+  const [steps, setSteps] = useState('');
   const icons = {
     'power-outage': Power,
     'water-leak': Droplets,
     'extreme-heat': ThermometerSun,
     'severe-weather': CloudSun,
     custom: ClipboardCheck,
+  };
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const planSteps = steps
+      .split('\n')
+      .map((step) => step.trim())
+      .filter(Boolean);
+    if (await onCreate({ title: title.trim(), steps: planSteps })) {
+      setTitle('');
+      setSteps('');
+      setCreating(false);
+    }
   };
   return (
     <>
@@ -2236,6 +2378,54 @@ function PlaybooksSurface({ state, onRun }: { state: HomeState; onRun: (id: stri
         detail="Every provider card says whether it is live, simulated, or unavailable. The plan itself stays usable offline."
         icon={<BookHeart />}
       />
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">RESIDENT-AUTHORED</span>
+          <h2>Plans that fit Sarah’s home</h2>
+        </div>
+        <button
+          className="secondary-button"
+          onClick={() => setCreating((value) => !value)}
+          aria-expanded={creating}
+        >
+          <Plus /> {creating ? 'Close form' : 'New custom plan'}
+        </button>
+      </div>
+      {creating && (
+        <form className="panel-card playbook-form" onSubmit={(event) => void submit(event)}>
+          <div>
+            <label htmlFor="playbook-title">Plan name</label>
+            <input
+              id="playbook-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={120}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="playbook-steps">Steps, one per line</label>
+            <textarea
+              id="playbook-steps"
+              value={steps}
+              onChange={(event) => setSteps(event.target.value)}
+              placeholder={'Stay in the apartment\nAsk Maya to check the building notice'}
+              required
+            />
+          </div>
+          <small>
+            Add 2–12 concise steps. This plan works without Bedrock or a connected provider.
+          </small>
+          <div className="form-actions">
+            <button type="button" className="text-button" onClick={() => setCreating(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="primary-button" disabled={pending}>
+              Save custom plan
+            </button>
+          </div>
+        </form>
+      )}
       <div className="playbook-grid">
         {state.playbooks.map((plan) => {
           const Icon = icons[plan.kind];
@@ -2246,7 +2436,8 @@ function PlaybooksSurface({ state, onRun }: { state: HomeState; onRun: (id: stri
                 <Icon />
               </div>
               <span className="source-badge">
-                {plan.provenance.mode} · {plan.provenance.observedAt.slice(11, 16)}
+                {plan.provenance.mode} ·{' '}
+                {residentTime(plan.provenance.observedAt, state.resident.timezone)}
               </span>
               <h2>{plan.title}</h2>
               <p>{plan.steps[completed]?.label ?? 'Plan complete. Review the record.'}</p>
@@ -2257,7 +2448,7 @@ function PlaybooksSurface({ state, onRun }: { state: HomeState; onRun: (id: stri
                 <small>
                   {completed} of {plan.steps.length} steps
                 </small>
-                <button onClick={() => onRun(plan.id)}>
+                <button onClick={() => onRun(plan.id)} disabled={pending}>
                   {plan.state === 'ready' ? 'Start plan' : 'Next step'} <ChevronRight />
                 </button>
               </div>
@@ -2405,36 +2596,57 @@ function PrivacySurface({
 
 function MemorySurface({
   state,
-  onAdd,
+  onSave,
   pending,
 }: {
   state: HomeState;
-  onAdd: (
+  onSave: (
     input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>,
+    existing?: HouseMemoryItem,
   ) => Promise<boolean>;
   pending: boolean;
 }) {
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [value, setValue] = useState('');
   const [category, setCategory] = useState<HouseMemoryItem['category']>('home');
   const [sensitivity, setSensitivity] = useState<HouseMemoryItem['sensitivity']>('routine');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    const existing = editingId
+      ? state.houseMemory.find((item) => item.id === editingId)
+      : undefined;
     if (
-      await onAdd({
-        label: label.trim(),
-        value: value.trim(),
-        category,
-        sensitivity,
-      })
+      await onSave(
+        {
+          label: label.trim(),
+          value: value.trim(),
+          category,
+          sensitivity,
+        },
+        existing,
+      )
     ) {
       setLabel('');
       setValue('');
       setCategory('home');
       setSensitivity('routine');
+      setEditingId(null);
       setCreating(false);
     }
+  };
+  const closeForm = () => {
+    setCreating(false);
+    setEditingId(null);
+  };
+  const edit = (item: HouseMemoryItem) => {
+    setLabel(item.label);
+    setValue(item.value);
+    setCategory(item.category);
+    setSensitivity(item.sensitivity);
+    setEditingId(item.id);
+    setCreating(true);
   };
   return (
     <>
@@ -2451,7 +2663,11 @@ function MemorySurface({
               <span className={`sensitivity ${item.sensitivity}`}>
                 {item.sensitivity.replace('-', ' ')}
               </span>
-              <button className="icon-button small" aria-label={`More options for ${item.label}`}>
+              <button
+                className="icon-button small"
+                aria-label={`Edit ${item.label}`}
+                onClick={() => edit(item)}
+              >
                 <MoreHorizontal />
               </button>
             </div>
@@ -2464,6 +2680,12 @@ function MemorySurface({
       </div>
       {creating && (
         <form className="panel-card memory-form" onSubmit={(event) => void submit(event)}>
+          <div className="section-heading compact">
+            <div>
+              <span className="eyebrow">{editingId ? 'EDIT DETAIL' : 'NEW DETAIL'}</span>
+              <h2>{editingId ? 'Update this house detail' : 'Add a house detail'}</h2>
+            </div>
+          </div>
           <div>
             <label htmlFor="memory-label">Short label</label>
             <input
@@ -2516,18 +2738,29 @@ function MemorySurface({
             assigned incident before disclosure.
           </small>
           <div className="form-actions">
-            <button type="button" className="text-button" onClick={() => setCreating(false)}>
+            <button type="button" className="text-button" onClick={closeForm}>
               Cancel
             </button>
             <button className="primary-button" type="submit" disabled={pending}>
-              Save house detail
+              {editingId ? 'Save changes' : 'Save house detail'}
             </button>
           </div>
         </form>
       )}
       <button
         className="secondary-button add-memory"
-        onClick={() => setCreating((value) => !value)}
+        onClick={() => {
+          if (creating) {
+            closeForm();
+          } else {
+            setLabel('');
+            setValue('');
+            setCategory('home');
+            setSensitivity('routine');
+            setEditingId(null);
+            setCreating(true);
+          }
+        }}
         aria-expanded={creating}
       >
         <Plus /> {creating ? 'Close form' : 'Add a house detail'}

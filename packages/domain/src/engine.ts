@@ -46,6 +46,11 @@ export interface CreateSafetyWindowInput {
   escalationMemberIds: string[];
 }
 
+export interface CreatePlaybookInput {
+  title: string;
+  steps: string[];
+}
+
 export class StayEngine {
   readonly #processed = new Map<string, CommandResult<unknown>>();
   #state: HomeState;
@@ -837,6 +842,48 @@ export class StayEngine {
         ...this.#result(playbook, [event]),
         provenance: playbook.provenance,
       };
+    });
+  }
+
+  public createPlaybook(
+    input: CreatePlaybookInput,
+    meta: Omit<CommandMeta, 'expectedVersion'>,
+  ): CommandResult<Playbook> {
+    requirePermission(meta.actor, 'playbook:execute');
+    return this.#idempotent<Playbook>(meta.idempotencyKey, () => {
+      const title = input.title.trim();
+      const steps = input.steps.map((step) => step.trim()).filter(Boolean);
+      if (!title || title.length > 120) {
+        throw new StayDomainError('BAD_REQUEST', 'A short custom plan title is required.');
+      }
+      if (steps.length < 2 || steps.length > 12 || steps.some((step) => step.length > 160)) {
+        throw new StayDomainError('BAD_REQUEST', 'Add between 2 and 12 concise plan steps.');
+      }
+      const now = this.#now(meta);
+      const playbook: Playbook = {
+        id: this.#entityId('playbook', meta.idempotencyKey),
+        title,
+        kind: 'custom',
+        state: 'ready',
+        steps: steps.map((label, index) => ({
+          id: `${this.#entityId('step', meta.idempotencyKey)}-${index + 1}`,
+          label,
+          completed: false,
+        })),
+        provenance: {
+          mode: 'live',
+          provider: 'Resident-authored STAY plan',
+          observedAt: now,
+        },
+        version: 1,
+      };
+      this.#state.playbooks.unshift(playbook);
+      const event = this.#event('Playbook.Created', 'playbook', playbook.id, now, meta.actor, {
+        kind: playbook.kind,
+        stepCount: playbook.steps.length,
+      });
+      this.#outbox(event);
+      return this.#result(playbook, [event]);
     });
   }
 

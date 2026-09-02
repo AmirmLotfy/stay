@@ -38,18 +38,26 @@ test('makes adaptive access, routine help, and resident check-in controls functi
   page,
 }) => {
   const navigate = async (
-    name: 'Today' | 'Access' | 'Windows' | 'Circle' | 'Privacy' | 'House Memory',
+    name: 'Today' | 'Access' | 'Windows' | 'Circle' | 'Plans' | 'Privacy' | 'House Memory',
   ) => {
     const menu = page.getByRole('button', { name: 'Open menu' });
     if (await menu.isVisible()) await menu.click();
     await page.getByRole('button', { name }).click();
   };
   await page.goto('/');
+  await page.getByRole('button', { name: 'Notifications' }).click();
+  await expect(page.getByText('No new notifications. Sarah’s home remains settled.')).toBeVisible();
+  await page.getByRole('button', { name: 'Tell me more' }).click();
+  await expect(
+    page.locator('.transcript p.stay').filter({ hasText: 'The bin is beside the back door.' }),
+  ).toBeVisible();
   const taskButton = page.getByRole('button', { name: 'Mark the recycling reminder complete' });
   await taskButton.click();
   await expect(
     page.getByRole('button', { name: 'Make the recycling reminder active again' }),
   ).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Full home check' }).click();
+  await expect(page.getByText('Front and side doors reported closed.')).toBeVisible();
 
   await navigate('Access');
   await page.getByRole('switch', { name: 'One Thing Mode' }).click();
@@ -84,6 +92,21 @@ test('makes adaptive access, routine help, and resident check-in controls functi
     .fill('Please bring a warm LED bulb before tomorrow evening.');
   await page.getByRole('button', { name: 'Post to my Circle' }).click();
   await expect(page.getByRole('heading', { name: 'Replace the porch light' })).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Circle navigation' })
+    .getByRole('button', { name: 'Overview' })
+    .click();
+  await page.getByRole('button', { name: 'View everyone' }).click();
+  await expect(page.getByRole('heading', { name: 'People Sarah trusts' })).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Circle navigation' })
+    .getByRole('button', { name: 'Circle settings' })
+    .click();
+  await page.getByRole('switch', { name: 'Share routine status' }).click();
+  await expect(page.getByRole('switch', { name: 'Share routine status' })).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
 
   await navigate('House Memory');
   await page.getByRole('button', { name: 'Add a house detail' }).click();
@@ -92,6 +115,19 @@ test('makes adaptive access, routine help, and resident check-in controls functi
   await page.getByLabel('Category').selectOption('maintenance');
   await page.getByRole('button', { name: 'Save house detail' }).click();
   await expect(page.getByRole('heading', { name: 'Porch bulb' })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit Porch bulb' }).click();
+  await page.getByLabel('House detail').fill('Warm LED, E26 base, 800 lumens');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Warm LED, E26 base, 800 lumens')).toBeVisible();
+
+  await navigate('Plans');
+  await page.getByRole('button', { name: 'New custom plan' }).click();
+  await page.getByLabel('Plan name').fill('Elevator outage');
+  await page
+    .getByLabel('Steps, one per line')
+    .fill('Stay inside the apartment\nAsk Maya to check the building notice');
+  await page.getByRole('button', { name: 'Save custom plan' }).click();
+  await expect(page.getByRole('heading', { name: 'Elevator outage' })).toBeVisible();
 
   await navigate('Privacy');
   await page.getByRole('button', { name: 'Private for 2 hours' }).click();
