@@ -30,8 +30,21 @@ These specifications are the approved-source candidates for STAY submission medi
 
 ## Voice-over candidate HF-VO-001
 
-See `VOICEOVER_SCRIPT.md`. Target: warm, grounded English voice; 135–145 words per minute; no announcer delivery. Model, voice, and displayed cost remain pending live preflight.
+See `VOICEOVER_SCRIPT.md`. Target: warm, grounded English voice; 135–145 words per minute; no announcer delivery.
+
+- Live surface checked: 2026-09-02T03:14:42Z
+- Surface: Audio → Text to Speech
+- Model: MiniMax Speech 2.8 HD
+- Voice: Faye, fictional female preset
+- Batch: 1
+- Script: 324 words, 2,179 characters
+- Exact script SHA-256: `8a1039e9a92fa59e89bd580fe8456bc88b1a881f93ae0db0bda2f8edac25c7ca`
+- Displayed cost: 6.6 credits
+- Account warning: more than 90% of credits already used
+- Status: `PREPARED_NOT_DISPATCHED`; Generate was not clicked and no credits were spent
 
 ## Music candidate HF-MUSIC-001
 
-Target: 175-second instrumental tonal bed; warm felt piano, low marimba pulse, brushed texture, and restrained acoustic room tone; no vocals, no synthetic risers, no cinematic alarm cues, no melody that competes with narration. Model and displayed cost remain pending live preflight.
+Target: 175-second instrumental tonal bed; warm felt piano, low marimba pulse, brushed texture, and restrained acoustic room tone; no vocals, no synthetic risers, no cinematic alarm cues, no melody that competes with narration.
+
+The authenticated Higgsfield Audio surface was checked at 2026-09-02T03:14:42Z. It exposed Text to Speech, Voice Change, and Translate, but no music mode; Higgsfield's own product search returned no result for “music.” This asset remains `PROVIDER_UNAVAILABLE` until a native, provenance-preserving Higgsfield music control is visibly available. No substitute source is represented as Higgsfield output.
