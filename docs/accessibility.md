@@ -15,7 +15,7 @@ Every protected action has a visible control, accessible name, text status, and 
 
 ## Test matrix
 
-Automated Playwright/axe runs cover desktop, mobile, 1280 × 800 Echo Show 8 simulation, 1920 × 1080 Echo Show 15 simulation, keyboard navigation, touch-only protected flow, light/dark themes, and emergency boundary copy.
+Automated Playwright/axe runs cover 36 scenarios across desktop, mobile, 1280 × 800 Echo Show 8 simulation, and 1920 × 1080 Echo Show 15 simulation. They exercise keyboard and activated skip navigation, touch-only protected flow, 48 × 48 targets across resident and Circle surfaces, system-aware persistent themes, RTL mobile-shell readiness, and emergency boundary copy.
 
 Manual release evidence still required:
 

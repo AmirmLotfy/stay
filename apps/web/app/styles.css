@@ -89,7 +89,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-block-size: 44px;
+  min-block-size: 48px;
   padding-inline: 13px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -191,7 +191,8 @@ svg {
 .sidebar {
   position: fixed;
   z-index: 30;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline-start: 0;
   display: flex;
   flex-direction: column;
   inline-size: 252px;
@@ -247,9 +248,10 @@ svg {
   background: rgba(255, 255, 255, 0.07);
 }
 .nav-item.active {
+  border-inline-start: 3px solid var(--sea-glass);
+  padding-inline-start: 11px;
   color: #fffefa;
   background: rgba(183, 211, 200, 0.18);
-  box-shadow: inset 3px 0 var(--sea-glass);
 }
 .sidebar-foot {
   display: grid;
@@ -354,8 +356,8 @@ svg {
   background: var(--surface-muted);
 }
 .icon-button.small {
-  min-inline-size: 38px;
-  min-block-size: 38px;
+  min-inline-size: 48px;
+  min-block-size: 48px;
 }
 .notification-dot {
   position: absolute;
@@ -807,7 +809,7 @@ svg {
   background: var(--clay);
 }
 .primary-button.small {
-  min-block-size: 42px;
+  min-block-size: 48px;
 }
 .secondary-button {
   border: 1px solid var(--line);
@@ -916,7 +918,7 @@ svg {
   color: rgba(255, 254, 250, 0.72);
 }
 .echo-action {
-  min-block-size: 42px;
+  min-block-size: 48px;
   padding-inline: 17px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 9px;
@@ -1076,16 +1078,24 @@ svg {
   position: relative;
   flex: 0 0 auto;
   inline-size: 52px;
-  block-size: 30px;
+  min-block-size: 48px;
   padding: 0;
   border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.switch::before {
+  position: absolute;
+  inset-block-start: 9px;
+  inset-inline: 0;
+  block-size: 30px;
   border-radius: 30px;
   background: #a7aaa7;
-  cursor: pointer;
+  content: '';
 }
 .switch span {
   position: absolute;
-  inset-block-start: 4px;
+  inset-block-start: 13px;
   inset-inline-start: 4px;
   inline-size: 22px;
   block-size: 22px;
@@ -1094,10 +1104,16 @@ svg {
   transition: transform 180ms ease;
 }
 .switch.on {
+  background: transparent;
+}
+.switch.on::before {
   background: #245248;
 }
 .switch.on span {
   transform: translateX(22px);
+}
+:root[dir='rtl'] .switch.on span {
+  transform: translateX(-22px);
 }
 .safety-callout,
 .provider-disclosure,
@@ -1286,8 +1302,8 @@ svg {
   inset-inline-end: 18px;
   display: grid;
   place-items: center;
-  inline-size: 39px;
-  block-size: 39px;
+  inline-size: 48px;
+  block-size: 48px;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: transparent;
@@ -1357,7 +1373,7 @@ svg {
 }
 .person-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 13px;
   min-block-size: 76px;
@@ -1506,7 +1522,7 @@ svg {
 }
 .request-foot button {
   margin-inline-start: auto;
-  min-block-size: 40px;
+  min-block-size: 48px;
   padding-inline: 13px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -1730,7 +1746,7 @@ svg {
 .playbook-foot button {
   display: flex;
   align-items: center;
-  min-block-size: 44px;
+  min-block-size: 48px;
   border: 0;
   color: var(--pine);
   background: transparent;
@@ -1920,7 +1936,14 @@ svg {
     transition: transform 200ms ease;
     box-shadow: 20px 0 55px rgba(0, 0, 0, 0.25);
   }
+  :root[dir='rtl'] .sidebar {
+    transform: translateX(105%);
+    box-shadow: -20px 0 55px rgba(0, 0, 0, 0.25);
+  }
   .sidebar-open {
+    transform: none;
+  }
+  :root[dir='rtl'] .sidebar-open {
     transform: none;
   }
   .workspace {
@@ -2071,10 +2094,6 @@ svg {
   .person-row .role-pill,
   .person-row .availability {
     grid-column: 2;
-  }
-  .person-row > svg {
-    grid-column: 3;
-    grid-row: 1 / span 2;
   }
   .help-board-intro,
   .incident-heading,

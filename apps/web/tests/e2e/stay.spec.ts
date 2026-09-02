@@ -20,11 +20,121 @@ test('supports keyboard navigation and has no serious automatic accessibility fi
 }) => {
   await page.goto('/');
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
+  const skipLink = page.getByRole('link', { name: 'Skip to main content' });
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#main-content')).toBeFocused();
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(
     results.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
   ).toEqual([]);
+});
+
+test('persists an explicit theme while otherwise following the system preference', async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  await page.evaluate(() => window.localStorage.removeItem('stay-theme-v1'));
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+
+  await page.getByRole('button', { name: 'Use light theme' }).click();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe('light');
+  await page.reload();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe('light');
+});
+
+test('keeps compact controls at the STAY 48 pixel touch-target minimum', async ({ page }) => {
+  const expectMinimumTarget = async (selector: string) => {
+    const box = await page.locator(selector).first().boundingBox();
+    expect(box, `${selector} should be visible`).not.toBeNull();
+    expect(box!.width, `${selector} width`).toBeGreaterThanOrEqual(48);
+    expect(box!.height, `${selector} height`).toBeGreaterThanOrEqual(48);
+  };
+  const expectAllVisibleButtonsToMeetMinimum = async () => {
+    const undersized = await page.locator('button').evaluateAll((buttons) =>
+      buttons.flatMap((button) => {
+        if (button.closest('nextjs-portal')) return [];
+        const rect = button.getBoundingClientRect();
+        const style = window.getComputedStyle(button);
+        if (
+          style.display === 'none' ||
+          style.visibility === 'hidden' ||
+          rect.width === 0 ||
+          rect.height === 0 ||
+          (rect.width >= 48 && rect.height >= 48)
+        ) {
+          return [];
+        }
+        return [
+          {
+            name: button.getAttribute('aria-label') ?? button.textContent?.trim() ?? 'unnamed',
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          },
+        ];
+      }),
+    );
+    expect(undersized).toEqual([]);
+  };
+
+  await page.goto('/');
+  await expectAllVisibleButtonsToMeetMinimum();
+  await expectMinimumTarget('.echo-action');
+  await page.getByRole('button', { name: /Open notifications/ }).click();
+  await expectMinimumTarget('.icon-button.small');
+  await page.getByRole('button', { name: 'Close updates panel' }).click();
+
+  const navigate = async (
+    name: 'Access' | 'Windows' | 'Circle' | 'Plans' | 'Privacy' | 'House Memory',
+  ) => {
+    const menu = page.getByRole('button', { name: 'Open menu' });
+    if (await menu.isVisible()) await menu.click();
+    await page.getByRole('button', { name }).click();
+    await expectAllVisibleButtonsToMeetMinimum();
+  };
+
+  await navigate('Access');
+  await expectMinimumTarget('.switch');
+  await navigate('Windows');
+  await expectMinimumTarget('.template-card button');
+  await navigate('Circle');
+  const circleNavigation = page.getByRole('navigation', { name: 'Circle navigation' });
+  for (const destination of ['Help Board', 'Incidents', 'People', 'Circle settings']) {
+    await circleNavigation.getByRole('button', { name: destination, exact: true }).click();
+    await expectAllVisibleButtonsToMeetMinimum();
+  }
+  await navigate('Plans');
+  await navigate('Privacy');
+  await navigate('House Memory');
+});
+
+test('keeps the mobile shell aligned when the document direction is RTL', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Good morning, Sarah.' })).toBeVisible();
+  await page.evaluate(() => {
+    document.documentElement.dir = 'rtl';
+  });
+  await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  const sidebar = page.getByRole('complementary', { name: 'Primary navigation' });
+  await expect(sidebar).toHaveCSS('transform', 'none');
+  const sidebarState = await sidebar.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    return {
+      insetInlineStart: style.insetInlineStart,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(sidebarState).toEqual({ insetInlineStart: '0px', overflow: 0 });
 });
 
 test('shows a clear emergency boundary in the voice simulator', async ({ page }) => {
@@ -79,7 +189,7 @@ test('makes adaptive access, routine help, and resident check-in controls functi
   await page.getByRole('button', { name: 'Set up Arrived home' }).click();
   await page.getByLabel('Window name').fill('Afternoon return');
   await page.getByRole('button', { name: 'Schedule window' }).click();
-  await expect(page.getByText(/Afternoon return is scheduled/i)).toBeVisible();
+  await expect(page.getByRole('status')).toContainText(/Afternoon return is scheduled/i);
 
   await navigate('Circle');
   await page

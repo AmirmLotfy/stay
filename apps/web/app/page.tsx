@@ -197,6 +197,7 @@ function browserAccessPreferences(fallback: HomeState['access']): HomeState['acc
 export default function StayApp() {
   const engine = useRef(new StayEngine());
   const accessUpdateQueue = useRef(Promise.resolve());
+  const explicitThemePreference = useRef(false);
   const [state, setState] = useState<HomeState>(() => createDemoState());
   const [surface, setSurface] = useState<Surface>('home');
   const [circleSurface, setCircleSurface] = useState<CircleSurface>('overview');
@@ -327,8 +328,42 @@ export default function StayApp() {
   }, [actionPending, demoSession, runtimeConfig]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    let savedTheme: 'light' | 'dark' | null = null;
+    try {
+      const stored = window.localStorage.getItem('stay-theme-v1');
+      if (stored === 'light' || stored === 'dark') savedTheme = stored;
+    } catch {
+      // A blocked storage API should not prevent the system preference from working.
+    }
+    explicitThemePreference.current = savedTheme !== null;
+    const initialTheme = savedTheme ?? (media.matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = initialTheme;
+    setTheme(initialTheme);
+
+    const followSystemTheme = (event: MediaQueryListEvent) => {
+      if (explicitThemePreference.current) return;
+      const nextTheme = event.matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = nextTheme;
+      setTheme(nextTheme);
+    };
+    media.addEventListener('change', followSystemTheme);
+    return () => media.removeEventListener('change', followSystemTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme((current) => {
+      const nextTheme = current === 'light' ? 'dark' : 'light';
+      explicitThemePreference.current = true;
+      document.documentElement.dataset.theme = nextTheme;
+      try {
+        window.localStorage.setItem('stay-theme-v1', nextTheme);
+      } catch {
+        // The theme still applies for this session when storage is unavailable.
+      }
+      return nextTheme;
+    });
+  };
 
   useEffect(() => {
     if (!notificationsOpen) return;
@@ -1316,7 +1351,7 @@ export default function StayApp() {
             )}
             <button
               className="icon-button"
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              onClick={toggleTheme}
               aria-label={`Use ${theme === 'light' ? 'dark' : 'light'} theme`}
             >
               {theme === 'light' ? <Moon /> : <Sun />}
@@ -1429,8 +1464,11 @@ export default function StayApp() {
           )}
         </header>
 
-        <div className="content-grid" id="main-content">
-          <section className="main-panel" aria-live="polite">
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {notice}
+        </p>
+        <div className="content-grid" id="main-content" tabIndex={-1}>
+          <section className="main-panel">
             {lastError && (
               <div className="error-banner" role="alert">
                 {lastError}
@@ -2992,7 +3030,6 @@ function PersonRow({
         {member.availability === 'responding' ? 'On the way' : member.availability}
         {member.availability === 'available' && <small> · ~{member.responseMinutes} min</small>}
       </span>
-      <ChevronRight />
     </div>
   );
 }
