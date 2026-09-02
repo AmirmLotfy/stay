@@ -117,7 +117,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence: https://github.com/AmirmLotfy/stay/actions/runs/33601453126
+Public CI evidence: https://github.com/AmirmLotfy/stay/actions/runs/33604454177
 
 ## Screenshot Shot List
 
@@ -156,7 +156,7 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 - Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
 - Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.
 
-## TODO Official Form Fields — Copy Pack
+## Official Form Fields — Copy Pack
 
 Official requirements fetched from Devpost on 2026-09-02. Do not submit the bracketed participant assertions without Amir’s confirmation.
 
@@ -284,6 +284,6 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Media evidence:** six tracked screenshots, a tracked 170-second 1080p picture master, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** prepared but not deployed; do not replace `[DEPLOYED_HTTPS_URL]` until fresh unauthenticated-browser evidence passes.
 - **Video:** 170-second picture-only candidate exists; final voice, audio decision, deployed URL, and public YouTube link remain.
-- **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits are preflighted but not generated; account warns that more than 90% of credits are used. Native Higgsfield music generation is currently unavailable in the authenticated Audio surface.
+- **Higgsfield:** logo 8.5 credits and voice-over 6.6 credits were explicitly approved but not generated; the skill bundle is present while the underlying Higgsfield app connection reports `not_installed`, so no plugin generation action is callable and no credits were spent. Native Higgsfield music generation was unavailable in the authenticated Audio surface.
 - **Participant assertions:** submitter type, organization, country, Canadian province, age, eligible jurisdiction, and employee status require Amir’s explicit confirmation.
 - **Final action:** do not submit without the dedicated final confirmation.

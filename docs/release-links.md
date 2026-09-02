@@ -8,7 +8,7 @@ This is the single copy source for judge-facing links. Replace only the brackete
 | Demo video                        | `[PUBLIC_YOUTUBE_URL]`                                            | Public, embeddable, English, HD, captions available, under three minutes        |
 | Public source                     | https://github.com/AmirmLotfy/stay                                | Public repository and Apache-2.0 detection                                      |
 | Setup instructions                | https://github.com/AmirmLotfy/stay#run-locally                    | Clean clone follows the documented path                                         |
-| Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/33601453126       | Green run for the bounded Bedrock intent-path release candidate                 |
+| Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/33604454177       | Green run for the secure deployment and `saystay.site` release candidate        |
 | Friction log                      | https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md | Publicly readable                                                               |
 | Devpost project                   | https://devpost.com/software/stay-ljbdk8                          | Remains a draft until the separate final submission confirmation                |
 | MCP endpoint                      | `[API_HTTPS_URL]/mcp`                                             | Protocol, origin, bearer scope, initialize/list/call, and error tests pass live |
