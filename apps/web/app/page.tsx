@@ -1,7 +1,7 @@
 'use client';
 
-import type { ActorContext, Incident, SafetyWindow } from '@stay/contracts';
-import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
+import type { ActorContext, HelpRequest, Incident, Playbook, SafetyWindow } from '@stay/contracts';
+import { createDemoState, StayEngine, type HomeState } from '@stay/domain';
 import {
   Accessibility,
   BellRing,
@@ -130,6 +130,39 @@ function browserDemoSession(): { id: string; expiresAt: string } {
   return session;
 }
 
+function browserAccessPreferences(fallback: HomeState['access']): HomeState['access'] {
+  try {
+    const raw = window.localStorage.getItem('stay-access-preferences-v1');
+    if (!raw) return fallback;
+    const value = JSON.parse(raw) as Partial<HomeState['access']>;
+    return {
+      ...fallback,
+      ...(value.interactionMode &&
+      ['voice-first', 'touch-first', 'balanced'].includes(value.interactionMode)
+        ? { interactionMode: value.interactionMode }
+        : {}),
+      ...(typeof value.reducedLoad === 'boolean' ? { reducedLoad: value.reducedLoad } : {}),
+      ...(typeof value.highLegibility === 'boolean'
+        ? { highLegibility: value.highLegibility }
+        : {}),
+      ...(typeof value.captions === 'boolean' ? { captions: value.captions } : {}),
+      ...(typeof value.extraResponseTime === 'boolean'
+        ? { extraResponseTime: value.extraResponseTime }
+        : {}),
+      ...(typeof value.repeatInformation === 'boolean'
+        ? { repeatInformation: value.repeatInformation }
+        : {}),
+      ...(typeof value.highContrast === 'boolean' ? { highContrast: value.highContrast } : {}),
+      ...(typeof value.reducedMotion === 'boolean' ? { reducedMotion: value.reducedMotion } : {}),
+      ...(value.textScale && ['default', 'large', 'extra-large'].includes(value.textScale)
+        ? { textScale: value.textScale }
+        : {}),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export default function StayApp() {
   const engine = useRef(new StayEngine());
   const [state, setState] = useState<HomeState>(() => createDemoState());
@@ -156,12 +189,20 @@ export default function StayApp() {
   const [actionPending, setActionPending] = useState(false);
 
   const refresh = useCallback(() => setState(engine.current.snapshot()), []);
+  const replaceUiState = useCallback((next: HomeState) => {
+    engine.current = new StayEngine(next);
+    setState(next);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const useBrowserFallback = (message?: string) => {
       if (cancelled) return;
       const session = browserDemoSession();
+      const next = engine.current.snapshot();
+      next.access = browserAccessPreferences(next.access);
+      engine.current = new StayEngine(next);
+      setState(next);
       setDemoSession(null);
       setSessionLabel(`Browser-only demo · ${session.id.slice(-5)}`);
       setReady(true);
@@ -184,6 +225,7 @@ export default function StayApp() {
         }
         const session = await createDemoSession(config);
         const hydrated = await hydrateDemoState(config, session, createDemoState());
+        hydrated.access = browserAccessPreferences(hydrated.access);
         if (cancelled) return;
         engine.current = new StayEngine(hydrated);
         setState(hydrated);
@@ -235,20 +277,13 @@ export default function StayApp() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  const run = useCallback(
-    (operation: () => void) => {
-      setLastError(null);
-      try {
-        operation();
-        refresh();
-      } catch (error) {
-        setLastError(
-          error instanceof StayDomainError ? error.message : 'That action could not be completed.',
-        );
-      }
-    },
-    [refresh],
-  );
+  useEffect(() => {
+    if (!ready) return;
+    document.documentElement.dataset.highContrast = String(state.access.highContrast);
+    document.documentElement.dataset.reducedMotion = String(state.access.reducedMotion);
+    document.documentElement.dataset.textScale = state.access.textScale;
+    window.localStorage.setItem('stay-access-preferences-v1', JSON.stringify(state.access));
+  }, [ready, state.access]);
 
   const runProtectedDemo = useCallback(async () => {
     if (actionPending) return;
@@ -456,6 +491,296 @@ export default function StayApp() {
     }
   }, [actionPending, demoSession, demoStep, refresh, runtimeConfig]);
 
+  const manageOneThing = useCallback(async () => {
+    if (actionPending) return;
+    const task = engine.current.snapshot().oneThing;
+    const action = ['completed', 'cancelled'].includes(task.state) ? 'reset' : 'complete';
+    const idempotencyKey = uid(`task-${action}`);
+    setActionPending(true);
+    setLastError(null);
+    try {
+      if (runtimeConfig && demoSession) {
+        const remote = await runDemoCommand<HomeState['oneThing']>(runtimeConfig, demoSession, {
+          group: 'tasks',
+          action,
+          entityId: task.id,
+          expectedVersion: task.version,
+          idempotencyKey,
+        });
+        const next = engine.current.snapshot();
+        next.oneThing = remote.entity;
+        engine.current = new StayEngine(next);
+        setState(next);
+      } else {
+        engine.current.manageTaskSession(action, {
+          actor: residentActor,
+          idempotencyKey,
+          expectedVersion: task.version,
+        });
+        refresh();
+      }
+      setNotice(
+        action === 'complete'
+          ? 'One Thing complete. Sarah can choose what deserves attention next.'
+          : 'One Thing is ready again.',
+      );
+    } catch (error) {
+      setLastError(error instanceof Error ? error.message : 'The task did not change.');
+    } finally {
+      setActionPending(false);
+    }
+  }, [actionPending, demoSession, refresh, runtimeConfig]);
+
+  const manageSafetyWindow = useCallback(
+    async (action: 'check-in' | 'close-early' | 'cancel') => {
+      if (actionPending) return;
+      const window = engine.current.snapshot().safetyWindows[0];
+      if (!window) return;
+      setActionPending(true);
+      setLastError(null);
+      const idempotencyKey = uid(`window-${action}`);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<SafetyWindow>(runtimeConfig, demoSession, {
+            group: 'safety-windows',
+            action,
+            entityId: window.id,
+            expectedVersion: window.version,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.safetyWindows = next.safetyWindows.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else if (action === 'cancel') {
+          engine.current.cancelSafetyWindow(window.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: window.version,
+          });
+          refresh();
+        } else {
+          engine.current.checkInSafetyWindow(
+            window.id,
+            { actor: residentActor, idempotencyKey, expectedVersion: window.version },
+            action === 'close-early',
+          );
+          refresh();
+        }
+        setDemoStep(0);
+        setNotice(
+          action === 'cancel'
+            ? 'Morning Window cancelled. No Circle coordination will begin.'
+            : action === 'close-early'
+              ? 'Morning Window closed early. Sarah remains in control.'
+              : 'Sarah checked in. No Circle coordination is needed.',
+        );
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The Safety Window did not change.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const manageHelpRequest = useCallback(
+    async (requestId: string) => {
+      if (actionPending) return;
+      const request = engine.current
+        .snapshot()
+        .helpRequests.find((candidate) => candidate.id === requestId);
+      if (!request || ['completed', 'cancelled', 'declined'].includes(request.state)) return;
+      const action = request.state === 'assigned' ? 'complete' : 'accept';
+      const idempotencyKey = uid(`help-${action}`);
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<HelpRequest>(runtimeConfig, demoSession, {
+            group: 'help-requests',
+            action,
+            entityId: request.id,
+            expectedVersion: request.version,
+            ...(action === 'accept' ? { memberId: 'member-tom' } : {}),
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.helpRequests = next.helpRequests.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else if (action === 'accept') {
+          engine.current.acceptHelpRequest(request.id, 'member-tom', {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: request.version,
+          });
+          refresh();
+        } else {
+          engine.current.completeHelpRequest(request.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: request.version,
+          });
+          refresh();
+        }
+        setNotice(
+          action === 'accept'
+            ? 'Tom accepted this ordinary help request and now owns it.'
+            : 'The ordinary help request is complete.',
+        );
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The help request did not change.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const createHelpRequest = useCallback(
+    async (input: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>) => {
+      if (actionPending) return false;
+      const idempotencyKey = uid('help-create');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<HelpRequest>(runtimeConfig, demoSession, {
+            group: 'help-requests',
+            action: 'create',
+            title: input.title,
+            detail: input.detail,
+            urgency: input.urgency,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.helpRequests = [
+            remote.entity,
+            ...next.helpRequests.filter((item) => item.id !== remote.entity.id),
+          ];
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.requestHelp(input, { actor: residentActor, idempotencyKey });
+          refresh();
+        }
+        setNotice('The help request is on Sarah’s private Help Board.');
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The help request was not created.');
+        return false;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const manageIncident = useCallback(
+    async (action: 'escalate' | 'resolve') => {
+      if (actionPending) return;
+      const incident = engine.current.snapshot().incidents[0];
+      if (!incident) return;
+      const idempotencyKey = uid(`incident-${action}`);
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<Incident>(runtimeConfig, demoSession, {
+            group: 'incidents',
+            action,
+            entityId: incident.id,
+            expectedVersion: incident.version,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.incidents = next.incidents.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          if (action === 'resolve') {
+            next.safetyWindows = next.safetyWindows.map((window) =>
+              `incident-${window.id}` === incident.id
+                ? { ...window, state: 'resolved', version: window.version + 1 }
+                : window,
+            );
+          }
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else if (action === 'escalate') {
+          engine.current.escalateIncident(incident.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: incident.version,
+          });
+          refresh();
+        } else {
+          engine.current.resolveIncident(incident.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: incident.version,
+          });
+          refresh();
+        }
+        setNotice(
+          action === 'escalate'
+            ? 'The Circle plan moved to the next preconfigured contact.'
+            : 'Sarah is okay. The incident is resolved and remains in the audit trail.',
+        );
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The incident did not change.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const advancePlaybook = useCallback(
+    async (id: string) => {
+      if (actionPending) return;
+      const playbook = engine.current.snapshot().playbooks.find((item) => item.id === id);
+      if (!playbook) return;
+      const idempotencyKey = uid('playbook');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<Playbook>(runtimeConfig, demoSession, {
+            group: 'playbooks',
+            action: 'next-step',
+            entityId: playbook.id,
+            expectedVersion: playbook.version,
+            idempotencyKey,
+          });
+          const next = engine.current.snapshot();
+          next.playbooks = next.playbooks.map((item) =>
+            item.id === remote.entity.id ? remote.entity : item,
+          );
+          engine.current = new StayEngine(next);
+          setState(next);
+        } else {
+          engine.current.executePlaybook(id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: playbook.version,
+          });
+          refresh();
+        }
+        setNotice(`${playbook.title} advanced one deterministic step.`);
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The playbook did not change.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
   const submitPhrase = (event: FormEvent) => {
     event.preventDefault();
     const clean = phrase.trim();
@@ -496,7 +821,12 @@ export default function StayApp() {
   const activeIncident = state.incidents[0];
 
   return (
-    <main className="app-shell" data-ready={ready}>
+    <main
+      className="app-shell"
+      data-ready={ready}
+      data-reduced-load={state.access.reducedLoad}
+      data-interaction-mode={state.access.interactionMode}
+    >
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -604,39 +934,44 @@ export default function StayApp() {
                 {lastError}
               </div>
             )}
-            {surface === 'home' && <HomeSurface state={state} onNavigate={setSurface} />}
+            {surface === 'home' && (
+              <HomeSurface
+                state={state}
+                onNavigate={setSurface}
+                onTaskAction={() => void manageOneThing()}
+                pending={actionPending}
+              />
+            )}
             {surface === 'access' && (
               <AccessSurface
                 state={state}
-                onChange={(next) => setState({ ...state, access: next })}
+                onChange={(next) => replaceUiState({ ...state, access: next })}
               />
             )}
-            {surface === 'windows' && <WindowsSurface state={state} demoStep={demoStep} />}
+            {surface === 'windows' && (
+              <WindowsSurface
+                state={state}
+                demoStep={demoStep}
+                pending={actionPending}
+                onAction={(action) => void manageSafetyWindow(action)}
+              />
+            )}
             {surface === 'circle' && (
               <CircleSurfaceView
                 state={state}
                 active={circleSurface}
                 onChange={setCircleSurface}
+                onHelpAction={(id) => void manageHelpRequest(id)}
+                onCreateHelp={createHelpRequest}
+                onIncidentAction={(action) => void manageIncident(action)}
+                pending={actionPending}
                 {...(activeIncident ? { activeIncident } : {})}
               />
             )}
             {surface === 'playbooks' && (
-              <PlaybooksSurface
-                state={state}
-                onRun={(id) =>
-                  run(() => {
-                    const item = engine.current.snapshot().playbooks.find((plan) => plan.id === id);
-                    if (item)
-                      engine.current.executePlaybook(id, {
-                        actor: residentActor,
-                        idempotencyKey: uid('playbook'),
-                        expectedVersion: item.version,
-                      });
-                  })
-                }
-              />
+              <PlaybooksSurface state={state} onRun={(id) => void advancePlaybook(id)} />
             )}
-            {surface === 'privacy' && <PrivacySurface state={state} onChange={setState} />}
+            {surface === 'privacy' && <PrivacySurface state={state} onChange={replaceUiState} />}
             {surface === 'memory' && <MemorySurface state={state} />}
           </section>
 
@@ -760,9 +1095,13 @@ export default function StayApp() {
 function HomeSurface({
   state,
   onNavigate,
+  onTaskAction,
+  pending,
 }: {
   state: HomeState;
   onNavigate: (surface: Surface) => void;
+  onTaskAction: () => void;
+  pending: boolean;
 }) {
   return (
     <>
@@ -783,7 +1122,7 @@ function HomeSurface({
         </div>
       </header>
 
-      <section className="one-thing-card">
+      <section className={state.oneThing.completed ? 'one-thing-card completed' : 'one-thing-card'}>
         <div className="pin-icon">
           <ClipboardCheck />
         </div>
@@ -792,86 +1131,98 @@ function HomeSurface({
           <h2>{state.oneThing.title}</h2>
           <p>{state.oneThing.detail}</p>
         </div>
-        <button className="round-check" aria-label="Mark the recycling reminder complete">
+        <button
+          className="round-check"
+          aria-label={
+            state.oneThing.completed
+              ? 'Make the recycling reminder active again'
+              : 'Mark the recycling reminder complete'
+          }
+          aria-pressed={state.oneThing.completed}
+          onClick={onTaskAction}
+          disabled={pending}
+        >
           <Check />
         </button>
       </section>
 
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">A QUIET OVERVIEW</span>
-          <h2>Today at home</h2>
-        </div>
-        <button className="text-button">
-          Full home check <ChevronRight />
-        </button>
-      </div>
-      <div className="status-cards">
-        <article className="status-card">
-          <div className="status-card-icon pine">
-            <Home />
-          </div>
+      <div className="secondary-home-content">
+        <div className="section-heading">
           <div>
-            <span>Home check</span>
-            <strong>Doors closed</strong>
-            <small>Kitchen and hall look settled</small>
+            <span className="eyebrow">A QUIET OVERVIEW</span>
+            <h2>Today at home</h2>
           </div>
-          <span className="source-badge">Simulated · 8:41</span>
-        </article>
-        <article className="status-card">
-          <div className="status-card-icon mustard">
-            <Lightbulb />
-          </div>
-          <div>
-            <span>Path lighting</span>
-            <strong>Ready at sunset</strong>
-            <small>Hall and bathroom route</small>
-          </div>
-          <span className="source-badge">Simulated · 8:40</span>
-        </article>
-      </div>
-
-      <div className="two-column">
-        <section className="panel-card">
-          <div className="section-heading compact">
-            <div>
-              <span className="eyebrow">UP NEXT</span>
-              <h2>Calendar</h2>
-            </div>
-            <button className="icon-button small" aria-label="Add calendar item">
-              <Plus />
-            </button>
-          </div>
-          <div className="calendar-list">
-            {state.calendar.map((item) => (
-              <div key={item.id} className="calendar-row">
-                <span className={`calendar-icon ${item.kind}`}>
-                  <CalendarDays />
-                </span>
-                <span>
-                  <strong>{item.title}</strong>
-                  <small>{item.when}</small>
-                </span>
-                <MoreHorizontal />
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="panel-card help-preview">
-          <div className="section-heading compact">
-            <div>
-              <span className="eyebrow">YOUR CIRCLE</span>
-              <h2>Help Board</h2>
-            </div>
-            <span className="count-pill">
-              {state.helpRequests.filter((item) => item.state === 'open').length} open
-            </span>
-          </div>
-          <p>Ask for ordinary help before it becomes a difficult day.</p>
-          <button className="secondary-button" onClick={() => onNavigate('circle')}>
-            <HandHeart /> Open Help Board
+          <button className="text-button">
+            Full home check <ChevronRight />
           </button>
-        </section>
+        </div>
+        <div className="status-cards">
+          <article className="status-card">
+            <div className="status-card-icon pine">
+              <Home />
+            </div>
+            <div>
+              <span>Home check</span>
+              <strong>Doors closed</strong>
+              <small>Kitchen and hall look settled</small>
+            </div>
+            <span className="source-badge">Simulated · 8:41</span>
+          </article>
+          <article className="status-card">
+            <div className="status-card-icon mustard">
+              <Lightbulb />
+            </div>
+            <div>
+              <span>Path lighting</span>
+              <strong>Ready at sunset</strong>
+              <small>Hall and bathroom route</small>
+            </div>
+            <span className="source-badge">Simulated · 8:40</span>
+          </article>
+        </div>
+
+        <div className="two-column">
+          <section className="panel-card">
+            <div className="section-heading compact">
+              <div>
+                <span className="eyebrow">UP NEXT</span>
+                <h2>Calendar</h2>
+              </div>
+              <button className="icon-button small" aria-label="Add calendar item">
+                <Plus />
+              </button>
+            </div>
+            <div className="calendar-list">
+              {state.calendar.map((item) => (
+                <div key={item.id} className="calendar-row">
+                  <span className={`calendar-icon ${item.kind}`}>
+                    <CalendarDays />
+                  </span>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.when}</small>
+                  </span>
+                  <MoreHorizontal />
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="panel-card help-preview">
+            <div className="section-heading compact">
+              <div>
+                <span className="eyebrow">YOUR CIRCLE</span>
+                <h2>Help Board</h2>
+              </div>
+              <span className="count-pill">
+                {state.helpRequests.filter((item) => item.state === 'open').length} open
+              </span>
+            </div>
+            <p>Ask for ordinary help before it becomes a difficult day.</p>
+            <button className="secondary-button" onClick={() => onNavigate('circle')}>
+              <HandHeart /> Open Help Board
+            </button>
+          </section>
+        </div>
       </div>
     </>
   );
@@ -941,6 +1292,22 @@ function AccessSurface({
           ))}
         </div>
       </section>
+      <section className="panel-card preference-card">
+        <h2>Text size</h2>
+        <div className="segmented-control" role="radiogroup" aria-label="Text size">
+          {(['default', 'large', 'extra-large'] as const).map((scale) => (
+            <button
+              role="radio"
+              aria-checked={state.access.textScale === scale}
+              className={state.access.textScale === scale ? 'selected' : ''}
+              onClick={() => onChange({ ...state.access, textScale: scale })}
+              key={scale}
+            >
+              {scale.replace('-', ' ')}
+            </button>
+          ))}
+        </div>
+      </section>
       <section className="panel-card toggle-list">
         {toggles.map((item) => {
           const checked = Boolean(state.access[item.key]);
@@ -975,7 +1342,17 @@ function AccessSurface({
   );
 }
 
-function WindowsSurface({ state, demoStep }: { state: HomeState; demoStep: number }) {
+function WindowsSurface({
+  state,
+  demoStep,
+  pending,
+  onAction,
+}: {
+  state: HomeState;
+  demoStep: number;
+  pending: boolean;
+  onAction: (action: 'check-in' | 'close-early' | 'cancel') => void;
+}) {
   const window = state.safetyWindows[0]!;
   const templates = [
     ['Arrived home', 'Confirm you are settled after a trip'],
@@ -1008,10 +1385,32 @@ function WindowsSurface({ state, demoStep }: { state: HomeState; demoStep: numbe
               : `${window.checkAttempts} of 2 checks missed · ${window.graceMinutes}-minute grace period`}
           </p>
         </div>
-        <button className="secondary-button">
+        <button
+          className="secondary-button"
+          onClick={() => onAction('check-in')}
+          disabled={pending || !['open', 'first-check-missed', 'grace'].includes(window.state)}
+        >
           <Check /> I’m okay
         </button>
       </section>
+      <div className="window-secondary-actions" aria-label="Safety Window actions">
+        <button
+          className="text-button"
+          onClick={() => onAction('close-early')}
+          disabled={pending || window.state !== 'open'}
+        >
+          Close this window early
+        </button>
+        <button
+          className="text-button destructive-text"
+          onClick={() => onAction('cancel')}
+          disabled={
+            pending || !['scheduled', 'open', 'first-check-missed', 'grace'].includes(window.state)
+          }
+        >
+          Cancel this window
+        </button>
+      </div>
       <section className="panel-card">
         <div className="section-heading compact">
           <div>
@@ -1051,11 +1450,19 @@ function CircleSurfaceView({
   state,
   active,
   onChange,
+  onHelpAction,
+  onCreateHelp,
+  onIncidentAction,
+  pending,
   activeIncident,
 }: {
   state: HomeState;
   active: CircleSurface;
   onChange: (surface: CircleSurface) => void;
+  onHelpAction: (id: string) => void;
+  onCreateHelp: (input: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>) => Promise<boolean>;
+  onIncidentAction: (action: 'escalate' | 'resolve') => void;
+  pending: boolean;
   activeIncident?: Incident;
 }) {
   return (
@@ -1080,8 +1487,17 @@ function CircleSurfaceView({
         ))}
       </div>
       {active === 'overview' && <CircleOverview state={state} />}
-      {active === 'help' && <HelpBoard state={state} />}
-      {active === 'incidents' && <Incidents state={state} />}
+      {active === 'help' && (
+        <HelpBoard
+          state={state}
+          onAction={onHelpAction}
+          onCreate={onCreateHelp}
+          pending={pending}
+        />
+      )}
+      {active === 'incidents' && (
+        <Incidents state={state} onAction={onIncidentAction} pending={pending} />
+      )}
       {active === 'people' && <People state={state} />}
       {active === 'settings' && <CircleSettings />}
     </>
@@ -1132,7 +1548,31 @@ function CircleOverview({ state }: { state: HomeState }) {
   );
 }
 
-function HelpBoard({ state }: { state: HomeState }) {
+function HelpBoard({
+  state,
+  onAction,
+  onCreate,
+  pending,
+}: {
+  state: HomeState;
+  onAction: (id: string) => void;
+  onCreate: (input: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>) => Promise<boolean>;
+  pending: boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [title, setTitle] = useState('');
+  const [detail, setDetail] = useState('');
+  const [urgency, setUrgency] = useState<HelpRequest['urgency']>('normal');
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!title.trim() || !detail.trim()) return;
+    if (await onCreate({ title: title.trim(), detail: detail.trim(), urgency })) {
+      setTitle('');
+      setDetail('');
+      setUrgency('normal');
+      setCreating(false);
+    }
+  };
   return (
     <>
       <div className="help-board-intro">
@@ -1140,10 +1580,57 @@ function HelpBoard({ state }: { state: HomeState }) {
           <h2>Ordinary help belongs here, too.</h2>
           <p>Requests are visible only to the people Sarah has chosen.</p>
         </div>
-        <button className="primary-button">
+        <button className="primary-button" onClick={() => setCreating((value) => !value)}>
           <Plus /> New request
         </button>
       </div>
+      {creating && (
+        <form className="panel-card help-request-form" onSubmit={(event) => void submit(event)}>
+          <div>
+            <label htmlFor="help-title">What do you need?</label>
+            <input
+              id="help-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={120}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="help-detail">Helpful detail</label>
+            <textarea
+              id="help-detail"
+              value={detail}
+              onChange={(event) => setDetail(event.target.value)}
+              maxLength={500}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="help-urgency">Timing</label>
+            <select
+              id="help-urgency"
+              value={urgency}
+              onChange={(event) => setUrgency(event.target.value as HelpRequest['urgency'])}
+            >
+              <option value="normal">Normal</option>
+              <option value="time-sensitive">Time-sensitive</option>
+              <option value="urgent">Urgent Circle request</option>
+            </select>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="text-button" onClick={() => setCreating(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="primary-button" disabled={pending}>
+              Post to my Circle
+            </button>
+          </div>
+          <small>
+            This coordinates Sarah’s Circle only. It does not contact emergency services.
+          </small>
+        </form>
+      )}
       <div className="request-grid">
         {state.helpRequests.map((request) => (
           <article className="request-card" key={request.id}>
@@ -1157,8 +1644,19 @@ function HelpBoard({ state }: { state: HomeState }) {
               <span className="mini-avatars">
                 <i>TA</i>
               </span>
-              <span>Offered to Tom</span>
-              <button>Respond</button>
+              <span>
+                {request.state === 'assigned'
+                  ? 'Owned by Tom'
+                  : request.state === 'completed'
+                    ? 'Completed'
+                    : 'Offered to Tom'}
+              </span>
+              <button
+                onClick={() => onAction(request.id)}
+                disabled={pending || ['completed', 'cancelled', 'declined'].includes(request.state)}
+              >
+                {request.state === 'assigned' ? 'Mark complete' : 'Tom accepts'}
+              </button>
             </div>
           </article>
         ))}
@@ -1167,7 +1665,15 @@ function HelpBoard({ state }: { state: HomeState }) {
   );
 }
 
-function Incidents({ state }: { state: HomeState }) {
+function Incidents({
+  state,
+  onAction,
+  pending,
+}: {
+  state: HomeState;
+  onAction: (action: 'escalate' | 'resolve') => void;
+  pending: boolean;
+}) {
   const incident = state.incidents[0];
   if (!incident)
     return (
@@ -1209,13 +1715,30 @@ function Incidents({ state }: { state: HomeState }) {
         </div>
         <Timeline events={incident.timeline} />
         <div className="incident-actions">
-          <button className="secondary-button">
-            <PhoneCall /> Contact Circle
+          <button
+            className="secondary-button"
+            onClick={() => onAction('escalate')}
+            disabled={pending || !['active', 'coordinating', 'responding'].includes(incident.state)}
+          >
+            <PhoneCall /> Escalate Circle plan
           </button>
-          <button className="secondary-button">
-            <Eye /> View authorized details
+          <button
+            className="secondary-button"
+            onClick={() => onAction('resolve')}
+            disabled={pending || !['responding', 'escalated'].includes(incident.state)}
+          >
+            <Check /> Resolve incident
           </button>
-          <button className="text-button">Escalation plan</button>
+          <details className="incident-details">
+            <summary>
+              <Eye /> View authorized details
+            </summary>
+            <p>
+              {incident.assignedMemberId
+                ? 'The assigned responder can open Sarah’s incident-limited access note. The public fixture contains no address, key value, or precise location.'
+                : 'Access instructions remain sealed until an authorized Circle member accepts this incident.'}
+            </p>
+          </details>
         </div>
       </section>
     </>

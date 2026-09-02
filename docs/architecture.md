@@ -60,4 +60,4 @@ WebSocket messages are hints, not authority. On connection, reconnection, versio
 
 ## Public demo isolation
 
-`POST /v1/demo-sessions` creates a four-hour TTL scope with a distinct demo household namespace. Routes below `/v1/demo/{sessionId}` are also unauthenticated, but can read or mutate only that synthetic namespace after validating the session identifier. Authenticated routes derive the household from Cognito claims and never accept a household identifier from request input.
+`POST /v1/demo-sessions` creates a four-hour TTL scope with a distinct demo household namespace. Routes below `/v1/demo/*` accept the opaque session in `X-STAY-Demo-Session`, verify its unexpired DynamoDB record, and can read or mutate only that synthetic namespace. WebSocket connection requests perform the same record check. Authenticated routes derive the household from Cognito claims and never accept a household identifier from request input.

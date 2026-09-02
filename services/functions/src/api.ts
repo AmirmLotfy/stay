@@ -3,12 +3,13 @@ import {
   RouteGroups,
   type ActorContext,
   type CommandResult,
+  type HelpRequest,
   type Incident,
   type Playbook,
   type SafetyWindow,
   type SourceProvenance,
 } from '@stay/contracts';
-import { createDemoState, StayDomainError, StayEngine } from '@stay/domain';
+import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
 import { z } from 'zod';
 import { log } from './logging.js';
 import { DynamoStayRepository, type VersionedEntity } from './repository.js';
@@ -109,6 +110,13 @@ async function commandEngine(
   if (group === 'safety-windows') {
     const entity = await store.get<SafetyWindow>(actor.householdId, 'safety-window', id);
     if (entity) state.safetyWindows = [entity];
+  } else if (group === 'tasks') {
+    const entity = await store.get<HomeState['oneThing']>(
+      actor.householdId,
+      'task',
+      id ?? 'task-one-thing',
+    );
+    if (entity) state.oneThing = entity;
   } else if (group === 'incidents' && action === 'activate-from-window') {
     const source = await store.get<SafetyWindow>(actor.householdId, 'safety-window', id);
     if (source) state.safetyWindows = [source];
@@ -117,6 +125,9 @@ async function commandEngine(
   } else if (group === 'incidents') {
     const entity = await store.get<Incident>(actor.householdId, 'incident', id);
     if (entity) state.incidents = [entity];
+  } else if (group === 'help-requests') {
+    const entity = await store.get<HelpRequest>(actor.householdId, 'help-request', id);
+    if (entity) state.helpRequests = [entity];
   } else if (group === 'playbooks') {
     const entity = await store.get<Playbook>(actor.householdId, 'playbook', id);
     if (entity) state.playbooks = [entity];
@@ -199,6 +210,10 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       const state = localEngine.snapshot();
       state.householdId = actor.householdId;
       state.resident.id = actor.residentId;
+      const storedTask = store
+        ? await store.get<HomeState['oneThing']>(actor.householdId, 'task', 'task-one-thing')
+        : null;
+      if (storedTask) state.oneThing = storedTask;
       const view: Record<string, unknown> = {
         home: { resident: state.resident, oneThing: state.oneThing, calendar: state.calendar },
         tasks: { oneThing: state.oneThing },
@@ -265,6 +280,35 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (group === 'tasks' && body.action) {
+      const taskAction = z
+        .enum(['start', 'pause', 'resume', 'complete', 'cancel', 'reset'])
+        .parse(body.action);
+      result = engine.manageTaskSession(taskAction, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (
+      group === 'safety-windows' &&
+      id &&
+      ['check-in', 'close-early'].includes(body.action)
+    ) {
+      result = engine.checkInSafetyWindow(
+        id,
+        {
+          actor,
+          idempotencyKey,
+          expectedVersion: body.expectedVersion ?? 0,
+        },
+        body.action === 'close-early',
+      );
+    } else if (group === 'safety-windows' && id && body.action === 'cancel') {
+      result = engine.cancelSafetyWindow(id, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
     } else if (group === 'incidents' && id && body.action === 'activate-from-window') {
       result = engine.activateMissedWindowIncident(id, {
         actor,
@@ -289,6 +333,12 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (group === 'incidents' && id && body.action === 'escalate') {
+      result = engine.escalateIncident(id, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
     } else if (group === 'playbooks' && id && body.action === 'next-step') {
       result = engine.executePlaybook(id, {
         actor,
@@ -304,6 +354,24 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         },
         { actor, idempotencyKey },
       );
+    } else if (group === 'help-requests' && id && body.action === 'accept' && body.memberId) {
+      result = engine.acceptHelpRequest(id, body.memberId, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (group === 'help-requests' && id && body.action === 'decline' && body.memberId) {
+      result = engine.declineHelpRequest(id, body.memberId, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (group === 'help-requests' && id && body.action === 'complete') {
+      result = engine.completeHelpRequest(id, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
     } else {
       throw new StayDomainError('BAD_REQUEST', 'That command is not available for this route.');
     }

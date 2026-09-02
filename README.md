@@ -107,7 +107,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Playwright covers 16 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard, touch-only protected flow, emergency copy, automated WCAG checks, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
+Playwright covers 20 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard, touch-only protected flow, emergency copy, automated WCAG checks, adaptive Access preferences, routine Help Board requests, resident Safety Window check-in, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
 
 ## AWS deployment gate
 

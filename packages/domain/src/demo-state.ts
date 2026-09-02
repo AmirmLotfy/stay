@@ -27,9 +27,12 @@ export interface HomeState {
   };
   access: AccessPreferences;
   oneThing: {
+    id: string;
     title: string;
     detail: string;
     completed: boolean;
+    state: 'not-started' | 'active' | 'paused' | 'completed' | 'cancelled';
+    version: number;
   };
   calendar: CalendarItem[];
   circle: CircleMember[];
@@ -87,9 +90,12 @@ export function createDemoState(now = new Date('2026-09-02T06:20:00.000Z')): Hom
       textScale: 'default',
     },
     oneThing: {
+      id: 'task-one-thing',
       title: 'Put the blue recycling bin out',
       detail: 'Collection is tomorrow morning. The bin is beside the back door.',
       completed: false,
+      state: 'active',
+      version: 1,
     },
     calendar: [
       { id: 'cal-1', title: 'Lunch with Maya', when: '12:30 PM', kind: 'appointment' },

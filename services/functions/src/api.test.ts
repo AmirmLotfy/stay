@@ -53,4 +53,53 @@ describe('REST API contract', () => {
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).code).toBe('IDEMPOTENCY_REQUIRED');
   });
+
+  it('executes resident check-in and ordinary help acceptance through versioned routes', async () => {
+    const task = (await handler(
+      event(
+        '/v1/demo/tasks',
+        'POST',
+        { action: 'complete', entityId: 'task-one-thing', expectedVersion: 1 },
+        { 'x-stay-demo-session': 'test-task', 'idempotency-key': 'api-complete-task' },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(task.statusCode).toBe(200);
+    expect(JSON.parse(task.body).entity.state).toBe('completed');
+
+    const checkIn = (await handler(
+      event(
+        '/v1/demo/safety-windows',
+        'POST',
+        { action: 'check-in', entityId: 'window-morning', expectedVersion: 1 },
+        {
+          'x-stay-demo-session': 'test-check-in',
+          'idempotency-key': 'api-check-in-window',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(checkIn.statusCode).toBe(200);
+    expect(JSON.parse(checkIn.body).entity.state).toBe('checked-in');
+
+    const accept = (await handler(
+      event(
+        '/v1/demo/help-requests',
+        'POST',
+        {
+          action: 'accept',
+          entityId: 'help-groceries',
+          memberId: 'member-tom',
+          expectedVersion: 1,
+        },
+        {
+          'x-stay-demo-session': 'test-help',
+          'idempotency-key': 'api-accept-help',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(accept.statusCode).toBe(200);
+    expect(JSON.parse(accept.body).entity).toMatchObject({
+      state: 'assigned',
+      assignedTo: 'member-tom',
+    });
+  });
 });

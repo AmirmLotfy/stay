@@ -10,6 +10,8 @@ test('runs the protected missed-window flow with touch alone', async ({ page }) 
   await page.getByRole('button', { name: 'Sarah asks Tom' }).click();
   await page.getByRole('button', { name: 'Tom accepts' }).click();
   await expect(page.getByText('Tom is on the way.', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Resolve incident' }).click();
+  await expect(page.getByText('Sarah is okay', { exact: true })).toBeVisible();
 });
 
 test('supports keyboard navigation and has no serious automatic accessibility findings', async ({
@@ -30,6 +32,52 @@ test('shows a clear emergency boundary in the voice simulator', async ({ page })
   await input.fill('This is an emergency, get help');
   await input.press('Enter');
   await expect(page.getByText(/does not contact emergency services/i)).toBeVisible();
+});
+
+test('makes adaptive access, routine help, and resident check-in controls functional', async ({
+  page,
+}) => {
+  const navigate = async (name: 'Today' | 'Access' | 'Windows' | 'Circle') => {
+    const menu = page.getByRole('button', { name: 'Open menu' });
+    if (await menu.isVisible()) await menu.click();
+    await page.getByRole('button', { name }).click();
+  };
+  await page.goto('/');
+  const taskButton = page.getByRole('button', { name: 'Mark the recycling reminder complete' });
+  await taskButton.click();
+  await expect(
+    page.getByRole('button', { name: 'Make the recycling reminder active again' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
+  await navigate('Access');
+  await page.getByRole('switch', { name: 'One Thing Mode' }).click();
+  await page.getByRole('radio', { name: 'extra large' }).click();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.textScale))
+    .toBe('extra-large');
+  await navigate('Today');
+  await expect(page.getByRole('heading', { name: 'Today at home' })).toBeHidden();
+
+  await navigate('Windows');
+  await page.getByRole('button', { name: 'I’m okay' }).click();
+  await expect(page.getByText('Sarah checked in', { exact: true })).toBeVisible();
+
+  await navigate('Circle');
+  await page
+    .getByRole('navigation', { name: 'Circle navigation' })
+    .getByRole('button', { name: 'Help Board' })
+    .click();
+  await page.getByRole('button', { name: 'Tom accepts' }).click();
+  await expect(page.getByText('Owned by Tom')).toBeVisible();
+  await page.getByRole('button', { name: 'Mark complete' }).click();
+  await expect(page.getByText('Completed', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'New request' }).click();
+  await page.getByLabel('What do you need?').fill('Replace the porch light');
+  await page
+    .getByLabel('Helpful detail')
+    .fill('Please bring a warm LED bulb before tomorrow evening.');
+  await page.getByRole('button', { name: 'Post to my Circle' }).click();
+  await expect(page.getByRole('heading', { name: 'Replace the porch light' })).toBeVisible();
 });
 
 test('uses the deployed TTL-isolated API session when runtime configuration is present', async ({

@@ -89,6 +89,81 @@ export class StayEngine {
     });
   }
 
+  public checkInSafetyWindow(
+    windowId: string,
+    meta: CommandMeta,
+    closeEarly = false,
+  ): CommandResult<SafetyWindow> {
+    requirePermission(meta.actor, 'safety-window:manage');
+    return this.#idempotent<SafetyWindow>(meta.idempotencyKey, () => {
+      const window = this.#window(windowId);
+      this.#version(window.version, meta.expectedVersion);
+      if (!['open', 'first-check-missed', 'grace'].includes(window.state)) {
+        throw new StayDomainError(
+          'CONFLICT',
+          'This Safety Window is no longer available for check-in.',
+        );
+      }
+      const now = this.#now(meta);
+      window.state = 'checked-in';
+      window.version += 1;
+      window.timeline.push(
+        this.#timeline(
+          now,
+          closeEarly ? 'window-closed-early' : 'resident-checked-in',
+          closeEarly ? 'Window closed early' : 'Sarah checked in',
+          closeEarly
+            ? 'Sarah chose to close this window before the expected time.'
+            : 'Sarah confirmed that no Circle coordination is needed.',
+          'Sarah',
+        ),
+      );
+      const event = this.#event(
+        closeEarly ? 'SafetyWindow.ClosedEarly' : 'SafetyWindow.CheckedIn',
+        'safety-window',
+        window.id,
+        now,
+        meta.actor,
+        { state: window.state },
+      );
+      this.#outbox(event);
+      return this.#result(window, [event]);
+    });
+  }
+
+  public cancelSafetyWindow(windowId: string, meta: CommandMeta): CommandResult<SafetyWindow> {
+    requirePermission(meta.actor, 'safety-window:manage');
+    return this.#idempotent<SafetyWindow>(meta.idempotencyKey, () => {
+      const window = this.#window(windowId);
+      this.#version(window.version, meta.expectedVersion);
+      if (!['scheduled', 'open', 'first-check-missed', 'grace'].includes(window.state)) {
+        throw new StayDomainError('CONFLICT', 'This Safety Window cannot be cancelled now.');
+      }
+      const now = this.#now(meta);
+      window.state = 'cancelled';
+      window.version += 1;
+      window.timeline.push(
+        this.#timeline(
+          now,
+          'window-cancelled',
+          'Safety Window cancelled',
+          'Sarah cancelled this window. No Circle coordination will begin.',
+          'Sarah',
+        ),
+      );
+      const event = this.#event(
+        'SafetyWindow.Cancelled',
+        'safety-window',
+        window.id,
+        now,
+        meta.actor,
+        { state: window.state },
+      );
+      this.#outbox(event);
+      return this.#result(window, [event]);
+    });
+  }
+
   public activateMissedWindowIncident(
     windowId: string,
     meta: CommandMeta,
@@ -266,6 +341,70 @@ export class StayEngine {
     });
   }
 
+  public escalateIncident(incidentId: string, meta: CommandMeta): CommandResult<Incident> {
+    requirePermission(meta.actor, 'incident:coordinate');
+    return this.#idempotent<Incident>(meta.idempotencyKey, () => {
+      const incident = this.#incident(incidentId);
+      this.#version(incident.version, meta.expectedVersion);
+      if (!['active', 'coordinating', 'responding'].includes(incident.state)) {
+        throw new StayDomainError('CONFLICT', 'This incident cannot be escalated now.');
+      }
+      const now = this.#now(meta);
+      incident.state = 'escalated';
+      incident.version += 1;
+      incident.timeline.push(
+        this.#timeline(
+          now,
+          'circle-escalated',
+          'Circle plan moved to the next contact',
+          'The next preconfigured Circle contact was notified. No emergency service was contacted.',
+          'STAY',
+        ),
+      );
+      const event = this.#event('Incident.Escalated', 'incident', incident.id, now, meta.actor, {
+        state: incident.state,
+      });
+      this.#outbox(event);
+      return this.#result(incident, [event]);
+    });
+  }
+
+  public manageTaskSession(
+    action: 'start' | 'pause' | 'resume' | 'complete' | 'cancel' | 'reset',
+    meta: CommandMeta,
+  ): CommandResult<HomeState['oneThing']> {
+    requirePermission(meta.actor, 'tasks:write');
+    return this.#idempotent<HomeState['oneThing']>(meta.idempotencyKey, () => {
+      const task = this.#state.oneThing;
+      this.#version(task.version, meta.expectedVersion);
+      const nextState = {
+        start: task.state === 'not-started' ? 'active' : null,
+        pause: task.state === 'active' ? 'paused' : null,
+        resume: task.state === 'paused' ? 'active' : null,
+        complete: ['active', 'paused'].includes(task.state) ? 'completed' : null,
+        cancel: ['not-started', 'active', 'paused'].includes(task.state) ? 'cancelled' : null,
+        reset: ['completed', 'cancelled'].includes(task.state) ? 'not-started' : null,
+      }[action] as HomeState['oneThing']['state'] | null;
+      if (!nextState) {
+        throw new StayDomainError('CONFLICT', `${action} is not available for this task now.`);
+      }
+      const now = this.#now(meta);
+      task.state = nextState;
+      task.completed = nextState === 'completed';
+      task.version += 1;
+      const event = this.#event(
+        `TaskSession.${action[0]!.toUpperCase()}${action.slice(1)}`,
+        'task',
+        task.id,
+        now,
+        meta.actor,
+        { state: task.state },
+      );
+      this.#outbox(event);
+      return this.#result(task, [event]);
+    });
+  }
+
   public requestHelp(
     request: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>,
     meta: Omit<CommandMeta, 'expectedVersion'>,
@@ -298,6 +437,127 @@ export class StayEngine {
       });
       this.#outbox(event);
       return this.#result(help, [event]);
+    });
+  }
+
+  public acceptHelpRequest(
+    helpRequestId: string,
+    memberId: string,
+    meta: CommandMeta,
+  ): CommandResult<HelpRequest> {
+    requirePermission(meta.actor, 'help:respond');
+    return this.#idempotent<HelpRequest>(meta.idempotencyKey, () => {
+      const request = this.#helpRequest(helpRequestId);
+      this.#version(request.version, meta.expectedVersion);
+      if (!['open', 'offered'].includes(request.state)) {
+        throw new StayDomainError('CONFLICT', 'This help request is not accepting responses.');
+      }
+      const member = this.#state.circle.find((candidate) => candidate.id === memberId);
+      if (!member) throw new StayDomainError('NOT_FOUND', 'Circle member was not found.');
+      if (member.availability === 'unavailable') {
+        throw new StayDomainError('CONFLICT', 'That Circle member is unavailable.');
+      }
+      const now = this.#now(meta);
+      request.state = 'assigned';
+      request.assignedTo = member.id;
+      request.version += 1;
+      request.timeline.push(
+        this.#timeline(
+          now,
+          'help-accepted',
+          `${member.name.split(' ')[0]} accepted`,
+          `${member.name} now owns this help request.`,
+          member.name,
+        ),
+      );
+      const event = this.#event(
+        'HelpRequest.Accepted',
+        'help-request',
+        request.id,
+        now,
+        meta.actor,
+        { memberId },
+      );
+      this.#outbox(event);
+      return this.#result(request, [event]);
+    });
+  }
+
+  public declineHelpRequest(
+    helpRequestId: string,
+    memberId: string,
+    meta: CommandMeta,
+  ): CommandResult<HelpRequest> {
+    requirePermission(meta.actor, 'help:respond');
+    return this.#idempotent<HelpRequest>(meta.idempotencyKey, () => {
+      const request = this.#helpRequest(helpRequestId);
+      this.#version(request.version, meta.expectedVersion);
+      if (!['open', 'offered'].includes(request.state)) {
+        throw new StayDomainError('CONFLICT', 'This help request is not accepting responses.');
+      }
+      if (!request.offeredTo.includes(memberId)) {
+        throw new StayDomainError('FORBIDDEN', 'This request was not offered to that member.');
+      }
+      const member = this.#state.circle.find((candidate) => candidate.id === memberId);
+      if (!member) throw new StayDomainError('NOT_FOUND', 'Circle member was not found.');
+      const now = this.#now(meta);
+      request.offeredTo = request.offeredTo.filter((candidate) => candidate !== memberId);
+      request.state = request.offeredTo.length ? 'offered' : 'declined';
+      request.version += 1;
+      request.timeline.push(
+        this.#timeline(
+          now,
+          'help-declined',
+          `${member.name.split(' ')[0]} declined`,
+          request.offeredTo.length
+            ? 'The request remains available to another selected Circle member.'
+            : 'No selected Circle member has accepted yet.',
+          member.name,
+        ),
+      );
+      const event = this.#event(
+        'HelpRequest.Declined',
+        'help-request',
+        request.id,
+        now,
+        meta.actor,
+        { memberId, state: request.state },
+      );
+      this.#outbox(event);
+      return this.#result(request, [event]);
+    });
+  }
+
+  public completeHelpRequest(helpRequestId: string, meta: CommandMeta): CommandResult<HelpRequest> {
+    requirePermission(meta.actor, 'help:respond');
+    return this.#idempotent<HelpRequest>(meta.idempotencyKey, () => {
+      const request = this.#helpRequest(helpRequestId);
+      this.#version(request.version, meta.expectedVersion);
+      if (request.state !== 'assigned') {
+        throw new StayDomainError('CONFLICT', 'A help request must be assigned before completion.');
+      }
+      const now = this.#now(meta);
+      request.state = 'completed';
+      request.version += 1;
+      request.timeline.push(
+        this.#timeline(
+          now,
+          'help-completed',
+          'Help request completed',
+          'Sarah’s Circle marked the ordinary help request complete.',
+          'Sarah',
+        ),
+      );
+      const event = this.#event(
+        'HelpRequest.Completed',
+        'help-request',
+        request.id,
+        now,
+        meta.actor,
+        {},
+      );
+      this.#outbox(event);
+      return this.#result(request, [event]);
     });
   }
 
@@ -337,6 +597,12 @@ export class StayEngine {
   #incident(id: string): Incident {
     const entity = this.#state.incidents.find((incident) => incident.id === id);
     if (!entity) throw new StayDomainError('NOT_FOUND', 'Incident was not found.');
+    return entity;
+  }
+
+  #helpRequest(id: string): HelpRequest {
+    const entity = this.#state.helpRequests.find((request) => request.id === id);
+    if (!entity) throw new StayDomainError('NOT_FOUND', 'Help request was not found.');
     return entity;
   }
 

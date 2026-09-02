@@ -146,16 +146,23 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     {
       title: 'Manage one task session',
       description: 'Start, pause, resume, or complete a focused One Thing session.',
-      inputSchema: EntityActionSchema,
-      annotations: { idempotentHint: false, destructiveHint: false, openWorldHint: false },
+      inputSchema: EntityActionSchema.extend({ idempotencyKey: z.string().min(8).max(180) }),
+      annotations: { idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
-    async ({ action }) => {
-      const state = engine.snapshot();
+    async ({ action, expectedVersion = 1, idempotencyKey }) => {
+      const taskAction = z
+        .enum(['start', 'pause', 'resume', 'complete', 'cancel', 'reset'])
+        .parse(action);
+      const result = engine.manageTaskSession(taskAction, {
+        actor: actor(context),
+        idempotencyKey,
+        expectedVersion,
+      });
       return toolResult(
         'manage_task_session',
-        `Task session ${action} is ready for confirmation.`,
-        { action, task: state.oneThing, confirmationRequired: action === 'complete' },
-        liveProvenance(),
+        `One Thing task is ${result.entity.state}.`,
+        result,
+        result.provenance,
       );
     },
   );
@@ -170,7 +177,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       annotations: { idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
     async ({ action, entityId = 'window-morning', expectedVersion = 1, idempotencyKey }) => {
-      if (action !== 'record-missed-check') {
+      if (action === 'read') {
         const window = engine.snapshot().safetyWindows.find((item) => item.id === entityId);
         return toolResult(
           'manage_safety_window',
@@ -179,11 +186,28 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
           liveProvenance(),
         );
       }
-      const result = engine.markSafetyWindowMissed(entityId, {
-        actor: actor(context),
-        idempotencyKey,
-        expectedVersion,
-      });
+      const result =
+        action === 'record-missed-check'
+          ? engine.markSafetyWindowMissed(entityId, {
+              actor: actor(context),
+              idempotencyKey,
+              expectedVersion,
+            })
+          : ['check-in', 'close-early'].includes(action)
+            ? engine.checkInSafetyWindow(
+                entityId,
+                { actor: actor(context), idempotencyKey, expectedVersion },
+                action === 'close-early',
+              )
+            : action === 'cancel'
+              ? engine.cancelSafetyWindow(entityId, {
+                  actor: actor(context),
+                  idempotencyKey,
+                  expectedVersion,
+                })
+              : (() => {
+                  throw new StayDomainError('BAD_REQUEST', 'Unsupported Safety Window action.');
+                })();
       return toolResult(
         'manage_safety_window',
         `${result.entity.title}: ${result.entity.state.replaceAll('-', ' ')}.`,
@@ -275,6 +299,12 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
         });
       else if (action === 'resolve')
         result = engine.resolveIncident(entityId, {
+          actor: actor(context),
+          idempotencyKey,
+          expectedVersion,
+        });
+      else if (action === 'escalate')
+        result = engine.escalateIncident(entityId, {
           actor: actor(context),
           idempotencyKey,
           expectedVersion,

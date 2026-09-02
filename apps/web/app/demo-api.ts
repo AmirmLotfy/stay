@@ -28,7 +28,7 @@ interface DemoView<T> {
 }
 
 interface DemoCommand {
-  group: 'safety-windows' | 'incidents' | 'help-requests' | 'playbooks';
+  group: 'tasks' | 'safety-windows' | 'incidents' | 'help-requests' | 'playbooks';
   action: string;
   idempotencyKey: string;
   entityId?: string;
