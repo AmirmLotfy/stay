@@ -12,17 +12,17 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 ## Current evidence
 
-| Capability                                                        | Status                | Evidence boundary                                                                                                       |
-| ----------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Deployed              | [Public isolated demo](https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com); direct deployed desktop/mobile captures |
-| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog          |
-| Streamable HTTP MCP server and ten tools                          | Deployed and verified | OAuth authorization code + PKCE and authenticated MCP `2025-11-25` initialize passed live                               |
-| Strands + Amazon Bedrock intent layer                             | Provider-limited      | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off      |
-| AWS topology                                                      | Deployed              | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; deletion protection is enabled                                     |
-| SES delivery                                                      | Verified, sandboxed   | One minimal application email was delivered to the verified demo identity; SES production access remains disabled       |
-| Real Alexa+ device/add-on                                         | Unavailable           | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                            |
-| Simulated edge providers                                          | Implemented           | Every observation includes mode, provider, timestamp, and reason                                                        |
-| Payments                                                          | Not implemented       | Monetization is documentation-only                                                                                      |
+| Capability                                                        | Status                | Evidence boundary                                                                                                            |
+| ----------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Resident/Circle PWA and Alexa-style simulator                     | Deployed              | [Public isolated demo](https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com); direct deployed desktop/mobile captures      |
+| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog               |
+| Streamable HTTP MCP server and ten tools                          | Deployed and verified | OAuth authorization code + PKCE and authenticated MCP `2025-11-25` initialize passed live                                    |
+| Strands + Amazon Bedrock intent layer                             | Provider-limited      | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off           |
+| AWS topology                                                      | Deployed              | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; stack termination and stateful-resource deletion protection are enabled |
+| SES delivery                                                      | Verified, sandboxed   | One minimal application email was delivered to the verified demo identity; SES production access remains disabled            |
+| Real Alexa+ device/add-on                                         | Unavailable           | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                                 |
+| Simulated edge providers                                          | Implemented           | Every observation includes mode, provider, timestamp, and reason                                                             |
+| Payments                                                          | Not implemented       | Monetization is documentation-only                                                                                           |
 
 See [release evidence](docs/release-evidence.md) for the checklist that prevents local or simulator results from being reported as cloud or device proof.
 

@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Deployment is a reviewed operation. `StayDemoStack` is currently deployed in `us-east-1` with deletion protection enabled and the secure API Gateway/private-S3 hosting fallback active.
+Deployment is a reviewed operation. `StayDemoStack` is currently deployed in `us-east-1` with CloudFormation termination protection and stateful-resource deletion protection enabled, plus the secure API Gateway/private-S3 hosting fallback active.
 
 ## 1. Identity and target
 
@@ -54,6 +54,23 @@ pnpm exec cdk deploy StayDemoStack --require-approval never \
 
 The budget is an alert only. It does not shut down resources.
 
+Verify the stack-level and stateful-resource controls independently after every deployment:
+
+```bash
+aws cloudformation describe-stacks --stack-name StayDemoStack \
+  --query 'Stacks[0].EnableTerminationProtection'
+```
+
+The CDK source sets `terminationProtection: true`, but a no-template-change deployment may take the CLI fast path without reconciling that stack-level flag. If the direct query returns `false`, apply the exact stack control and query again:
+
+```bash
+aws cloudformation update-termination-protection \
+  --stack-name StayDemoStack \
+  --enable-termination-protection
+```
+
+Do not infer CloudFormation termination protection from the `DeletionProtectionStatus` output; that output records DynamoDB and Cognito resource-level deletion protection.
+
 ## 5. Activate `saystay.site` after purchase
 
 The deployed stack already contains the Route 53 public hosted zone. Until delegation is complete, the API Gateway URL remains the public demo URL.
@@ -72,9 +89,11 @@ The deployed stack already contains the Route 53 public hosted zone. Until deleg
    dig +short NS saystay.site
    ```
 
-4. Generate and review the activation diff using all the same parameters as the first deployment:
+4. Rebuild the public assets with the canonical domain, then generate and review the activation diff using all the same parameters as the first deployment:
 
    ```bash
+   NEXT_PUBLIC_APP_URL=https://saystay.site pnpm --filter @stay/web build
+   cd infrastructure/cdk
    pnpm exec cdk diff StayDemoStack --strict \
      -c enableCloudFront=false \
      -c enableDeletionProtection=true \

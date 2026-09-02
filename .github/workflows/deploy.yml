@@ -35,6 +35,8 @@ jobs:
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_APP_URL: ${{ inputs.enable_custom_domain && 'https://saystay.site' || 'https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com' }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -57,22 +59,46 @@ jobs:
         run: |
           echo 'Deployment requires confirm_reviewed_diff=true after reviewing a prior diff run.'
           exit 1
+      - name: Validate protected deployment parameters
+        env:
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+          SES_RECIPIENT_EMAIL: ${{ secrets.SES_RECIPIENT_EMAIL }}
+        run: |
+          test -n "$ALERT_EMAIL"
+          test -n "$SES_FROM_EMAIL"
+          test -n "$SES_RECIPIENT_EMAIL"
       - name: Generate exact stack diff
         if: inputs.operation == 'diff'
         run: >-
           pnpm --filter @stay/infra diff --
-          --parameters AlertEmail=${{ secrets.ALERT_EMAIL }}
-          --parameters SesFromEmail=${{ secrets.SES_FROM_EMAIL }}
-          --parameters SesRecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }}
-          --parameters BedrockModelId=${{ inputs.bedrock_model_id }}
+          -c enableCloudFront=false
+          -c enableDeletionProtection=true
           -c enableCustomDomain=${{ inputs.enable_custom_domain }}
       - name: Deploy reviewed stack
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
-        run: >-
-          pnpm --filter @stay/infra deploy --
-          --parameters AlertEmail=${{ secrets.ALERT_EMAIL }}
-          --parameters SesFromEmail=${{ secrets.SES_FROM_EMAIL }}
-          --parameters SesRecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }}
-          --parameters BedrockModelId=${{ inputs.bedrock_model_id }}
-          -c enableCustomDomain=${{ inputs.enable_custom_domain }}
-          --require-approval never
+        env:
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+          SES_RECIPIENT_EMAIL: ${{ secrets.SES_RECIPIENT_EMAIL }}
+          BEDROCK_MODEL_ID: ${{ inputs.bedrock_model_id }}
+        run: |
+          pnpm --filter @stay/infra deploy -- \
+            -c enableCloudFront=false \
+            -c enableDeletionProtection=true \
+            -c enableCustomDomain=${{ inputs.enable_custom_domain }} \
+            --parameters "StayDemoStack:AlertEmail=$ALERT_EMAIL" \
+            --parameters "StayDemoStack:SesFromEmail=$SES_FROM_EMAIL" \
+            --parameters "StayDemoStack:SesRecipientEmail=$SES_RECIPIENT_EMAIL" \
+            --parameters "StayDemoStack:BedrockModelId=$BEDROCK_MODEL_ID" \
+            --require-approval never
+      - name: Enforce and verify stack termination protection
+        if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
+        run: |
+          aws cloudformation update-termination-protection \
+            --stack-name StayDemoStack \
+            --enable-termination-protection
+          test "$(aws cloudformation describe-stacks \
+            --stack-name StayDemoStack \
+            --query 'Stacks[0].EnableTerminationProtection' \
+            --output text)" = "True"

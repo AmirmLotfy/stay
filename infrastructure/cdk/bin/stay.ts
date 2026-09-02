@@ -10,6 +10,7 @@ new StayDemoStack(app, 'StayDemoStack', {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION ?? 'us-east-1',
   },
+  terminationProtection: true,
   description:
     'STAY public Alexa+ demo: PWA, MCP, safety workflows, Circle coordination, and observability.',
 });

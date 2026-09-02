@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">STAY</title>
+  <desc id="description">Help that keeps you in control. Adaptive independent living and Circle coordination.</desc>
+  <rect width="1200" height="630" fill="#F3F0E8"/>
+  <rect x="0" y="0" width="18" height="630" fill="#245248"/>
+  <g transform="translate(744 91)">
+    <rect width="448" height="448" rx="98" fill="#E7E1D4"/>
+    <path d="M98 357V98h252v259h-72V179H170v178Z" fill="#245248"/>
+    <path d="M221 179h57c0 37-32 54-32 88 0 32 28 48 52 90h-81c-19-27-40-49-40-86 0-42 30-65 44-92Z" fill="#A9503A"/>
+  </g>
+  <g fill="#245248" font-family="Arial, Helvetica, sans-serif">
+    <text x="92" y="112" font-size="24" font-weight="700" letter-spacing="2.8">INDEPENDENT LIVING · TRUSTED CIRCLE</text>
+    <text x="86" y="303" font-size="152" font-weight="700">S</text>
+    <text x="184" y="303" font-size="152" font-weight="700">T</text>
+    <text x="273" y="303" font-size="152" font-weight="700">A</text>
+    <text x="372" y="303" font-size="152" font-weight="700">Y</text>
+    <text x="94" y="377" font-size="38" font-weight="600">Help that keeps you in control.</text>
+    <text x="94" y="432" font-size="27">Accessible by voice or touch.</text>
+  </g>
+  <path d="M94 498h522" stroke="#A9503A" stroke-width="8" stroke-linecap="round"/>
+  <text x="94" y="552" fill="#4A5550" font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="1.2">ALEXA+  ·  AWS BUILDER  ·  OPEN SOURCE</text>
+</svg>
