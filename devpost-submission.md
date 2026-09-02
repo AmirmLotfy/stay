@@ -110,7 +110,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence: https://github.com/AmirmLotfy/stay/actions/runs/33586083412
+Public CI evidence: https://github.com/AmirmLotfy/stay/actions/runs/33587219483
 
 ## Screenshot Shot List
 
