@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for audited runtime baseline `6e3f2da`: https://github.com/AmirmLotfy/stay/actions/runs/33686369603 — all 24 Playwright scenarios passed.
+Public CI evidence for release-evidence baseline `30a1cab`: https://github.com/AmirmLotfy/stay/actions/runs/33686752727 — all 24 Playwright scenarios passed.
 
 ## Screenshot Shot List
 
@@ -160,7 +160,7 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 - Weather, outage, maintenance, Ring, Smart Properties, smart-home devices, and travel estimates are simulated adapters.
 - STAY does not contact an emergency provider and is not a medical device or fall detector.
 - Nova Micro is regionally available but the AWS account remains `NOT_AUTHORIZED`, so the optional Bedrock intent layer is disabled with no silent model fallback.
-- SES is domain-authenticated for `STAY <updates@saystay.site>` with DKIM, custom MAIL FROM/SPF, and DMARC. SES accepted the live sender test, but inbox confirmation remains separate and the account remains in the SES sandbox.
+- SES is domain-authenticated for `STAY <updates@saystay.site>` with DKIM, custom MAIL FROM/SPF, and DMARC. SES accepted the live sender test and the truthful transactional production-access request, but AWS review and inbox confirmation remain separate; the account is still in the SES sandbox.
 - CloudFront creation is account-provider blocked; the judge demo uses the deployed API Gateway/private-S3 fallback until AWS clears that gate.
 - Manual screen-reader and physical-device testing remain release gates; automated axe checks are not presented as full assistive-technology certification.
 - Arabic content, payments, native mobile apps, biometrics, and real provider onboarding are outside this release.
@@ -209,7 +209,7 @@ Yes
 
 ### 28294 — AWS services and how they were incorporated
 
-The deployed stack uses Amazon Cognito for OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, metrics, static-site, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email and metric delivery. Amazon SES is domain-authenticated with Easy DKIM 2048, custom MAIL FROM/SPF, and DMARC and sends minimal mail as `STAY <updates@saystay.site>`; the account remains sandbox-limited. API Gateway provides HTTP and WebSocket APIs and currently serves the PWA through a Lambda reader over private encrypted S3 because CloudFront is account-provider blocked. AWS KMS, Route 53, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide DNS, encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The Strands Agents SDK plus Amazon Bedrock Converse/Nova Micro integration is implemented for redacted, non-critical intent interpretation, but this account is `NOT_AUTHORIZED`, so the live AI gate remains off and the deterministic application handles every safety workflow. The $25 budget is alert-only, and simulated providers remain visibly labeled.
+The deployed stack uses Amazon Cognito for OAuth authorization code plus PKCE, scoped JWTs, revocation, and account-linking contracts. AWS Lambda runs REST, MCP, scheduler, stream-publisher, notification, metrics, static-site, and WebSocket handlers. Amazon DynamoDB stores versioned aggregates, TTL-scoped demo/idempotency/confirmation records, independent incident timelines, and a transactional outbox with Streams. Amazon EventBridge Scheduler performs expected-version one-time Safety Window transitions; DynamoDB Streams publish domain events to EventBridge; SQS-backed consumers and DLQs isolate email and metric delivery. Amazon SES is domain-authenticated with Easy DKIM 2048, custom MAIL FROM/SPF, and DMARC and sends minimal mail as `STAY <updates@saystay.site>`; AWS accepted the transactional production-access request, but review is pending and the account remains sandbox-limited. API Gateway provides HTTP and WebSocket APIs and currently serves the PWA through a Lambda reader over private encrypted S3 because CloudFront is account-provider blocked. AWS KMS, Route 53, CloudWatch, X-Ray, Secrets Manager, Budgets, and CDK/cdk-nag provide DNS, encryption, observability, confidential-client storage, cost alerts, and repeatable infrastructure. The Strands Agents SDK plus Amazon Bedrock Converse/Nova Micro integration is implemented for redacted, non-critical intent interpretation, but this account is `NOT_AUTHORIZED`, so the live AI gate remains off and the deterministic application handles every safety workflow. The $25 budget is alert-only, and simulated providers remain visibly labeled.
 
 ### 28295 — Open Source Mini Challenge
 
@@ -290,7 +290,7 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; audited runtime baseline `6e3f2da` has green CI with 24/24 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; release-evidence baseline `30a1cab` has green CI with 24/24 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://saystay.site`; the original execute-api URL remains a working fallback and the hosting mode remains secure API Gateway/private-S3.

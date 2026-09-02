@@ -122,7 +122,7 @@ https://saystay.site
 
 The secure fallback serves the static PWA from a private KMS-encrypted S3 bucket through API Gateway and a Lambda reader because AWS has not yet verified this account for new CloudFront distributions. The CloudFront/private-S3 topology remains in CDK as a separately gated upgrade; no public S3 fallback is used.
 
-The deployed MCP endpoint is `https://saystay.site/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, authenticated SES delivery from `STAY <updates@saystay.site>`, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
+The deployed MCP endpoint is `https://saystay.site/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, authenticated SES delivery from `STAY <updates@saystay.site>`, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. AWS accepted the transactional SES production-access request on 2026-09-03, but review remains pending and the sandbox is still active. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
 
 For a reviewed redeployment:
 

@@ -58,7 +58,7 @@ Cognito uses a version 2 pre-token-generation Lambda to copy the immutable house
 - DynamoDB uses on-demand capacity, KMS, PITR, TTL, Streams, and deletion protection.
 - EventBridge Scheduler invokes one deterministic Safety Window transition Lambda through a dedicated role. Creation prepares named one-time open, first-check, and grace-expiry schedules with strict expected versions; stale, duplicate, cancelled, or resident-completed work becomes a logged no-op.
 - A domain bus fans out to SQS-backed notification, WebSocket, and metric consumers with DLQs.
-- SES sends minimal messages as `STAY <updates@saystay.site>`. The domain uses Easy DKIM 2048, a custom `mail.saystay.site` MAIL FROM domain with SPF, and DMARC. SES accepted the live sender test; inbox confirmation remains a separate check, and the account remains sandbox-limited. Sensitive detail stays inside an authenticated, active, assigned incident.
+- SES sends minimal messages as `STAY <updates@saystay.site>`. The domain uses Easy DKIM 2048, a custom `mail.saystay.site` MAIL FROM domain with SPF, and DMARC. SES accepted the live sender test and the transactional production-access request; AWS review is pending, `ProductionAccessEnabled=false`, and inbox confirmation remains separate. Sensitive detail stays inside an authenticated, active, assigned incident.
 - Lambda uses Node 22, ARM64, X-Ray, bounded timeouts, structured logs, and adaptive AWS SDK retry.
 - CloudWatch alarms and a `$25` monthly alert-only budget surface failures and cost; they do not automatically stop resources.
 

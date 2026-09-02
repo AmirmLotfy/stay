@@ -45,9 +45,10 @@ SES reports:
 - approved demo identity: `SUCCESS` and verified for sending
 
 The same user-approved identity is configured for the alert-only budget, SES sender, and SES demo
-recipient. A post-deployment Help Request produced a minimal email delivery marker and the message
-was received. This proves the application path only for the verified identity; SES production
-access remains disabled.
+recipient. A post-deployment Help Request produced a minimal email delivery marker and SES accepted
+the message; inbox receipt remains a separate human check. AWS accepted a truthful transactional
+production-access request on 2026-09-03, but review is pending and production access remains
+disabled.
 
 ## Diff review
 
@@ -72,7 +73,7 @@ this account and region. The infrastructure test asserts that exact policy befor
 
 ## Deployed result
 
-- Stack: `StayDemoStack`, `UPDATE_COMPLETE`
+- Stack: `StayDemoStack`, `UPDATE_ROLLBACK_COMPLETE` after the rejected CloudFront upgrade rolled back cleanly
 - Region: `us-east-1`
 - Public demo/API: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
 - MCP: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp`

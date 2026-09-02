@@ -120,6 +120,16 @@ The custom-domain update preserves the DNS-validated ACM certificate in `us-east
 
 CloudFront is a separate upgrade because AWS still blocked distribution creation with the account-verification 403 on 2026-09-03. The prepared distribution serves the app shell from private S3 and forwards uncached `v1/*`, `mcp`, and `.well-known/*` behaviors to API Gateway so the upgrade cannot replace the apex API mapping with a static-only surface. After AWS clears the gate, review a fresh diff with `enableCloudFront=true`; never make the S3 bucket public as a workaround.
 
+The AWS Support API is unavailable on the account's Basic Support plan, so account verification requires the signed-in Support Center. Create one **Account and billing** case with this subject:
+
+> Verify account for CloudFront and Amazon Bedrock
+
+Use this factual description:
+
+> This account hosts the public STAY Amazon App Dev Challenge demo in us-east-1. Creating the first CloudFront distribution fails with: “Your account must be verified before you can add new CloudFront resources.” The failed request ID is `613d3483-2414-400f-b09e-f61c4bdc438f`. Amazon Bedrock independently reports the US Nova Micro profile as active and its agreement, entitlement, and region as available, but authorization remains `NOT_AUTHORIZED`; a minimal Converse request returns `ValidationException: Operation not allowed`. Please verify the account and identify any remaining identity or payment prerequisite. No quota increase is requested.
+
+The shared account-verification cause for the two services is an inference until AWS confirms it. Nova is an Amazon model, so do not submit the Anthropic-only first-time-use form as a workaround. After Support confirms verification, rerun the Bedrock availability/Converse checks and a fresh CloudFront CDK diff before deploying either feature gate.
+
 ## 6. Live evidence
 
 - Create a new browser demo and confirm it cannot access an authenticated household.
@@ -128,7 +138,7 @@ CloudFront is a separate upgrade because AWS still blocked distribution creation
 - Let a real EventBridge Scheduler transition fire; inspect the audit no-op for a duplicate.
 - Disconnect/reconnect WebSocket and reconcile by REST.
 - Confirm the SES identity reports `VerifiedForSendingStatus=true`, DKIM `SUCCESS`, and custom MAIL FROM `SUCCESS`.
-- Prove one delivery from `STAY <updates@saystay.site>` to a verified address. SES accepted the 2026-09-03 test; confirm it in the recipient inbox before upgrading this evidence to delivered. SES remains sandbox-limited, so unverified recipients are blocked until production access is approved.
+- Prove one delivery from `STAY <updates@saystay.site>` to a verified address. SES accepted the 2026-09-03 test; confirm it in the recipient inbox before upgrading this evidence to delivered. AWS accepted the truthful transactional production-access request on 2026-09-03, but approval is asynchronous and `ProductionAccessEnabled=false`; recheck with `aws sesv2 get-account --region us-east-1 --query '{ProductionAccessEnabled:ProductionAccessEnabled,SendingEnabled:SendingEnabled,EnforcementStatus:EnforcementStatus}'`. Unverified recipients remain blocked until AWS enables production access.
 - Inspect DLQs, logs, X-Ray, metrics, and alarms.
 - Run MCP initialize/list/call from the deployed URL with allowed and denied origins/scopes.
 - Confirm every simulated adapter label and timestamp.
