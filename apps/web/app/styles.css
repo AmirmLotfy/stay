@@ -12,7 +12,7 @@
   --emergency: #a62e2e;
   --white: #fffefa;
   --line: rgba(30, 35, 33, 0.13);
-  --shadow: 0 18px 55px rgba(33, 48, 43, 0.08);
+  --shadow: none;
   --surface: var(--white);
   --surface-muted: #eeeae0;
   --text: var(--coal);
@@ -38,7 +38,7 @@
   --surface-muted: #29312e;
   --text: #f4f2eb;
   --text-soft: #bac3be;
-  --shadow: 0 18px 55px rgba(0, 0, 0, 0.24);
+  --shadow: none;
   color-scheme: dark;
 }
 
@@ -187,15 +187,9 @@ svg {
   color: rgba(255, 254, 250, 0.67);
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
   inline-size: 43px;
   block-size: 43px;
-  color: #1d3e37;
-  background: var(--sea-glass);
-  border-radius: 50% 50% 46% 54% / 60% 42% 58% 40%;
-  font-family: Georgia, serif;
-  font-size: 1.5rem;
+  background: url('/icon.svg') center / contain no-repeat;
 }
 .sidebar nav {
   display: grid;
@@ -282,8 +276,7 @@ svg {
   min-block-size: 66px;
   padding-inline: clamp(18px, 4vw, 50px);
   border-block-end: 1px solid var(--line);
-  background: color-mix(in srgb, var(--chalk) 88%, transparent);
-  backdrop-filter: blur(14px);
+  background: var(--chalk);
 }
 .live-status,
 .topbar-actions,
@@ -300,7 +293,6 @@ svg {
   block-size: 9px;
   background: #4d8a65;
   border-radius: 50%;
-  box-shadow: 0 0 0 5px rgba(77, 138, 101, 0.12);
 }
 .provenance-label {
   color: var(--text-soft);
@@ -382,20 +374,20 @@ svg {
   font-size: 1.08rem;
 }
 .page-icon {
-  display: grid;
+  display: none;
   place-items: center;
   flex: 0 0 auto;
-  inline-size: 74px;
-  block-size: 74px;
+  inline-size: 58px;
+  block-size: 58px;
   color: var(--pine-deep);
-  background: var(--sea-glass);
-  border-radius: 51% 49% 62% 38% / 45% 55% 45% 55%;
-  transform: rotate(-4deg);
+  border: 1px solid var(--line);
+  border-block-start: 4px solid var(--clay);
+  border-radius: 2px;
+  background: var(--surface);
 }
 .page-icon svg {
-  inline-size: 30px;
-  block-size: 30px;
-  transform: rotate(4deg);
+  inline-size: 26px;
+  block-size: 26px;
 }
 .home-intro {
   align-items: center;
@@ -436,18 +428,13 @@ svg {
   overflow: hidden;
   color: #fffefa;
   background: #245248;
-  border-radius: 22px 7px 22px 7px;
+  border: 1px solid color-mix(in srgb, var(--sea-glass) 34%, transparent);
+  border-inline-start: 7px solid var(--sea-glass);
+  border-radius: 2px;
   box-shadow: var(--shadow);
 }
 .one-thing-card::after {
-  position: absolute;
-  content: '';
-  inline-size: 160px;
-  block-size: 160px;
-  inset-inline-end: -60px;
-  inset-block-start: -80px;
-  border: 24px solid rgba(183, 211, 200, 0.12);
-  border-radius: 50%;
+  content: none;
 }
 .pin-icon {
   display: grid;
@@ -456,7 +443,7 @@ svg {
   block-size: 54px;
   color: #245248;
   background: #b7d3c8;
-  border-radius: 50%;
+  border-radius: 2px;
 }
 .one-thing-copy .eyebrow {
   color: #b7d3c8;
@@ -518,7 +505,7 @@ svg {
   gap: 14px;
   padding: 21px;
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .status-card > div:nth-child(2) {
@@ -540,7 +527,7 @@ svg {
   place-items: center;
   inline-size: 45px;
   block-size: 45px;
-  border-radius: 12px;
+  border-radius: 2px;
 }
 .status-card-icon.pine {
   color: var(--pine-deep);
@@ -570,9 +557,9 @@ svg {
 .panel-card {
   padding: clamp(22px, 3vw, 30px);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 2px;
   background: var(--surface);
-  box-shadow: 0 8px 35px rgba(33, 48, 43, 0.04);
+  box-shadow: none;
 }
 .calendar-list {
   display: grid;
@@ -636,7 +623,7 @@ svg {
   gap: 9px;
   min-block-size: 49px;
   padding-inline: 20px;
-  border-radius: 12px;
+  border-radius: 4px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -666,7 +653,7 @@ svg {
 .demo-control-card {
   padding: 24px;
   border: 1px solid color-mix(in srgb, var(--clay) 22%, var(--line));
-  border-radius: 18px;
+  border-radius: 2px;
   background: color-mix(in srgb, var(--clay) 7%, var(--surface));
 }
 .demo-control-card h2 {
@@ -687,7 +674,7 @@ svg {
 .demo-progress span {
   block-size: 4px;
   background: var(--line);
-  border-radius: 20px;
+  border-radius: 0;
 }
 .demo-progress .complete,
 .demo-progress .current {
@@ -705,11 +692,9 @@ svg {
 .echo-device {
   position: relative;
   padding: 14px;
-  border-radius: 28px;
+  border-radius: 12px;
   background: #171b1a;
-  box-shadow:
-    0 30px 60px rgba(20, 31, 27, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
 }
 .echo-camera {
   position: absolute;
@@ -724,11 +709,9 @@ svg {
 .echo-screen {
   min-block-size: 265px;
   overflow: hidden;
-  border-radius: 17px;
+  border-radius: 5px;
   color: #fffefa;
-  background:
-    radial-gradient(circle at 80% 15%, rgba(196, 154, 58, 0.28), transparent 31%),
-    linear-gradient(145deg, #173c35, #245248 62%, #1e302b);
+  background: #245248;
 }
 .echo-header {
   display: flex;
@@ -790,7 +773,7 @@ svg {
 .voice-card {
   padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .voice-title {
@@ -806,14 +789,16 @@ svg {
 .voice-title small {
   color: var(--text-soft);
 }
-.alexa-orb {
+.conversation-mark {
   display: grid;
   place-items: center;
   inline-size: 42px;
   block-size: 42px;
-  border-radius: 50%;
-  color: #fffefa;
-  background: conic-gradient(from 200deg, #2d7c82, #623a78, #bd5d63, #2d7c82);
+  border: 1px solid var(--line);
+  border-block-start: 3px solid var(--clay);
+  border-radius: 2px;
+  color: var(--pine);
+  background: var(--sea-pale);
 }
 .transcript {
   max-block-size: 218px;
@@ -823,13 +808,13 @@ svg {
 .transcript p {
   padding: 11px 13px;
   margin-block-end: 9px;
-  border-radius: 4px 12px 12px 12px;
+  border-radius: 2px;
   background: var(--surface-muted);
   font-size: 0.91rem;
 }
 .transcript p.resident {
   margin-inline-start: 28px;
-  border-radius: 12px 4px 12px 12px;
+  border-radius: 2px;
   background: var(--sea-pale);
 }
 .transcript p span {
@@ -851,7 +836,7 @@ svg {
   min-block-size: 48px;
   padding-inline: 14px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 2px;
   color: var(--text);
   background: var(--chalk);
 }
@@ -860,7 +845,7 @@ svg {
   place-items: center;
   min-inline-size: 48px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 2px;
   color: #fffefa;
   background: #245248;
 }
@@ -872,13 +857,13 @@ svg {
   grid-template-columns: repeat(3, 1fr);
   gap: 7px;
   padding: 6px;
-  border-radius: 14px;
+  border-radius: 2px;
   background: var(--surface-muted);
 }
 .segmented-control button {
   min-block-size: 48px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 2px;
   background: transparent;
   text-transform: capitalize;
   cursor: pointer;
@@ -886,7 +871,7 @@ svg {
 .segmented-control button.selected {
   color: var(--pine);
   background: var(--surface);
-  box-shadow: 0 4px 15px rgba(30, 35, 33, 0.08);
+  box-shadow: inset 0 -3px var(--pine);
   font-weight: 650;
 }
 .toggle-list {
@@ -949,7 +934,7 @@ svg {
   padding: 19px 22px;
   margin-block-start: 16px;
   border: 1px solid color-mix(in srgb, var(--pine) 20%, var(--line));
-  border-radius: 14px;
+  border-radius: 2px;
   background: var(--sea-pale);
 }
 .safety-callout svg,
@@ -969,7 +954,7 @@ svg {
   padding: 27px;
   margin-block-end: 16px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .window-hero.alert {
@@ -981,7 +966,7 @@ svg {
   place-items: center;
   inline-size: 88px;
   block-size: 88px;
-  border-radius: 50%;
+  border-radius: 2px;
   color: var(--pine);
   background: var(--sea-pale);
 }
@@ -1037,9 +1022,7 @@ svg {
 }
 .timeline-dot.current {
   background: var(--clay);
-  box-shadow:
-    0 0 0 1px var(--clay),
-    0 0 0 5px color-mix(in srgb, var(--clay) 14%, transparent);
+  box-shadow: 0 0 0 1px var(--clay);
 }
 .timeline-row > span:nth-child(2) {
   display: flex;
@@ -1061,7 +1044,7 @@ svg {
   position: relative;
   padding: 23px;
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .template-card > svg {
@@ -1124,7 +1107,7 @@ svg {
   grid-template-columns: repeat(3, 1fr);
   margin-block-end: 16px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .metric-strip > div {
@@ -1202,7 +1185,7 @@ svg {
   margin-block-end: 16px;
   color: #fffefa;
   background: #245248;
-  border-radius: 18px;
+  border-radius: 2px;
 }
 .help-board-intro p {
   margin: 0;
@@ -1220,7 +1203,7 @@ svg {
 .request-card {
   padding: 23px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .request-top,
@@ -1278,7 +1261,7 @@ svg {
   min-block-size: 340px;
   padding: 40px;
   border: 1px dashed var(--line);
-  border-radius: 18px;
+  border-radius: 2px;
   text-align: center;
 }
 .empty-state > svg {
@@ -1294,7 +1277,7 @@ svg {
   padding: 0 28px 28px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--clay) 40%, var(--line));
-  border-radius: 18px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .incident-bar {
@@ -1336,7 +1319,7 @@ svg {
   min-inline-size: 225px;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 2px;
   background: var(--sea-pale);
 }
 .responder-badge > span:nth-child(2) {
@@ -1377,7 +1360,7 @@ svg {
   position: relative;
   padding: 25px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .playbook-icon {
@@ -1386,7 +1369,7 @@ svg {
   inline-size: 52px;
   block-size: 52px;
   margin-block-end: 22px;
-  border-radius: 15px;
+  border-radius: 2px;
   color: var(--pine);
   background: var(--sea-pale);
 }
@@ -1444,7 +1427,7 @@ svg {
   gap: 22px;
   padding: 28px;
   margin-block-end: 16px;
-  border-radius: 18px;
+  border-radius: 2px;
   color: #fffefa;
   background: #245248;
 }
@@ -1465,7 +1448,7 @@ svg {
   place-items: center;
   inline-size: 62px;
   block-size: 62px;
-  border-radius: 50%;
+  border-radius: 2px;
   color: #245248;
   background: #b7d3c8;
 }
@@ -1504,7 +1487,7 @@ svg {
   min-inline-size: 0;
   padding: 22px;
   border: 1px solid var(--line);
-  border-radius: 17px;
+  border-radius: 2px;
   background: var(--surface);
 }
 .memory-card > div:first-child {

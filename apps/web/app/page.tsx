@@ -24,7 +24,7 @@ import {
   LogOut,
   Menu,
   Mic,
-  MoonStar,
+  Moon,
   MoreHorizontal,
   Navigation,
   PhoneCall,
@@ -33,7 +33,6 @@ import {
   Power,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Sun,
   ThermometerSun,
   UsersRound,
@@ -324,9 +323,7 @@ export default function StayApp() {
         aria-label="Primary navigation"
       >
         <div className="brand-row">
-          <div className="brand-mark" aria-hidden="true">
-            <span>S</span>
-          </div>
+          <span className="brand-mark" aria-hidden="true" />
           <div>
             <strong>STAY</strong>
             <small>Sarah’s home</small>
@@ -409,7 +406,7 @@ export default function StayApp() {
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
               aria-label={`Use ${theme === 'light' ? 'dark' : 'light'} theme`}
             >
-              {theme === 'light' ? <MoonStar /> : <Sun />}
+              {theme === 'light' ? <Moon /> : <Sun />}
             </button>
             <button className="icon-button" aria-label="Notifications">
               <BellRing />
@@ -530,7 +527,7 @@ export default function StayApp() {
 
             <div className="voice-card">
               <div className="voice-title">
-                <span className="alexa-orb">
+                <span className="conversation-mark">
                   <Mic />
                 </span>
                 <div>
@@ -604,7 +601,7 @@ function HomeSurface({
 
       <section className="one-thing-card">
         <div className="pin-icon">
-          <Sparkles />
+          <ClipboardCheck />
         </div>
         <div className="one-thing-copy">
           <span className="eyebrow">YOUR ONE THING</span>

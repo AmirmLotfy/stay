@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="close-card-title">
+  <title id="close-card-title">STAY closing card</title>
+  <rect width="1920" height="1080" fill="#1D3E37"/>
+  <rect x="184" y="172" width="208" height="208" rx="46" fill="#F3F0E8"/>
+  <path d="M229 330V210h118v120h-34v-83h-51v83Z" fill="#245248"/>
+  <path d="M286 247h27c0 18-15 26-15 42 0 15 13 22 25 41h-39c-9-13-19-23-19-40 0-20 14-31 21-43Z" fill="#A9503A"/>
+  <g font-family="Atkinson Hyperlegible Next, Helvetica, sans-serif">
+    <text x="180" y="520" font-size="138" font-weight="700" fill="#FFFEFA">STAY</text>
+    <text x="190" y="646" font-size="58" font-weight="500" fill="#DCE9E3">Stay at home. Stay connected.</text>
+    <text x="190" y="720" font-size="58" font-weight="500" fill="#DCE9E3">Stay in control.</text>
+    <line x1="190" y1="802" x2="760" y2="802" stroke="#A9503A" stroke-width="9"/>
+    <text x="190" y="878" font-size="31" fill="#B7D3C8">github.com/AmirmLotfy/stay</text>
+    <text x="190" y="930" font-size="26" fill="#B7D3C8">Public demo URL added after verified AWS deployment</text>
+  </g>
+</svg>

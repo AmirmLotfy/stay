@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="architecture-card-title">
+  <title id="architecture-card-title">STAY architecture card</title>
+  <rect width="1920" height="1080" fill="#F3F0E8"/>
+  <g font-family="Atkinson Hyperlegible Next, Helvetica, sans-serif" fill="#1E2321">
+    <text x="120" y="120" font-size="27" font-weight="700" fill="#245248">HOW STAY COORDINATES</text>
+    <text x="112" y="230" font-size="82" font-weight="700">Deterministic where it matters.</text>
+    <text x="116" y="290" font-size="31" fill="#47504C">The model interprets redacted intent. The application owns every safety decision and write.</text>
+
+    <g transform="translate(112 400)">
+      <rect width="360" height="320" fill="#FFFEFA" stroke="#D6D1C7" stroke-width="2"/>
+      <rect width="360" height="12" fill="#B7D3C8"/>
+      <text x="34" y="73" font-size="22" font-weight="700" fill="#245248">RESIDENT</text>
+      <text x="34" y="130" font-size="36" font-weight="700">Sarah + Circle</text>
+      <text x="34" y="190" font-size="25" fill="#47504C">Voice or touch</text>
+      <text x="34" y="230" font-size="25" fill="#47504C">Scoped permissions</text>
+      <text x="34" y="270" font-size="25" fill="#47504C">Explicit confirmations</text>
+    </g>
+
+    <g transform="translate(552 400)">
+      <rect width="360" height="320" fill="#FFFEFA" stroke="#D6D1C7" stroke-width="2"/>
+      <rect width="360" height="12" fill="#245248"/>
+      <text x="34" y="73" font-size="22" font-weight="700" fill="#245248">PUBLIC CONTRACT</text>
+      <text x="34" y="130" font-size="36" font-weight="700">MCP + REST</text>
+      <text x="34" y="190" font-size="25" fill="#47504C">Ten goal-level tools</text>
+      <text x="34" y="230" font-size="25" fill="#47504C">Typed content</text>
+      <text x="34" y="270" font-size="25" fill="#47504C">OAuth + provenance</text>
+    </g>
+
+    <g transform="translate(992 400)">
+      <rect width="360" height="320" fill="#FFFEFA" stroke="#D6D1C7" stroke-width="2"/>
+      <rect width="360" height="12" fill="#A9503A"/>
+      <text x="34" y="73" font-size="22" font-weight="700" fill="#245248">SAFETY PLANE</text>
+      <text x="34" y="130" font-size="36" font-weight="700">State machines</text>
+      <text x="34" y="190" font-size="25" fill="#47504C">Expected versions</text>
+      <text x="34" y="230" font-size="25" fill="#47504C">Idempotent outbox</text>
+      <text x="34" y="270" font-size="25" fill="#47504C">Immutable timeline</text>
+    </g>
+
+    <g transform="translate(1432 400)">
+      <rect width="376" height="320" fill="#1D3E37"/>
+      <rect width="376" height="12" fill="#C49A3A"/>
+      <text x="34" y="73" font-size="22" font-weight="700" fill="#B7D3C8">AWS</text>
+      <text x="34" y="130" font-size="36" font-weight="700" fill="#FFFEFA">Durable delivery</text>
+      <text x="34" y="190" font-size="25" fill="#DCE9E3">Cognito + DynamoDB</text>
+      <text x="34" y="230" font-size="25" fill="#DCE9E3">Scheduler + EventBridge</text>
+      <text x="34" y="270" font-size="25" fill="#DCE9E3">WebSockets + minimal SES</text>
+    </g>
+
+    <path d="M472 560h72m368 0h72m368 0h72" stroke="#A9503A" stroke-width="7"/>
+    <path d="m534 544 18 16-18 16m440-32 18 16-18 16m440-32 18 16-18 16" fill="none" stroke="#A9503A" stroke-width="7"/>
+
+    <rect x="112" y="816" width="1696" height="114" fill="#DCE9E3"/>
+    <text x="148" y="866" font-size="26" font-weight="700" fill="#245248">BEDROCK BOUNDARY</text>
+    <text x="148" y="906" font-size="25" fill="#47504C">Nova receives no contacts, address, access instructions, precise location, or unrestricted House Memory.</text>
+  </g>
+</svg>

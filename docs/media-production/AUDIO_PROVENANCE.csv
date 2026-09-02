@@ -1,0 +1,3 @@
+asset_id,role,status,provider,model,prompt_or_script,date_generated,source_url_or_result_id,local_file,sha256,notes
+VO_01,English voice-over,PLANNED,Higgsfield,TBD,VOICEOVER_SCRIPT.md,,,,,Fictional non-identifiable voice; batch one
+MUS_01,Background tonal bed,PLANNED,Higgsfield,TBD,Calm warm restrained ambient tonal bed without vocals or pulse,,,,,No stock or licensed music

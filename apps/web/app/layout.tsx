@@ -8,7 +8,13 @@ export const metadata: Metadata = {
   description: 'Adaptive independent living and Circle coordination for Alexa+.',
   applicationName: 'STAY',
   manifest: '/manifest.webmanifest',
-  icons: [{ rel: 'icon', url: '/icon.svg', type: 'image/svg+xml' }],
+  icons: {
+    icon: [
+      { rel: 'icon', url: '/icon.svg', type: 'image/svg+xml' },
+      { rel: 'icon', url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {

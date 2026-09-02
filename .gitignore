@@ -12,4 +12,5 @@ node_modules/
 out/
 playwright-report/
 test-results/
+assets/submission/video/.raw/
 *.tsbuildinfo

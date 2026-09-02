@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="stay-maskable-title">
+  <title id="stay-maskable-title">STAY</title>
+  <rect width="512" height="512" fill="#F3F0E8"/>
+  <path d="M128 392V128h256v264h-73V210H201v182Z" fill="#245248"/>
+  <path d="M252 210h59c0 38-33 55-33 90 0 33 29 49 54 92h-84c-19-28-40-50-40-88 0-43 30-67 44-94Z" fill="#A9503A"/>
+</svg>

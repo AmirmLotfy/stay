@@ -50,7 +50,7 @@ function Widget() {
   return (
     <main className={`widget widget-${payload.kind}`}>
       <header>
-        <span className="widget-mark">S</span>
+        <span className="widget-mark" aria-hidden="true" />
         <span>STAY</span>
         <span className="widget-state">
           <i /> {payload.status}
