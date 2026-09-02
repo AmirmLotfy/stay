@@ -125,7 +125,9 @@ pnpm cdk:synth
 pnpm cdk:diff -- --parameters AlertEmail=you@example.com --parameters SesFromEmail=verified@example.com --parameters SesRecipientEmail=approved@example.com
 ```
 
-The `$25` AWS Budget is alert-only; it does not stop spend. Deployment requires a separate human review and is intentionally not performed by the build.
+The first deployment also creates the Route 53 public hosted zone for `saystay.site` and outputs the four registrar nameservers. It keeps the CloudFront URL live while the domain is unowned or undelegated. After purchase, set those exact nameservers at the registrar, verify delegation, then review a second diff with `-c enableCustomDomain=true`; that update adds the ACM certificate, CloudFront alias, DNS A/AAAA records, and Cognito callback/logout URLs.
+
+The `$25` AWS Budget is alert-only; it does not stop spend. The Route 53 hosted zone has a recurring AWS charge even before the domain is activated. Deployment requires a separate human review and is intentionally not performed by the build.
 
 Full steps: [deployment runbook](docs/deployment-runbook.md).
 

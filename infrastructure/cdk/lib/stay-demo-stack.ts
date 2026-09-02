@@ -3,17 +3,21 @@ import {
   CfnOutput,
   CfnParameter,
   Duration,
+  Fn,
   RemovalPolicy,
   SecretValue,
   Stack,
+  Tags,
   Token,
   Validations,
   type CfnResource,
   type StackProps,
 } from 'aws-cdk-lib';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as apigwv2integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
@@ -27,6 +31,8 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
@@ -53,6 +59,11 @@ export class StayDemoStack extends Stack {
     if (Stack.of(this).region !== 'us-east-1' && !Stack.of(this).region.includes('${Token')) {
       throw new Error('StayDemoStack is intentionally restricted to us-east-1.');
     }
+
+    Tags.of(this).add('Project', 'STAY');
+    Tags.of(this).add('Environment', 'demo');
+    Tags.of(this).add('ManagedBy', 'AWS-CDK');
+    Tags.of(this).add('Hackathon', 'amazon-app-dev-2026');
 
     const alertEmail = new CfnParameter(this, 'AlertEmail', {
       type: 'String',
@@ -101,6 +112,21 @@ export class StayDemoStack extends Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    const customDomainName = 'saystay.site';
+    const enableCustomDomain =
+      String(this.node.tryGetContext('enableCustomDomain') ?? 'false').toLowerCase() === 'true';
+    const hostedZone = new route53.PublicHostedZone(this, 'PublicHostedZone', {
+      zoneName: customDomainName,
+      comment:
+        'STAY public demo zone. Delegate the registrar nameservers before enabling the custom domain context.',
+    });
+    const customDomainCertificate = enableCustomDomain
+      ? new acm.Certificate(this, 'CustomDomainCertificate', {
+          domainName: customDomainName,
+          validation: acm.CertificateValidation.fromDns(hostedZone),
+        })
+      : undefined;
+
     const websiteLogs = new s3.Bucket(this, 'WebsiteAccessLogs', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -118,6 +144,9 @@ export class StayDemoStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
     const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
+      ...(customDomainCertificate
+        ? { certificate: customDomainCertificate, domainNames: [customDomainName] }
+        : {}),
       defaultRootObject: 'index.html',
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       enableLogging: true,
@@ -145,6 +174,25 @@ export class StayDemoStack extends Stack {
         },
       ],
     });
+    if (enableCustomDomain) {
+      const cloudFrontTarget = route53.RecordTarget.fromAlias(
+        new route53Targets.CloudFrontTarget(distribution),
+      );
+      new route53.ARecord(this, 'CustomDomainAliasA', {
+        zone: hostedZone,
+        target: cloudFrontTarget,
+      });
+      new route53.AaaaRecord(this, 'CustomDomainAliasAaaa', {
+        zone: hostedZone,
+        target: cloudFrontTarget,
+      });
+    }
+    const cloudFrontOrigin = `https://${distribution.distributionDomainName}`;
+    const customDomainOrigin = `https://${customDomainName}`;
+    const allowedWebOrigins = enableCustomDomain
+      ? [customDomainOrigin, cloudFrontOrigin]
+      : [cloudFrontOrigin];
+    const preferredDemoUrl = enableCustomDomain ? customDomainOrigin : cloudFrontOrigin;
 
     const userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: 'stay-demo-users',
@@ -199,8 +247,8 @@ export class StayDemoStack extends Stack {
             scopeDescription: 'Use the STAY resident and Circle application',
           }),
         ],
-        callbackUrls: [`https://${distribution.distributionDomainName}/auth/callback`],
-        logoutUrls: [`https://${distribution.distributionDomainName}/`],
+        callbackUrls: allowedWebOrigins.map((origin) => `${origin}/auth/callback`),
+        logoutUrls: allowedWebOrigins.map((origin) => `${origin}/`),
       },
     });
     const alexaClient = userPool.addClient('AlexaAccountLinkingClient', {
@@ -313,7 +361,7 @@ export class StayDemoStack extends Stack {
       memorySize: 768,
       timeout: Duration.seconds(25),
       environment: {
-        MCP_ALLOWED_ORIGINS: `https://${distribution.distributionDomainName}`,
+        MCP_ALLOWED_ORIGINS: allowedWebOrigins.join(','),
         MCP_RESOURCE_URL: 'set-after-http-api-created',
         COGNITO_ISSUER_URL: userPool.userPoolProviderUrl,
       },
@@ -399,10 +447,33 @@ export class StayDemoStack extends Stack {
         jwtAudience: [publicClient.userPoolClientId, alexaClient.userPoolClientId],
       },
     );
+    const httpAccessLogs = new logs.LogGroup(this, 'HttpAccessLogs', {
+      logGroupName: '/aws/apigateway/stay-demo-http',
+      retention: logs.RetentionDays.ONE_MONTH,
+      encryptionKey: dataKey,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    const webSocketAccessLogs = new logs.LogGroup(this, 'WebSocketAccessLogs', {
+      logGroupName: '/aws/apigateway/stay-demo-websocket',
+      retention: logs.RetentionDays.ONE_MONTH,
+      encryptionKey: dataKey,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    const apiAccessLogFormat = apigateway.AccessLogFormat.custom(
+      JSON.stringify({
+        requestId: apigateway.AccessLogField.contextRequestId(),
+        routeKey: apigateway.AccessLogField.contextRouteKey(),
+        status: apigateway.AccessLogField.contextStatus(),
+        integrationStatus: apigateway.AccessLogField.contextIntegrationStatus(),
+        integrationLatency: apigateway.AccessLogField.contextIntegrationLatency(),
+        responseLength: apigateway.AccessLogField.contextResponseLength(),
+        integrationError: apigateway.AccessLogField.contextIntegrationErrorMessage(),
+      }),
+    );
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: 'stay-demo-api',
       corsPreflight: {
-        allowOrigins: [`https://${distribution.distributionDomainName}`],
+        allowOrigins: allowedWebOrigins,
         allowHeaders: [
           'authorization',
           'content-type',
@@ -413,7 +484,16 @@ export class StayDemoStack extends Stack {
         allowMethods: [apigwv2.CorsHttpMethod.ANY],
         maxAge: Duration.hours(1),
       },
-      createDefaultStage: true,
+      createDefaultStage: false,
+    });
+    new apigwv2.HttpStage(this, 'HttpStage', {
+      httpApi,
+      autoDeploy: true,
+      detailedMetricsEnabled: true,
+      accessLogSettings: {
+        destination: new apigwv2.LogGroupLogDestination(httpAccessLogs),
+        format: apiAccessLogFormat,
+      },
     });
     httpApi.addRoutes({
       path: '/v1/demo-sessions',
@@ -481,6 +561,11 @@ export class StayDemoStack extends Stack {
       webSocketApi,
       stageName: 'prod',
       autoDeploy: true,
+      detailedMetricsEnabled: true,
+      accessLogSettings: {
+        destination: new apigwv2.LogGroupLogDestination(webSocketAccessLogs),
+        format: apiAccessLogFormat,
+      },
     });
     const callbackUrl = `https://${webSocketApi.apiId}.execute-api.${this.region}.${this.urlSuffix}/${webSocketStage.stageName}`;
     websocketFunction.addEnvironment('WEBSOCKET_CALLBACK_URL', callbackUrl);
@@ -605,7 +690,7 @@ export class StayDemoStack extends Stack {
     });
 
     const assetPath = path.join(workspaceRoot, 'apps/web/out');
-    const demoUrl = `https://${distribution.distributionDomainName}`;
+    const demoUrl = preferredDemoUrl;
     const cognitoBaseUrl = `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`;
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       destinationBucket: websiteBucket,
@@ -700,11 +785,15 @@ export class StayDemoStack extends Stack {
         id: 'AwsSolutions-CFR3',
         reason: 'CloudFront access logging is enabled to the dedicated log bucket.',
       },
-      {
-        id: 'AwsSolutions-CFR4',
-        reason:
-          'The release intentionally uses the CloudFront-managed domain and certificate; AWS does not allow a custom minimum TLS policy without a custom certificate. HTTPS redirect and security headers remain enforced.',
-      },
+      ...(enableCustomDomain
+        ? []
+        : [
+            {
+              id: 'AwsSolutions-CFR4',
+              reason:
+                'Before saystay.site is purchased and delegated, the release uses the CloudFront-managed domain and certificate. HTTPS redirect and security headers remain enforced; the prepared activation update adds the custom certificate and TLS policy.',
+            },
+          ]),
     ]) {
       Validations.of(distribution).acknowledge(suppression);
     }
@@ -827,11 +916,6 @@ export class StayDemoStack extends Stack {
           'Only OAuth discovery and the TTL-isolated demo bootstrap/API are intentionally public; authenticated household routes use Cognito JWT authorization and never accept a household identifier from request input.',
       },
       {
-        id: 'AwsSolutions-APIG1',
-        reason:
-          'HTTP API access logging is a deployment hardening gate after the target account log destination is reviewed.',
-      },
-      {
         id: 'AwsSolutions-L1',
         reason: 'All project Lambdas explicitly use the current Node.js 22 runtime.',
       },
@@ -839,7 +923,19 @@ export class StayDemoStack extends Stack {
       Validations.of(this).acknowledge(suppression);
     }
 
-    new CfnOutput(this, 'DemoUrl', { value: `https://${distribution.distributionDomainName}` });
+    new CfnOutput(this, 'DemoUrl', { value: preferredDemoUrl });
+    new CfnOutput(this, 'CloudFrontFallbackUrl', { value: cloudFrontOrigin });
+    new CfnOutput(this, 'CustomDomainName', { value: customDomainName });
+    new CfnOutput(this, 'DomainDelegationNameServers', {
+      value: Fn.join(',', hostedZone.hostedZoneNameServers ?? []),
+      description:
+        'Set these four nameservers at the saystay.site registrar, then deploy with -c enableCustomDomain=true.',
+    });
+    new CfnOutput(this, 'CustomDomainStatus', {
+      value: enableCustomDomain
+        ? 'ACTIVE_IN_THIS_TEMPLATE'
+        : 'AWAITING_REGISTRAR_DELEGATION_AND_ACTIVATION_UPDATE',
+    });
     new CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });
     new CfnOutput(this, 'McpUrl', { value: `${httpApi.apiEndpoint}/mcp` });
     new CfnOutput(this, 'WebSocketUrl', { value: webSocketStage.url });

@@ -20,6 +20,11 @@ on:
         description: Exact live-verified us-east-1 Nova model or inference profile ID
         required: false
         type: string
+      enable_custom_domain:
+        description: Enable saystay.site only after its registrar nameservers match the stack output
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -60,6 +65,7 @@ jobs:
           --parameters SesFromEmail=${{ secrets.SES_FROM_EMAIL }}
           --parameters SesRecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }}
           --parameters BedrockModelId=${{ inputs.bedrock_model_id }}
+          -c enableCustomDomain=${{ inputs.enable_custom_domain }}
       - name: Deploy reviewed stack
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
         run: >-
@@ -68,4 +74,5 @@ jobs:
           --parameters SesFromEmail=${{ secrets.SES_FROM_EMAIL }}
           --parameters SesRecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }}
           --parameters BedrockModelId=${{ inputs.bedrock_model_id }}
+          -c enableCustomDomain=${{ inputs.enable_custom_domain }}
           --require-approval never
