@@ -1,8 +1,10 @@
 # STAY final submission handoff
 
-Everything in this file is prepared for the participant's manual YouTube upload and Devpost entry. Nothing has been submitted to Devpost.
+Everything in this file is prepared for the participant's manual Devpost entry. Nothing has been submitted to Devpost.
 
-## YouTube upload kit
+## Public video and source kit
+
+- Verified public video: `https://youtu.be/oCoXdCRVyMo`
 
 - Video to upload: `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`
 - English captions: `assets/submission/video/STAY_DEMO.en.srt`
@@ -12,7 +14,7 @@ Everything in this file is prepared for the participant's manual YouTube upload 
 
 The upload and archival files are byte-identical, 170 seconds, 1920 × 1080, H.264 High at 30 fps with AAC-LC 48 kHz stereo. SHA-256: `63354dc8a1a25809bb530aed28d417279c941da97817636cf3a825b00814f00c`.
 
-Before upload, watch and listen to the full file and compare the SRT cues. After upload, confirm Public visibility, HD processing, captions, embedding, and no copyright claim. Then replace `[PUBLIC_YOUTUBE_URL]` in `devpost-submission.md` and `docs/release-links.md`.
+The public page was verified signed out on 2026-09-04: playable, embeddable, public and not unlisted, 170 seconds, 1080p available, and captions detected. Confirm the private copyright-claim status in YouTube Studio.
 
 ## Devpost copy kit
 
@@ -40,10 +42,9 @@ All seven were captured from the deployed public demo after the responsive-acces
 ## Final human gates
 
 1. Correct the Age of Majority and Eligible Jurisdiction answers only if the recorded `No` values were mistakes and the truthful answers are `Yes`. An individual submission is not eligible with the current values.
-2. Complete the full video, audio, and caption review.
-3. Upload the YouTube kit and record its public URL.
-4. Paste the prepared Devpost answers and gallery in the order above.
-5. Recheck the public demo, repository, video embedding, track, mini-challenges, and official form.
-6. Use Devpost's final confirmation only when every gate passes.
+2. Complete the private video, audio, caption, and copyright-claim review if not already done.
+3. Paste the prepared Devpost answers and gallery in the order above.
+4. Recheck the public demo, repository, video embedding, track, mini-challenges, and official form.
+5. Use Devpost's final confirmation only when every gate passes.
 
 AWS Support cases `178838582000594` (SES production access) and `178838741100092` (account verification for CloudFront and Bedrock) remain provider-controlled. The deployed deterministic demo does not depend on either pending capability.

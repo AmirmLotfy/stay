@@ -83,18 +83,28 @@ async function verifyCandidateHashes() {
 }
 
 async function verifyUrl(check, url, expectedStatuses) {
-  try {
-    const response = await globalThis.fetch(url, {
-      headers: { 'user-agent': 'stay-submission-verifier/1.0' },
-      signal: globalThis.AbortSignal.timeout(90_000),
-    });
-    if (expectedStatuses.includes(response.status)) {
-      record('passed', check, `${url} returned ${response.status}`);
-    } else {
-      record('failed', check, `${url} returned ${response.status}`);
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await globalThis.fetch(url, {
+        headers: { 'user-agent': 'stay-submission-verifier/1.0' },
+        signal: globalThis.AbortSignal.timeout(30_000),
+      });
+      if (expectedStatuses.includes(response.status)) {
+        const retryDetail = attempt > 1 ? ` after ${attempt} attempts` : '';
+        record('passed', check, `${url} returned ${response.status}${retryDetail}`);
+      } else {
+        record('failed', check, `${url} returned ${response.status}`);
+      }
+      return;
+    } catch (error) {
+      if (attempt === attempts) {
+        const message = error instanceof Error ? error.message : String(error);
+        record('failed', check, `${message} after ${attempts} attempts`);
+        return;
+      }
+      await new Promise((resolve) => globalThis.setTimeout(resolve, attempt * 750));
     }
-  } catch (error) {
-    record('failed', check, error instanceof Error ? error.message : String(error));
   }
 }
 

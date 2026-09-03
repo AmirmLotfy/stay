@@ -14,4 +14,4 @@
 - [x] Add `pnpm verify:submission --allow-pending` for current-state auditing; after the public video URL is recorded, the same command without `--allow-pending` must exit successfully before the final Devpost handoff.
 - [ ] Watch the final file from start to finish before YouTube upload.
 - [ ] Confirm no YouTube copyright claim appears after processing.
-- [ ] Record the public YouTube URL in the README, Devpost draft, and final link manifest.
+- [x] Record the verified public YouTube URL in the README, Devpost draft, and final link manifest.

@@ -1,6 +1,6 @@
 # STAY — Devpost submission copy pack
 
-> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment and media fields are final; the YouTube URL remains bracketed. Private participant assertions are stored locally in the ignored `devpost-private-answers.md` handoff.
+> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment and public video fields are final. Private participant assertions are stored locally in the ignored `devpost-private-answers.md` handoff.
 
 Official requirements were rechecked live through Devpost on 2026-09-03 Cairo time against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
 
@@ -28,9 +28,9 @@ https://saystay.site
 
 ### Demo Video
 
-`[PUBLIC_YOUTUBE_URL]`
+https://youtu.be/oCoXdCRVyMo
 
-Required format: public English YouTube or Vimeo video, under three minutes. The finished upload file is 170 seconds at 1920×1080, H.264 High, 30 fps with AAC 48 kHz stereo, approved Higgsfield voice/music, and the verified public demo URL. Only the human start-to-finish review and the user's manual YouTube upload remain.
+Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out on 2026-09-04: playable, embeddable, 170 seconds, 1080p available, and captions present. The upload uses the approved Higgsfield voice/music and the verified public demo URL.
 
 ## Problem
 

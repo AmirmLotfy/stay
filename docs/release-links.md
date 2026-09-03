@@ -1,11 +1,11 @@
 # Judge and submission link manifest
 
-This is the single copy source for judge-facing links. Only the video value remains pending the user's manual YouTube upload.
+This is the single copy source for judge-facing links.
 
 | Purpose                           | Link                                                              | Evidence required before use                                                    |
 | --------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Try STAY                          | https://saystay.site                                              | Fresh signed-out browser completes the isolated protected flow over HTTPS       |
-| Demo video                        | `[PUBLIC_YOUTUBE_URL]`                                            | Public, embeddable, English, HD, captions available, under three minutes        |
+| Demo video                        | https://youtu.be/oCoXdCRVyMo                                      | Public, embeddable, English, 1080p, captions available, 170 seconds             |
 | Public source                     | https://github.com/AmirmLotfy/stay                                | Public repository and Apache-2.0 detection                                      |
 | Setup instructions                | https://github.com/AmirmLotfy/stay#run-locally                    | Clean clone follows the documented path                                         |
 | Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/33816115703       | Green run for evidence commit `c1d3deb`; coverage and 36/36 scenarios passed    |
@@ -18,7 +18,7 @@ This is the single copy source for judge-facing links. Only the video value rema
 
 - **Project URL / Try it out:** `https://saystay.site`
 - **Testing link — field 28302:** `https://saystay.site`
-- **Video:** `[PUBLIC_YOUTUBE_URL]`
+- **Video:** `https://youtu.be/oCoXdCRVyMo`
 - **Repository — field 28290:** `https://github.com/AmirmLotfy/stay`
 - **Open Source contribution — field 28296:** `https://github.com/AmirmLotfy/stay/commit/a2cdb02df7ae0e235a1a738f4fe31d93bbc5a762`
 - **Friction log — field 28301:** `https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md`

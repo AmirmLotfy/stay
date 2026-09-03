@@ -1,6 +1,6 @@
 # YouTube upload copy
 
-The audible upload file, captions, and thumbnail are complete. Use this copy only after the human start-to-finish watch/listen in `DELIVERY_CHECKLIST.md`; replace the bracketed YouTube URL in the repository after upload.
+The audible upload file, captions, and thumbnail are complete. The public upload is `https://youtu.be/oCoXdCRVyMo`.
 
 ## Title
 
@@ -62,4 +62,4 @@ The public demo uses synthetic people and clearly labeled simulated provider dat
 
 ## Post-upload evidence
 
-Record the final public URL as `[PUBLIC_YOUTUBE_URL]` in `devpost-submission.md` and `docs/release-links.md`. Confirm the page is public in a signed-out browser, the duration is under three minutes, HD processing is complete, captions are available, embedding works, and no copyright claim appears before using the URL on Devpost.
+The final public URL is `https://youtu.be/oCoXdCRVyMo`. Signed-out verification confirmed public playback, 170-second duration, 1080p availability, captions, and embedding. Confirm in YouTube Studio that no copyright claim appears before using the URL on Devpost.
