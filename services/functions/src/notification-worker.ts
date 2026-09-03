@@ -137,7 +137,7 @@ export async function handler(
       );
       log('INFO', 'minimal notification sent', {
         deliveryId: delivery.id,
-        message: delivery.message,
+        notificationType: delivery.message,
       });
     } catch (error) {
       const parsed = (() => {

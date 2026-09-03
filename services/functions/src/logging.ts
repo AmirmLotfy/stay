@@ -4,11 +4,11 @@ export function log(
   fields: Record<string, unknown> = {},
 ): void {
   const record = {
+    ...fields,
     timestamp: new Date().toISOString(),
     level,
     service: process.env.AWS_LAMBDA_FUNCTION_NAME ?? 'stay-local',
     message,
-    ...fields,
   };
   if (level === 'ERROR') console.error(JSON.stringify(record));
   else if (level === 'WARN') console.warn(JSON.stringify(record));

@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run src",
+    "test:coverage": "vitest run src --coverage"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1124.0",

@@ -25,8 +25,12 @@ export async function handler(event: DynamoDBStreamEvent): Promise<void> {
     ];
   });
   if (!entries.length) return;
-  const result = await client.send(new PutEventsCommand({ Entries: entries }));
-  if (result.FailedEntryCount)
-    throw new Error(`Failed to publish ${result.FailedEntryCount} outbox events.`);
+  for (let offset = 0; offset < entries.length; offset += 10) {
+    const batch = entries.slice(offset, offset + 10);
+    const result = await client.send(new PutEventsCommand({ Entries: batch }));
+    if (result.FailedEntryCount) {
+      throw new Error(`Failed to publish ${result.FailedEntryCount} outbox events.`);
+    }
+  }
   log('INFO', 'outbox events published', { count: entries.length });
 }
