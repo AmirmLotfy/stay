@@ -47,8 +47,9 @@ SES reports:
 The same user-approved identity is configured for the alert-only budget, SES sender, and SES demo
 recipient. A post-deployment Help Request produced a minimal email delivery marker and SES accepted
 the message; inbox receipt remains a separate human check. AWS accepted a truthful transactional
-production-access request on 2026-09-03, but review is pending and production access remains
-disabled.
+production-access request and the requested follow-up in case `178838582000594`. The last verified
+API state remains `DENIED` with `ProductionAccessEnabled=false`, so the sandbox remains active while
+Support reviews the reply.
 
 ## Diff review
 
@@ -73,10 +74,11 @@ this account and region. The infrastructure test asserts that exact policy befor
 
 ## Deployed result
 
-- Stack: `StayDemoStack`, `UPDATE_ROLLBACK_COMPLETE` after the rejected CloudFront upgrade rolled back cleanly
+- Stack: `StayDemoStack`, `UPDATE_COMPLETE` after the provider-safe fallback redeployment
 - Region: `us-east-1`
-- Public demo/API: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
-- MCP: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com/mcp`
+- Public demo/API: `https://saystay.site`
+- Same-origin fallback: `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com`
+- MCP: `https://saystay.site/mcp`
 - WebSocket: `wss://vkcgjbose3.execute-api.us-east-1.amazonaws.com/prod`
 - Managed Login: `https://stay-demo-828547077857.auth.us-east-1.amazoncognito.com`
 - Hosting mode: `API_GATEWAY_PRIVATE_S3_FALLBACK`

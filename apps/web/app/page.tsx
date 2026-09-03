@@ -2683,7 +2683,7 @@ function PlaybooksSurface({
               <h2>{plan.title}</h2>
               <p>{plan.steps[completed]?.label ?? 'Plan complete. Review the record.'}</p>
               <div className="playbook-progress">
-                <span style={{ inlineSize: `${(completed / plan.steps.length) * 100}%` }} />
+                <span style={{ transform: `scaleX(${completed / plan.steps.length})` }} />
               </div>
               <div className="playbook-foot">
                 <small>

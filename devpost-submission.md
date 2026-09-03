@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for the current media commit `57bdb9b`: https://github.com/AmirmLotfy/stay/actions/runs/33701584054 — all 36 Playwright scenarios passed.
+Public CI evidence for final-handoff commit `7704895`: https://github.com/AmirmLotfy/stay/actions/runs/33805585506 — format, lint, strict typecheck, tests, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
 
 ## Screenshot Shot List
 

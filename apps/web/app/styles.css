@@ -1730,9 +1730,15 @@ svg {
 }
 .playbook-progress span {
   display: block;
+  inline-size: 100%;
   block-size: 100%;
   background: var(--pine);
-  transition: inline-size 200ms ease;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+:dir(rtl) .playbook-progress span {
+  transform-origin: right center;
 }
 .playbook-foot {
   display: flex;
