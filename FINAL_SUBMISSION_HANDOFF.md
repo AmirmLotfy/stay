@@ -21,7 +21,7 @@ Before upload, watch and listen to the full file and compare the SRT cues. After
 - Judge link manifest: `docs/release-links.md`
 - Submission readiness audit: `docs/submission-readiness-audit.md`
 
-The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for final-handoff commit `7704895` is `https://github.com/AmirmLotfy/stay/actions/runs/33805585506`.
+The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for reliability commit `d6411a6` is `https://github.com/AmirmLotfy/stay/actions/runs/33815696171`.
 
 ## Gallery order
 

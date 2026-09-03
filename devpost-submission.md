@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for final-handoff commit `7704895`: https://github.com/AmirmLotfy/stay/actions/runs/33805585506 — format, lint, strict typecheck, tests, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
+Public CI evidence for reliability commit `d6411a6`: https://github.com/AmirmLotfy/stay/actions/runs/33815696171 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
 
 ## Screenshot Shot List
 
