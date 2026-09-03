@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for release-evidence baseline `30a1cab`: https://github.com/AmirmLotfy/stay/actions/runs/33686752727 — all 24 Playwright scenarios passed.
+Public CI evidence for the current media commit `57bdb9b`: https://github.com/AmirmLotfy/stay/actions/runs/33701584054 — all 36 Playwright scenarios passed.
 
 ## Screenshot Shot List
 
@@ -290,10 +290,10 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; release-evidence baseline `30a1cab` has green CI with 24/24 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; current media commit `57bdb9b` has green CI with 36/36 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
-- **AWS/public demo:** deployed and verified at `https://saystay.site`; the original execute-api URL remains a working fallback and the hosting mode remains secure API Gateway/private-S3.
+- **AWS/public demo:** deployed and verified at `https://saystay.site`; both the custom domain and `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com` passed 32/32 applicable live browser scenarios, and the hosting mode remains secure API Gateway/private-S3.
 - **Video:** finished 170-second H.264/AAC master, identical upload copy, 34-cue English captions, and real-product thumbnail are packaged; human final review and the user's public YouTube upload remain.
 - **Higgsfield:** selected Recraft V4.1 logo, locked Faye Seed Audio narration, and Sonilo Music tonal bed were generated, reviewed, integrated, and provenance-locked. The recorded spend is 56.93 credits.
 - **Participant assertions:** stored only in the ignored local handoff. The current values do not pass the official eligibility gate and must not be changed unless the user confirms they were mistakes and truthfully corrects them.
