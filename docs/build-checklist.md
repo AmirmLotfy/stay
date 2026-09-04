@@ -17,4 +17,4 @@
 - [x] Generate approved Higgsfield identity/audio, insert the deployed URL, and render the final audible upload master.
 - [x] Draft all 26 live Devpost field answers, feedback, primary track, mini-challenges, media metadata, and copy-ready handoff.
 - [x] Upload and verify the public YouTube video, including public playback, embedding, 1080p, duration, and captions.
-- [ ] Participant must truthfully pass the eligibility gate, complete the private video/caption/copyright review, paste the prepared fields, and use Devpost's final confirmation.
+- [ ] Participant must truthfully pass the eligibility gate, replace YouTube's auto-caption track with the packaged SRT, complete the final playback review, paste the prepared fields, and use Devpost's final confirmation. The copyright-claim review already passed.
