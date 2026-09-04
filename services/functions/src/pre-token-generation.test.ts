@@ -22,6 +22,8 @@ describe('Cognito pre-token generation', () => {
         sub: 'subject-test',
         'custom:household_id': 'household-sarah',
         'custom:resident_id': 'resident-sarah',
+        'custom:stay_role': 'resident',
+        'custom:circle_member_id': 'member-tom',
       }),
     );
 
@@ -30,6 +32,8 @@ describe('Cognito pre-token generation', () => {
     ).toEqual({
       'custom:household_id': 'household-sarah',
       'custom:resident_id': 'resident-sarah',
+      'custom:stay_role': 'resident',
+      'custom:circle_member_id': 'member-tom',
     });
   });
 
@@ -40,8 +44,22 @@ describe('Cognito pre-token generation', () => {
           sub: 'subject-test',
           'custom:household_id': 'household-sarah',
           'custom:resident_id': '../shared',
+          'custom:stay_role': 'resident',
         }),
       ),
     ).rejects.toThrow('custom:resident_id');
+  });
+
+  it('blocks token issuance for an unknown household role', async () => {
+    await expect(
+      handler(
+        event({
+          sub: 'subject-test',
+          'custom:household_id': 'household-sarah',
+          'custom:resident_id': 'resident-sarah',
+          'custom:stay_role': 'administrator',
+        }),
+      ),
+    ).rejects.toThrow();
   });
 });

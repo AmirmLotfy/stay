@@ -11,13 +11,21 @@ import type {
   ActorContext,
   CommandResult,
   HelpRequest,
+  HomeDevice,
   Incident,
   McpToolName,
   Playbook,
   SafetyWindow,
   SourceProvenance,
+  Role,
 } from '@stay/contracts';
-import { createDemoState, StayDomainError, StayEngine, type HomeState } from '@stay/domain';
+import {
+  createDemoState,
+  permissionsForRole,
+  StayDomainError,
+  StayEngine,
+  type HomeState,
+} from '@stay/domain';
 import { DynamoStayRepository, type VersionedEntity } from '@stay/persistence';
 import { z } from 'zod';
 
@@ -45,19 +53,24 @@ async function engineFor(context: McpRequestContext): Promise<StayEngine> {
     state.resident.id = residentId;
     state.access.id = `access-${residentId}`;
     state.privacy.id = `privacy-${residentId}`;
-    const [task, access, privacy, windows, help, incidents, playbooks, memory] = await Promise.all([
-      repository.get<HomeState['oneThing']>(householdId, 'task', state.oneThing.id),
-      repository.get<HomeState['access']>(householdId, 'access', state.access.id),
-      repository.get<HomeState['privacy']>(householdId, 'privacy', state.privacy.id),
-      repository.list<SafetyWindow>(householdId, 'safety-window'),
-      repository.list<HelpRequest>(householdId, 'help-request'),
-      repository.list<Incident>(householdId, 'incident'),
-      repository.list<Playbook>(householdId, 'playbook'),
-      repository.list<HomeState['houseMemory'][number]>(householdId, 'house-memory'),
-    ]);
+    const [task, access, privacy, circle, devices, windows, help, incidents, playbooks, memory] =
+      await Promise.all([
+        repository.get<HomeState['oneThing']>(householdId, 'task', state.oneThing.id),
+        repository.get<HomeState['access']>(householdId, 'access', state.access.id),
+        repository.get<HomeState['privacy']>(householdId, 'privacy', state.privacy.id),
+        repository.list<HomeState['circle'][number]>(householdId, 'circle-member'),
+        repository.list<HomeDevice>(householdId, 'device'),
+        repository.list<SafetyWindow>(householdId, 'safety-window'),
+        repository.list<HelpRequest>(householdId, 'help-request'),
+        repository.list<Incident>(householdId, 'incident'),
+        repository.list<Playbook>(householdId, 'playbook'),
+        repository.list<HomeState['houseMemory'][number]>(householdId, 'house-memory'),
+      ]);
     if (task) state.oneThing = task;
     if (access) state.access = access;
     if (privacy) state.privacy = privacy;
+    state.circle = mergeById(circle, state.circle).filter((member) => member.active);
+    state.devices = mergeById(devices, state.devices);
     state.safetyWindows = mergeById(windows, state.safetyWindows);
     state.helpRequests = mergeById(help, state.helpRequests);
     state.incidents = mergeById(incidents, state.incidents);
@@ -139,32 +152,24 @@ function actor(ctx: McpRequestContext): ActorContext {
   const subject = info?.extra?.subject?.toString() ?? 'resident-sarah';
   const householdId = info?.extra?.householdId?.toString();
   const residentId = info?.extra?.residentId?.toString();
-  if (repository && (!householdId || !residentId)) {
+  const roleValue = info?.extra?.role?.toString();
+  const circleMemberId = info?.extra?.circleMemberId?.toString();
+  const role = ['resident', 'coordinator', 'nearby-helper', 'backup', 'aide'].includes(
+    roleValue ?? '',
+  )
+    ? (roleValue as Role)
+    : undefined;
+  if (repository && (!householdId || !residentId || !role)) {
     throw new StayDomainError('FORBIDDEN', 'The authenticated resident scope is missing.');
   }
   return {
     subject,
     householdId: householdId ?? 'demo-household-sarah',
     residentId: residentId ?? 'resident-sarah',
-    role: 'resident',
+    ...(circleMemberId ? { circleMemberId } : {}),
+    role: role ?? 'resident',
     correlationId: crypto.randomUUID(),
-    permissions: [
-      'home:read',
-      'tasks:write',
-      'circle:read',
-      'safety-window:read',
-      'safety-window:manage',
-      'help:request',
-      'help:respond',
-      'incident:read',
-      'incident:coordinate',
-      'incident:resolve',
-      'access:manage',
-      'privacy:manage',
-      'memory:read',
-      'memory:manage',
-      'playbook:execute',
-    ],
+    permissions: permissionsForRole(role ?? 'resident'),
   };
 }
 
@@ -382,7 +387,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     {
       title: 'Coordinate an incident',
       description:
-        'Activate, assign, accept, or resolve a resident-authorized Circle incident using deterministic policy.',
+        'Activate, assign, accept, or escalate a resident-authorized Circle incident using deterministic policy. Incident resolution is never available to the model.',
       inputSchema: EntityActionSchema.extend({ idempotencyKey: z.string().min(8).max(180) }),
       annotations: { idempotentHint: true, destructiveHint: false, openWorldHint: false },
     },
@@ -416,11 +421,10 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
               expectedVersion,
             });
           if (action === 'resolve')
-            return engine.resolveIncident(entityId, {
-              actor: actor(context),
-              idempotencyKey,
-              expectedVersion,
-            });
+            throw new StayDomainError(
+              'FORBIDDEN',
+              'The model cannot close incidents. Use the authenticated resident or coordinator control.',
+            );
           if (action === 'escalate')
             return engine.escalateIncident(entityId, {
               actor: actor(context),
@@ -613,16 +617,29 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     {
       title: 'Perform a home action',
       description: 'Run a clearly labeled simulated home-device action for the public demo.',
-      inputSchema: EntityActionSchema,
-      annotations: { idempotentHint: false, destructiveHint: false, openWorldHint: true },
+      inputSchema: EntityActionSchema.extend({
+        action: z.enum(['turn-on', 'turn-off', 'ready-at-sunset']),
+        idempotencyKey: z.string().min(8).max(180),
+      }),
+      annotations: { idempotentHint: true, destructiveHint: false, openWorldHint: true },
     },
-    async ({ action, entityId }) => {
+    async ({ action, entityId = 'device-path-lighting', expectedVersion = 1, idempotencyKey }) => {
       const observation = await providers.getDeviceStatus();
+      const result = await executeCommand(
+        context,
+        { aggregateType: 'device', idempotencyKey, expectedVersion },
+        (engine) =>
+          engine.performHomeAction(entityId, action, {
+            actor: actor(context),
+            idempotencyKey,
+            expectedVersion,
+          }),
+      );
       return toolResult(
         'perform_home_action',
-        `${action.replaceAll('-', ' ')} is simulated; no physical device was changed.`,
-        { action, entityId, devices: observation.value },
-        observation.provenance,
+        `${action.replaceAll('-', ' ')} is simulated; ${result.entity.name} is ${result.entity.state}. No physical device was changed.`,
+        { result, observedDevices: observation.value },
+        result.provenance,
       );
     },
   );

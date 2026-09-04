@@ -24,6 +24,7 @@
     "@stay/contracts": "workspace:*",
     "@stay/domain": "workspace:*",
     "@stay/persistence": "workspace:*",
+    "aws-jwt-verify": "5.2.1",
     "zod": "4.5.4"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import type { AuthInfo } from '@modelcontextprotocol/server';
+import { RoleSchema } from '@stay/contracts';
 import { fetchMcp } from './server.js';
 
 function metadata(event: APIGatewayProxyEventV2): APIGatewayProxyResultV2 | null {
@@ -57,12 +58,22 @@ function auth(event: APIGatewayProxyEventV2): AuthInfo | null {
         subject: 'resident-sarah',
         householdId: 'demo-household-sarah',
         residentId: 'resident-sarah',
+        role: 'resident',
       },
     };
   }
   const householdId = claims?.['custom:household_id']?.toString();
   const residentId = claims?.['custom:resident_id']?.toString();
-  if (!header || !claims?.sub || !householdId || !residentId || !scopes.includes('stay/mcp'))
+  const role = RoleSchema.safeParse(claims?.['custom:stay_role']).data;
+  const circleMemberId = claims?.['custom:circle_member_id']?.toString();
+  if (
+    !header ||
+    !claims?.sub ||
+    !householdId ||
+    !residentId ||
+    !role ||
+    !scopes.includes('stay/mcp')
+  )
     return null;
   return {
     token: header.replace(/^Bearer\s+/i, ''),
@@ -73,6 +84,8 @@ function auth(event: APIGatewayProxyEventV2): AuthInfo | null {
       subject: claims.sub,
       householdId,
       residentId,
+      role,
+      ...(circleMemberId ? { circleMemberId } : {}),
     },
   };
 }

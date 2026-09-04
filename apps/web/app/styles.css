@@ -677,6 +677,13 @@ svg {
   border-radius: 2px;
   background: var(--surface);
 }
+.status-card-action {
+  display: flex;
+  flex-direction: column;
+  grid-column: 2;
+  align-items: flex-start;
+  gap: 4px;
+}
 .status-card > div:nth-child(2) {
   display: flex;
   flex-direction: column;
@@ -1371,6 +1378,75 @@ svg {
 .people-list {
   display: grid;
 }
+.section-actions,
+.circle-person-actions,
+.inline-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.circle-person-manage {
+  border-block-start: 1px solid var(--line);
+}
+.circle-person-manage:first-child {
+  border-block-start: 0;
+}
+.circle-person-manage .person-row {
+  border-block-start: 0;
+}
+.circle-person-actions {
+  justify-content: flex-end;
+  padding-block-end: 12px;
+}
+.inline-confirmation {
+  justify-content: flex-end;
+  max-inline-size: 100%;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+.danger-text-button {
+  min-block-size: 48px;
+  padding-inline: 12px;
+  border: 0;
+  color: var(--emergency);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.circle-person-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+  margin-block-end: 12px;
+  background: var(--surface-muted);
+}
+.circle-person-form > div {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 6px;
+}
+.circle-person-form label {
+  font-weight: 650;
+}
+.circle-person-form input,
+.circle-person-form select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text);
+  background: var(--chalk);
+}
+.circle-person-form .primary-button {
+  align-self: end;
+  justify-self: start;
+}
 .person-row {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
@@ -1441,6 +1517,36 @@ svg {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-block-end: 16px;
+}
+.incident-report-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-block-start: 16px;
+}
+.incident-report-form > div {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 6px;
+}
+.incident-report-form label {
+  font-weight: 650;
+}
+.incident-report-form input,
+.incident-report-form select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text);
+  background: var(--chalk);
+}
+.incident-report-form > small {
+  grid-column: 1 / -1;
+  color: var(--text-soft);
 }
 .help-request-form > div:not(.form-actions) {
   display: flex;
@@ -1745,6 +1851,14 @@ svg {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.playbook-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 .playbook-foot small {
   color: var(--text-soft);
@@ -2100,6 +2214,16 @@ svg {
   .person-row .role-pill,
   .person-row .availability {
     grid-column: 2;
+  }
+  .circle-person-form {
+    grid-template-columns: 1fr;
+  }
+  .incident-report-form {
+    grid-template-columns: 1fr;
+  }
+  .circle-person-actions,
+  .inline-confirmation {
+    justify-content: flex-start;
   }
   .help-board-intro,
   .incident-heading,

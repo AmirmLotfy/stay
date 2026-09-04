@@ -36,15 +36,16 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 }));
 
 import { GoneException } from '@aws-sdk/client-apigatewaymanagementapi';
-import { broadcastHandler, connectionHandler } from './websocket.js';
+import { authenticatedConnectionScope, broadcastHandler, connectionHandler } from './websocket.js';
 
 function socketEvent(
-  routeKey: '$connect' | '$disconnect',
+  routeKey: '$connect' | '$disconnect' | '$default',
   demoSession?: string,
+  mode?: 'authenticated',
 ): APIGatewayProxyWebsocketEventV2 {
   return {
     requestContext: { routeKey, connectionId: 'connection-one' },
-    queryStringParameters: demoSession ? { demoSession } : undefined,
+    queryStringParameters: demoSession ? { demoSession } : mode ? { mode } : undefined,
   } as unknown as APIGatewayProxyWebsocketEventV2;
 }
 
@@ -102,6 +103,46 @@ describe('WebSocket lifecycle and fan-out', () => {
         connectionId: 'connection-one',
       },
     });
+  });
+
+  it('creates a short-lived pending record for an authenticated browser handshake', async () => {
+    mocks.tableSend.mockResolvedValueOnce({});
+    await expect(
+      connectionHandler(socketEvent('$connect', undefined, 'authenticated')),
+    ).resolves.toMatchObject({ statusCode: 200 });
+    const write = mocks.tableSend.mock.calls[0]![0] as { input: Record<string, unknown> };
+    expect(write.input).toMatchObject({
+      Item: {
+        PK: 'CONNECTION#connection-one',
+        state: 'pending-authentication',
+      },
+    });
+  });
+
+  it('requires signed household, resident, role, and app-scope claims', () => {
+    expect(
+      authenticatedConnectionScope({
+        sub: 'subject-sarah',
+        scope: 'openid stay/app',
+        'custom:household_id': 'household-sarah',
+        'custom:resident_id': 'resident-sarah',
+        'custom:stay_role': 'resident',
+      }),
+    ).toEqual({
+      subject: 'subject-sarah',
+      householdId: 'household-sarah',
+      residentId: 'resident-sarah',
+      role: 'resident',
+    });
+    expect(
+      authenticatedConnectionScope({
+        sub: 'subject-sarah',
+        scope: 'openid stay/app',
+        'custom:household_id': 'household-sarah',
+        'custom:resident_id': 'resident-sarah',
+        'custom:stay_role': 'administrator',
+      }),
+    ).toBeNull();
   });
 
   it('deduplicates explicit and stored recipients during broadcast', async () => {

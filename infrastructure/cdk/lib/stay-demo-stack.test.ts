@@ -100,6 +100,23 @@ describe('StayDemoStack', () => {
           LambdaVersion: 'V2_0',
         },
       },
+      Schema: Match.arrayWith([
+        Match.objectLike({ Name: 'stay_role', Mutable: false }),
+        Match.objectLike({ Name: 'circle_member_id', Mutable: false }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'ANY /v1/{proxy+}',
+      AuthorizationScopes: ['stay/app'],
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-demo-websocket',
+      Environment: {
+        Variables: Match.objectLike({
+          COGNITO_USER_POOL_ID: Match.anyValue(),
+          COGNITO_PUBLIC_CLIENT_ID: Match.anyValue(),
+        }),
+      },
     });
     template.hasResourceProperties('AWS::Events::Rule', {
       EventPattern: { source: ['stay.domain'] },

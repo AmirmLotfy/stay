@@ -35,13 +35,20 @@
                     "data": {
                       "type": "object",
                       "properties": {
+                        "resident": {},
                         "oneThing": {},
                         "calendar": {
                           "type": "array",
                           "items": {}
+                        },
+                        "devices": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/HomeDevice"
+                          }
                         }
                       },
-                      "required": ["oneThing", "calendar"],
+                      "required": ["resident", "oneThing", "calendar", "devices"],
                       "additionalProperties": false
                     },
                     "provenance": {
@@ -69,6 +76,99 @@
                   },
                   "required": ["data", "provenance"],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or missing command metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Optimistic concurrency or state conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Perform a versioned simulated home-device action",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "description": "Unique command key retained for duplicate suppression.",
+              "example": "01J8STAY9F2R8M5H2J3X4N6P7Q"
+            },
+            "required": true,
+            "description": "Unique command key retained for duplicate suppression."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "entityId": {
+                    "type": "string"
+                  },
+                  "expectedVersion": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["action"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandResult"
                 }
               }
             }
@@ -1400,7 +1500,7 @@
                     "properties": {
                       "action": {
                         "type": "string",
-                        "const": "next-step"
+                        "enum": ["next-step", "start", "pause", "resume", "cancel", "reset"]
                       },
                       "entityId": {
                         "type": "string",
@@ -2327,6 +2427,62 @@
         },
         "required": ["utterance", "currentSurface", "visibleEntityIds", "locale"]
       },
+      "HomeDevice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["path-light", "entry-sensor", "utility-sensor"]
+          },
+          "state": {
+            "type": "string",
+            "enum": ["on", "off", "ready", "closed", "normal", "unavailable"]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["live", "simulated", "unavailable"]
+              },
+              "provider": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": ["mode", "provider", "observedAt"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "name", "kind", "state", "version", "updatedAt", "provenance"],
+        "additionalProperties": false
+      },
       "ApiError": {
         "type": "object",
         "properties": {
@@ -2525,6 +2681,14 @@
           "id": {
             "type": "string"
           },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "active": {
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -2555,6 +2719,7 @@
               "type": "string",
               "enum": [
                 "home:read",
+                "home:act",
                 "tasks:write",
                 "circle:read",
                 "circle:manage",
@@ -2579,6 +2744,8 @@
         },
         "required": [
           "id",
+          "version",
+          "active",
           "name",
           "initials",
           "role",

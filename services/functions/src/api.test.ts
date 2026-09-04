@@ -31,6 +31,29 @@ function event(
   };
 }
 
+function authorize(
+  request: APIGatewayProxyEventV2,
+  role: 'resident' | 'coordinator' | 'nearby-helper' | 'backup' | 'aide',
+  circleMemberId?: string,
+): APIGatewayProxyEventV2 {
+  const context = request.requestContext as typeof request.requestContext & {
+    authorizer?: { jwt: { claims: Record<string, string>; scopes: string[] } };
+  };
+  context.authorizer = {
+    jwt: {
+      claims: {
+        sub: `subject-${role}`,
+        'custom:household_id': 'household-sarah',
+        'custom:resident_id': 'resident-sarah',
+        'custom:stay_role': role,
+        ...(circleMemberId ? { 'custom:circle_member_id': circleMemberId } : {}),
+      },
+      scopes: ['stay/app'],
+    },
+  };
+  return request;
+}
+
 describe('REST API contract', () => {
   it('preserves optimistic versions for help-request transitions', () => {
     expect(persistedExpectedVersion('help-requests', 'create', undefined)).toBe(0);
@@ -51,8 +74,42 @@ describe('REST API contract', () => {
     expect(result.statusCode).toBe(403);
     expect(JSON.parse(result.body)).toMatchObject({
       code: 'FORBIDDEN',
-      message: 'The authenticated identity is missing its household partition claims.',
+      message: 'The authenticated identity is missing its household, resident, or role claims.',
     });
+  });
+
+  it('serves authenticated household reads with an explicit role claim', async () => {
+    const result = (await handler(authorize(event('/v1/home'), 'resident'))) as {
+      statusCode: number;
+      body: string;
+    };
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).data.resident.id).toBe('resident-sarah');
+  });
+
+  it('enforces role permissions after Cognito authorization', async () => {
+    const result = (await handler(
+      authorize(
+        event(
+          '/v1/privacy',
+          'POST',
+          { action: 'update', expectedVersion: 1, routineSharing: false },
+          { 'idempotency-key': 'coordinator-privacy-denied' },
+        ),
+        'coordinator',
+      ),
+    )) as { statusCode: number; body: string };
+    expect(result.statusCode).toBe(403);
+    expect(JSON.parse(result.body).code).toBe('FORBIDDEN');
+  });
+
+  it('enforces role permissions on authenticated reads', async () => {
+    const result = (await handler(authorize(event('/v1/privacy'), 'coordinator'))) as {
+      statusCode: number;
+      body: string;
+    };
+    expect(result.statusCode).toBe(403);
+    expect(JSON.parse(result.body).code).toBe('FORBIDDEN');
   });
 
   it('creates an isolated TTL-scoped demo session without auth', async () => {
@@ -298,6 +355,116 @@ describe('REST API contract', () => {
     });
   });
 
+  it('performs a versioned simulated Path Lighting action', async () => {
+    const result = (await handler(
+      event(
+        '/v1/demo/home',
+        'POST',
+        { action: 'turn-on', entityId: 'device-path-lighting', expectedVersion: 1 },
+        {
+          'x-stay-demo-session': 'test-path-lighting',
+          'idempotency-key': 'api-path-lighting-on',
+        },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({
+      entity: { id: 'device-path-lighting', state: 'on', version: 2 },
+      provenance: { mode: 'simulated', provider: 'STAY scripted smart-home adapter' },
+    });
+  });
+
+  it('creates, updates, and removes a versioned Circle member', async () => {
+    const headers = { 'x-stay-demo-session': 'circle-api', 'idempotency-key': 'circle-api-add' };
+    const created = (await handler(
+      event(
+        '/v1/demo/circle',
+        'POST',
+        {
+          action: 'add',
+          name: 'Nora Fields',
+          role: 'backup',
+          priority: 5,
+          availability: 'available',
+          responseMinutes: 20,
+          relationship: 'Friend · backup contact',
+        },
+        headers,
+      ),
+    )) as { statusCode: number; body: string };
+    expect(created.statusCode).toBe(200);
+    const member = JSON.parse(created.body).entity;
+    expect(member).toMatchObject({ active: true, role: 'backup', version: 1 });
+
+    const updated = (await handler(
+      event(
+        '/v1/demo/circle',
+        'POST',
+        {
+          action: 'update',
+          entityId: member.id,
+          expectedVersion: 1,
+          name: member.name,
+          role: member.role,
+          priority: member.priority,
+          availability: 'busy',
+          responseMinutes: member.responseMinutes,
+          relationship: member.relationship,
+        },
+        { ...headers, 'idempotency-key': 'circle-api-update' },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(updated.statusCode).toBe(200);
+    expect(JSON.parse(updated.body).entity).toMatchObject({ availability: 'busy', version: 2 });
+
+    const removed = (await handler(
+      event(
+        '/v1/demo/circle',
+        'POST',
+        { action: 'remove', entityId: member.id, expectedVersion: 2 },
+        { ...headers, 'idempotency-key': 'circle-api-remove' },
+      ),
+    )) as { statusCode: number; body: string };
+    expect(removed.statusCode).toBe(200);
+    expect(JSON.parse(removed.body).entity.active).toBe(false);
+  });
+
+  it('exposes the full deterministic incident lifecycle through versioned routes', async () => {
+    const baseHeaders = {
+      'x-stay-demo-session': 'incident-api',
+      'idempotency-key': 'incident-api-detect',
+    };
+    const detected = (await handler(
+      event(
+        '/v1/demo/incidents',
+        'POST',
+        {
+          action: 'detect',
+          kind: 'water-leak',
+          title: 'Water near the kitchen sink',
+          severity: 'attention',
+        },
+        baseHeaders,
+      ),
+    )) as { statusCode: number; body: string };
+    expect(detected.statusCode).toBe(200);
+    let incident = JSON.parse(detected.body).entity;
+
+    for (const action of ['begin-verification', 'activate', 'begin-coordination'] as const) {
+      const result = (await handler(
+        event(
+          '/v1/demo/incidents',
+          'POST',
+          { action, entityId: incident.id, expectedVersion: incident.version },
+          { ...baseHeaders, 'idempotency-key': `incident-api-${action}` },
+        ),
+      )) as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      incident = JSON.parse(result.body).entity;
+    }
+    expect(incident).toMatchObject({ state: 'coordinating', version: 4 });
+  });
+
   it('uses a short-lived scoped token before ending private time', async () => {
     const headers = {
       'x-stay-demo-session': 'test-privacy',
@@ -359,5 +526,103 @@ describe('REST API contract', () => {
     expect(ended.statusCode).toBe(200);
     expect(JSON.parse(ended.body).entity).toMatchObject({ version: 3 });
     expect(JSON.parse(ended.body).entity.temporaryPrivateUntil).toBeUndefined();
+  });
+
+  it('discloses incident-only access notes only to the assigned authenticated responder after confirmation', async () => {
+    const residentHeaders = { 'idempotency-key': 'access-disclosure-detect' };
+    const detectedResponse = (await handler(
+      authorize(
+        event(
+          '/v1/incidents',
+          'POST',
+          {
+            action: 'detect',
+            kind: 'water-leak',
+            title: 'Access disclosure test',
+            severity: 'attention',
+          },
+          residentHeaders,
+        ),
+        'resident',
+      ),
+    )) as { statusCode: number; body: string };
+    let incident = JSON.parse(detectedResponse.body).entity;
+    for (const action of ['begin-verification', 'activate', 'begin-coordination'] as const) {
+      const transitioned = (await handler(
+        authorize(
+          event(
+            '/v1/incidents',
+            'POST',
+            { action, entityId: incident.id, expectedVersion: incident.version },
+            { 'idempotency-key': `access-disclosure-${action}` },
+          ),
+          'resident',
+        ),
+      )) as { statusCode: number; body: string };
+      incident = JSON.parse(transitioned.body).entity;
+    }
+    for (const [action, key] of [
+      ['ask-responder', 'access-disclosure-ask'],
+      ['accept', 'access-disclosure-accept'],
+    ] as const) {
+      const transitioned = (await handler(
+        authorize(
+          event(
+            '/v1/incidents',
+            'POST',
+            {
+              action,
+              entityId: incident.id,
+              memberId: 'member-tom',
+              expectedVersion: incident.version,
+            },
+            { 'idempotency-key': key },
+          ),
+          'resident',
+        ),
+      )) as { statusCode: number; body: string };
+      incident = JSON.parse(transitioned.body).entity;
+    }
+
+    const prepared = (await handler(
+      authorize(
+        event(
+          '/v1/incidents',
+          'POST',
+          {
+            action: 'request-confirmation',
+            entityId: incident.id,
+            expectedVersion: incident.version,
+            confirmationPurpose: 'disclose-access-instructions',
+          },
+          { 'idempotency-key': 'access-disclosure-prepare' },
+        ),
+        'nearby-helper',
+        'member-tom',
+      ),
+    )) as { statusCode: number; body: string };
+    const confirmationToken = JSON.parse(prepared.body).confirmation.token;
+    const disclosed = (await handler(
+      authorize(
+        event(
+          '/v1/incidents',
+          'POST',
+          {
+            action: 'disclose-access-instructions',
+            entityId: incident.id,
+            expectedVersion: incident.version,
+            confirmationToken,
+          },
+          { 'idempotency-key': 'access-disclosure-open' },
+        ),
+        'nearby-helper',
+        'member-tom',
+      ),
+    )) as { statusCode: number; body: string };
+    expect(disclosed.statusCode).toBe(200);
+    expect(JSON.parse(disclosed.body)).toMatchObject({
+      entity: { state: 'responding', version: incident.version + 1 },
+      incidentAccess: [{ label: 'Emergency access note' }],
+    });
   });
 });

@@ -5,6 +5,7 @@ export type Role = z.infer<typeof RoleSchema>;
 
 export const PermissionSchema = z.enum([
   'home:read',
+  'home:act',
   'tasks:write',
   'circle:read',
   'circle:manage',
@@ -27,6 +28,7 @@ export const ActorContextSchema = z.object({
   subject: z.string().min(1),
   householdId: z.string().min(1),
   residentId: z.string().min(1),
+  circleMemberId: z.string().min(1).optional(),
   role: RoleSchema,
   permissions: z.array(PermissionSchema),
   correlationId: z.string().min(1),
@@ -156,6 +158,8 @@ export type TimelineEvent = z.infer<typeof TimelineEventSchema>;
 
 export const CircleMemberSchema = z.object({
   id: z.string(),
+  version: z.number().int().positive(),
+  active: z.boolean(),
   name: z.string(),
   initials: z.string(),
   role: RoleSchema,
@@ -270,6 +274,17 @@ export const HouseMemoryItemSchema = z.object({
   version: z.number().int().positive(),
 });
 export type HouseMemoryItem = z.infer<typeof HouseMemoryItemSchema>;
+
+export const HomeDeviceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.enum(['path-light', 'entry-sensor', 'utility-sensor']),
+  state: z.enum(['on', 'off', 'ready', 'closed', 'normal', 'unavailable']),
+  version: z.number().int().positive(),
+  updatedAt: z.iso.datetime(),
+  provenance: SourceProvenanceSchema,
+});
+export type HomeDevice = z.infer<typeof HomeDeviceSchema>;
 
 export const PlaybookSchema = z.object({
   id: z.string(),

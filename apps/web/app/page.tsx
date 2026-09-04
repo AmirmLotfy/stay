@@ -3,6 +3,7 @@
 import type {
   AccessPreferences,
   ActorContext,
+  CircleMember,
   ConfirmationPurpose,
   ConfirmationToken,
   HelpRequest,
@@ -20,6 +21,7 @@ import {
   StayEngine,
   type CreatePlaybookInput,
   type CreateSafetyWindowInput,
+  type CircleMemberInput,
   type HomeState,
   type PrivacyUpdateInput,
 } from '@stay/domain';
@@ -63,6 +65,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   beginSignIn,
   completeSignIn,
+  getAuthenticatedSession,
   hasAuthenticatedSession,
   loadRuntimeConfig,
   signOut,
@@ -75,7 +78,7 @@ import {
   interpretDemoIntent,
   requestDemoConfirmation,
   runDemoCommand,
-  type DemoSessionRecord,
+  type StaySessionRecord,
 } from './demo-api';
 
 type Surface = 'home' | 'access' | 'windows' | 'circle' | 'playbooks' | 'privacy' | 'memory';
@@ -89,8 +92,10 @@ const residentActor: ActorContext = {
   correlationId: 'public-demo',
   permissions: [
     'home:read',
+    'home:act',
     'tasks:write',
     'circle:read',
+    'circle:manage',
     'safety-window:read',
     'safety-window:manage',
     'help:request',
@@ -220,7 +225,7 @@ export default function StayApp() {
   const [sessionLabel, setSessionLabel] = useState('Starting isolated demo…');
   const [ready, setReady] = useState(false);
   const [runtimeConfig, setRuntimeConfig] = useState<StayRuntimeConfig | null>(null);
-  const [demoSession, setDemoSession] = useState<DemoSessionRecord | null>(null);
+  const [demoSession, setDemoSession] = useState<StaySessionRecord | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
@@ -249,19 +254,26 @@ export default function StayApp() {
         }
         if (cancelled) return;
         setRuntimeConfig(config);
+        let signedIn = false;
         try {
-          setAuthenticated((await completeSignIn(config)) || hasAuthenticatedSession());
+          signedIn = (await completeSignIn(config)) || hasAuthenticatedSession();
+          setAuthenticated(signedIn);
         } catch (error) {
           if (!cancelled)
             setLastError(error instanceof Error ? error.message : 'Sign-in setup is unavailable.');
         }
-        const session = await createDemoSession(config);
+        const authenticatedSession = signedIn ? await getAuthenticatedSession(config) : null;
+        const session = authenticatedSession ?? (await createDemoSession(config));
         const hydrated = await hydrateDemoState(config, session, createDemoState());
         if (cancelled) return;
         engine.current = new StayEngine(hydrated);
         setState(hydrated);
         setDemoSession(session);
-        setSessionLabel(`Isolated AWS demo · ${session.id.slice(-5)}`);
+        setSessionLabel(
+          session.mode === 'authenticated'
+            ? 'Authenticated AWS household'
+            : `Isolated AWS demo · ${session.id.slice(-5)}`,
+        );
         setReady(true);
       } catch {
         useBrowserFallback(
@@ -568,7 +580,7 @@ export default function StayApp() {
         setDemoStep(4);
         return;
       }
-      if (runtimeConfig && demoSession) {
+      if (runtimeConfig && demoSession?.mode === 'isolated-demo') {
         const nextSession = await createDemoSession(runtimeConfig, true);
         const hydrated = await hydrateDemoState(runtimeConfig, nextSession, createDemoState());
         engine.current = new StayEngine(hydrated);
@@ -639,6 +651,49 @@ export default function StayApp() {
       setActionPending(false);
     }
   }, [actionPending, demoSession, refresh, runtimeConfig]);
+
+  const managePathLighting = useCallback(async () => {
+    if (actionPending) return;
+    const device = engine.current
+      .snapshot()
+      .devices.find((candidate) => candidate.id === 'device-path-lighting');
+    if (!device) return;
+    const action = device.state === 'on' ? 'ready-at-sunset' : 'turn-on';
+    const idempotencyKey = uid(`path-light-${action}`);
+    setActionPending(true);
+    setLastError(null);
+    try {
+      const updated =
+        runtimeConfig && demoSession
+          ? (
+              await runDemoCommand<HomeState['devices'][number]>(runtimeConfig, demoSession, {
+                group: 'home',
+                action,
+                entityId: device.id,
+                expectedVersion: device.version,
+                idempotencyKey,
+              })
+            ).entity
+          : engine.current.performHomeAction(device.id, action, {
+              actor: residentActor,
+              idempotencyKey,
+              expectedVersion: device.version,
+            }).entity;
+      const next = engine.current.snapshot();
+      next.devices = next.devices.map((item) => (item.id === updated.id ? updated : item));
+      engine.current = new StayEngine(next);
+      setState(next);
+      setNotice(
+        updated.state === 'on'
+          ? 'Path lighting is on in this clearly labeled simulation.'
+          : 'Path lighting is ready for sunset in this clearly labeled simulation.',
+      );
+    } catch (error) {
+      setLastError(error instanceof Error ? error.message : 'Path lighting did not change.');
+    } finally {
+      setActionPending(false);
+    }
+  }, [actionPending, demoSession, runtimeConfig]);
 
   const updateAccess = useCallback(
     (changes: Partial<AccessPreferences>) => {
@@ -880,13 +935,13 @@ export default function StayApp() {
   );
 
   const manageHelpRequest = useCallback(
-    async (requestId: string) => {
+    async (requestId: string, requestedAction?: 'accept' | 'complete' | 'cancel') => {
       if (actionPending) return;
       const request = engine.current
         .snapshot()
         .helpRequests.find((candidate) => candidate.id === requestId);
       if (!request || ['completed', 'cancelled', 'declined'].includes(request.state)) return;
-      const action = request.state === 'assigned' ? 'complete' : 'accept';
+      const action = requestedAction ?? (request.state === 'assigned' ? 'complete' : 'accept');
       const idempotencyKey = uid(`help-${action}`);
       setActionPending(true);
       setLastError(null);
@@ -913,8 +968,15 @@ export default function StayApp() {
             expectedVersion: request.version,
           });
           refresh();
-        } else {
+        } else if (action === 'complete') {
           engine.current.completeHelpRequest(request.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: request.version,
+          });
+          refresh();
+        } else {
+          engine.current.cancelHelpRequest(request.id, {
             actor: residentActor,
             idempotencyKey,
             expectedVersion: request.version,
@@ -924,7 +986,9 @@ export default function StayApp() {
         setNotice(
           action === 'accept'
             ? 'Tom accepted this ordinary help request and now owns it.'
-            : 'The ordinary help request is complete.',
+            : action === 'complete'
+              ? 'The ordinary help request is complete.'
+              : 'The ordinary help request was cancelled. No action is needed.',
         );
       } catch (error) {
         setLastError(error instanceof Error ? error.message : 'The help request did not change.');
@@ -972,6 +1036,159 @@ export default function StayApp() {
       }
     },
     [actionPending, demoSession, refresh, runtimeConfig],
+  );
+
+  const createCircleMember = useCallback(
+    async (input: CircleMemberInput): Promise<boolean> => {
+      if (actionPending) return false;
+      const idempotencyKey = uid('circle-add');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        let member: CircleMember;
+        if (runtimeConfig && demoSession) {
+          const remote = await runDemoCommand<CircleMember>(runtimeConfig, demoSession, {
+            group: 'circle',
+            action: 'add',
+            ...input,
+            idempotencyKey,
+          });
+          member = remote.entity;
+        } else {
+          member = engine.current.addCircleMember(input, {
+            actor: residentActor,
+            idempotencyKey,
+          }).entity;
+        }
+        const next = engine.current.snapshot();
+        next.circle = [...next.circle.filter((item) => item.id !== member.id), member].sort(
+          (a, b) => a.priority - b.priority,
+        );
+        engine.current = new StayEngine(next);
+        setState(next);
+        setNotice(`${member.name} was added to Sarah’s Circle as ${member.role}.`);
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The Circle member was not added.');
+        return false;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, runtimeConfig],
+  );
+
+  const updateCircleAvailability = useCallback(
+    async (memberId: string) => {
+      if (actionPending) return;
+      const member = engine.current.snapshot().circle.find((item) => item.id === memberId);
+      if (!member) return;
+      const availability = {
+        available: 'busy',
+        busy: 'unavailable',
+        unavailable: 'available',
+        responding: 'available',
+      }[member.availability] as CircleMember['availability'];
+      const input: CircleMemberInput = {
+        name: member.name,
+        role: member.role === 'resident' ? 'backup' : member.role,
+        priority: member.priority,
+        availability,
+        responseMinutes: member.responseMinutes,
+        relationship: member.relationship,
+      };
+      const idempotencyKey = uid('circle-availability');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        const updated =
+          runtimeConfig && demoSession
+            ? (
+                await runDemoCommand<CircleMember>(runtimeConfig, demoSession, {
+                  group: 'circle',
+                  action: 'update',
+                  entityId: member.id,
+                  expectedVersion: member.version,
+                  ...input,
+                  idempotencyKey,
+                })
+              ).entity
+            : engine.current.updateCircleMember(member.id, input, {
+                actor: residentActor,
+                expectedVersion: member.version,
+                idempotencyKey,
+              }).entity;
+        const next = engine.current.snapshot();
+        next.circle = next.circle.map((item) => (item.id === updated.id ? updated : item));
+        engine.current = new StayEngine(next);
+        setState(next);
+        setNotice(`${updated.name} is now marked ${updated.availability}.`);
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'Availability was not updated.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, runtimeConfig],
+  );
+
+  const removeCircleMember = useCallback(
+    async (memberId: string) => {
+      if (actionPending) return;
+      const member = engine.current.snapshot().circle.find((item) => item.id === memberId);
+      if (!member) return;
+      const idempotencyKey = uid('circle-remove');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        let confirmation: ConfirmationToken | undefined;
+        if (member.priority === 1) {
+          confirmation =
+            runtimeConfig && demoSession
+              ? await requestDemoConfirmation(runtimeConfig, demoSession, {
+                  group: 'circle',
+                  entityId: member.id,
+                  expectedVersion: member.version,
+                  purpose: 'remove-primary-contact',
+                  idempotencyKey: uid('circle-confirm'),
+                })
+              : {
+                  token: uid('circle-confirmation-token-long'),
+                  purpose: 'remove-primary-contact',
+                  subject: residentActor.subject,
+                  entityId: member.id,
+                  expiresAt: new Date(Date.now() + 300_000).toISOString(),
+                };
+        }
+        const removed =
+          runtimeConfig && demoSession
+            ? (
+                await runDemoCommand<CircleMember>(runtimeConfig, demoSession, {
+                  group: 'circle',
+                  action: 'remove',
+                  entityId: member.id,
+                  expectedVersion: member.version,
+                  idempotencyKey,
+                  ...(confirmation ? { confirmationToken: confirmation.token } : {}),
+                })
+              ).entity
+            : engine.current.removeCircleMember(
+                member.id,
+                { actor: residentActor, expectedVersion: member.version, idempotencyKey },
+                confirmation,
+              ).entity;
+        const next = engine.current.snapshot();
+        next.circle = next.circle.filter((item) => item.id !== removed.id);
+        engine.current = new StayEngine(next);
+        setState(next);
+        setNotice(`${member.name} was removed from Sarah’s Circle. The audit record remains.`);
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The Circle member was not removed.');
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, runtimeConfig],
   );
 
   const saveHouseMemory = useCallback(
@@ -1032,7 +1249,9 @@ export default function StayApp() {
   );
 
   const manageIncident = useCallback(
-    async (action: 'escalate' | 'resolve') => {
+    async (
+      action: 'begin-verification' | 'activate' | 'begin-coordination' | 'escalate' | 'resolve',
+    ) => {
       if (actionPending) return;
       const incident = engine.current.snapshot().incidents[0];
       if (!incident) return;
@@ -1068,8 +1287,15 @@ export default function StayApp() {
             expectedVersion: incident.version,
           });
           refresh();
-        } else {
+        } else if (action === 'resolve') {
           engine.current.resolveIncident(incident.id, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: incident.version,
+          });
+          refresh();
+        } else {
+          engine.current.advanceIncident(incident.id, action, {
             actor: residentActor,
             idempotencyKey,
             expectedVersion: incident.version,
@@ -1077,9 +1303,13 @@ export default function StayApp() {
           refresh();
         }
         setNotice(
-          action === 'escalate'
-            ? 'The Circle plan moved to the next preconfigured contact.'
-            : 'Sarah is okay. The incident is resolved and remains in the audit trail.',
+          {
+            'begin-verification': 'Sarah’s Circle is verifying the report.',
+            activate: 'The resident-authored incident plan is active.',
+            'begin-coordination': 'Circle coordination is ready for responder offers.',
+            escalate: 'The Circle plan moved to the next preconfigured contact.',
+            resolve: 'Sarah is okay. The incident is resolved and remains in the audit trail.',
+          }[action],
         );
       } catch (error) {
         setLastError(error instanceof Error ? error.message : 'The incident did not change.');
@@ -1090,19 +1320,57 @@ export default function StayApp() {
     [actionPending, demoSession, refresh, runtimeConfig],
   );
 
-  const advancePlaybook = useCallback(
-    async (id: string) => {
+  const createIncident = useCallback(
+    async (input: {
+      kind: Exclude<Incident['kind'], 'missed-window'>;
+      title: string;
+      severity: Incident['severity'];
+    }): Promise<boolean> => {
+      if (actionPending) return false;
+      const idempotencyKey = uid('incident-detect');
+      setActionPending(true);
+      setLastError(null);
+      try {
+        const incident =
+          runtimeConfig && demoSession
+            ? (
+                await runDemoCommand<Incident>(runtimeConfig, demoSession, {
+                  group: 'incidents',
+                  action: 'detect',
+                  ...input,
+                  idempotencyKey,
+                })
+              ).entity
+            : engine.current.detectIncident(input, { actor: residentActor, idempotencyKey }).entity;
+        const next = engine.current.snapshot();
+        next.incidents = [incident, ...next.incidents.filter((item) => item.id !== incident.id)];
+        engine.current = new StayEngine(next);
+        setState(next);
+        setNotice('The possible incident is recorded. Verification comes before coordination.');
+        return true;
+      } catch (error) {
+        setLastError(error instanceof Error ? error.message : 'The incident was not recorded.');
+        return false;
+      } finally {
+        setActionPending(false);
+      }
+    },
+    [actionPending, demoSession, runtimeConfig],
+  );
+
+  const managePlaybook = useCallback(
+    async (id: string, action: 'start' | 'next-step' | 'pause' | 'resume' | 'cancel' | 'reset') => {
       if (actionPending) return;
       const playbook = engine.current.snapshot().playbooks.find((item) => item.id === id);
       if (!playbook) return;
-      const idempotencyKey = uid('playbook');
+      const idempotencyKey = uid(`playbook-${action}`);
       setActionPending(true);
       setLastError(null);
       try {
         if (runtimeConfig && demoSession) {
           const remote = await runDemoCommand<Playbook>(runtimeConfig, demoSession, {
             group: 'playbooks',
-            action: 'next-step',
+            action,
             entityId: playbook.id,
             expectedVersion: playbook.version,
             idempotencyKey,
@@ -1113,15 +1381,26 @@ export default function StayApp() {
           );
           engine.current = new StayEngine(next);
           setState(next);
-        } else {
+        } else if (action === 'next-step') {
           engine.current.executePlaybook(id, {
             actor: residentActor,
             idempotencyKey,
             expectedVersion: playbook.version,
           });
           refresh();
+        } else {
+          engine.current.managePlaybookRun(id, action, {
+            actor: residentActor,
+            idempotencyKey,
+            expectedVersion: playbook.version,
+          });
+          refresh();
         }
-        setNotice(`${playbook.title} advanced one deterministic step.`);
+        setNotice(
+          action === 'next-step'
+            ? `${playbook.title} advanced one deterministic step.`
+            : `${playbook.title} is now ${{ start: 'running', pause: 'paused', resume: 'running', cancel: 'cancelled', reset: 'ready' }[action]}.`,
+        );
       } catch (error) {
         setLastError(error instanceof Error ? error.message : 'The playbook did not change.');
       } finally {
@@ -1479,6 +1758,7 @@ export default function StayApp() {
                 state={state}
                 onNavigate={setSurface}
                 onTaskAction={() => void manageOneThing()}
+                onPathLighting={() => void managePathLighting()}
                 pending={interactionPending}
               />
             )}
@@ -1503,10 +1783,14 @@ export default function StayApp() {
                 state={state}
                 active={circleSurface}
                 onChange={setCircleSurface}
-                onHelpAction={(id) => void manageHelpRequest(id)}
+                onHelpAction={(id, action) => void manageHelpRequest(id, action)}
                 onCreateHelp={createHelpRequest}
                 onIncidentAction={(action) => void manageIncident(action)}
+                onCreateIncident={createIncident}
                 onRoutineSharing={(enabled) => void updatePrivacy({ routineSharing: enabled })}
+                onAddCircleMember={createCircleMember}
+                onAvailability={updateCircleAvailability}
+                onRemoveCircleMember={removeCircleMember}
                 pending={interactionPending}
                 {...(activeIncident ? { activeIncident } : {})}
               />
@@ -1514,7 +1798,7 @@ export default function StayApp() {
             {surface === 'playbooks' && (
               <PlaybooksSurface
                 state={state}
-                onRun={(id) => void advancePlaybook(id)}
+                onRun={(id, action) => void managePlaybook(id, action)}
                 onCreate={createPlaybook}
                 pending={interactionPending}
               />
@@ -1670,14 +1954,17 @@ function HomeSurface({
   state,
   onNavigate,
   onTaskAction,
+  onPathLighting,
   pending,
 }: {
   state: HomeState;
   onNavigate: (surface: Surface) => void;
   onTaskAction: () => void;
+  onPathLighting: () => void;
   pending: boolean;
 }) {
   const [fullCheckOpen, setFullCheckOpen] = useState(false);
+  const pathLight = state.devices.find((device) => device.id === 'device-path-lighting');
   return (
     <>
       <header className="page-intro home-intro">
@@ -1753,10 +2040,18 @@ function HomeSurface({
             </div>
             <div>
               <span>Path lighting</span>
-              <strong>Ready at sunset</strong>
+              <strong>{pathLight?.state === 'on' ? 'On now' : 'Ready at sunset'}</strong>
               <small>Hall and bathroom route</small>
             </div>
-            <span className="source-badge">Simulated · 8:40</span>
+            <div className="status-card-action">
+              <span className="source-badge">
+                Simulated ·{' '}
+                {pathLight ? residentTime(pathLight.updatedAt, state.resident.timezone) : '8:40'}
+              </span>
+              <button className="text-button" onClick={onPathLighting} disabled={pending}>
+                {pathLight?.state === 'on' ? 'Ready at sunset' : 'Turn on now'}
+              </button>
+            </div>
           </article>
         </div>
         {fullCheckOpen && (
@@ -2214,17 +2509,31 @@ function CircleSurfaceView({
   onHelpAction,
   onCreateHelp,
   onIncidentAction,
+  onCreateIncident,
   onRoutineSharing,
+  onAddCircleMember,
+  onAvailability,
+  onRemoveCircleMember,
   pending,
   activeIncident,
 }: {
   state: HomeState;
   active: CircleSurface;
   onChange: (surface: CircleSurface) => void;
-  onHelpAction: (id: string) => void;
+  onHelpAction: (id: string, action?: 'accept' | 'complete' | 'cancel') => void;
   onCreateHelp: (input: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>) => Promise<boolean>;
-  onIncidentAction: (action: 'escalate' | 'resolve') => void;
+  onIncidentAction: (
+    action: 'begin-verification' | 'activate' | 'begin-coordination' | 'escalate' | 'resolve',
+  ) => void;
+  onCreateIncident: (input: {
+    kind: Exclude<Incident['kind'], 'missed-window'>;
+    title: string;
+    severity: Incident['severity'];
+  }) => Promise<boolean>;
   onRoutineSharing: (enabled: boolean) => void;
+  onAddCircleMember: (input: CircleMemberInput) => Promise<boolean>;
+  onAvailability: (id: string) => void;
+  onRemoveCircleMember: (id: string) => void;
   pending: boolean;
   activeIncident?: Incident;
 }) {
@@ -2261,9 +2570,22 @@ function CircleSurfaceView({
         />
       )}
       {active === 'incidents' && (
-        <Incidents state={state} onAction={onIncidentAction} pending={pending} />
+        <Incidents
+          state={state}
+          onAction={onIncidentAction}
+          onCreate={onCreateIncident}
+          pending={pending}
+        />
       )}
-      {active === 'people' && <People state={state} />}
+      {active === 'people' && (
+        <People
+          state={state}
+          onAdd={onAddCircleMember}
+          onAvailability={onAvailability}
+          onRemove={onRemoveCircleMember}
+          pending={pending}
+        />
+      )}
       {active === 'settings' && (
         <CircleSettings state={state} onRoutineSharing={onRoutineSharing} pending={pending} />
       )}
@@ -2322,7 +2644,7 @@ function HelpBoard({
   pending,
 }: {
   state: HomeState;
-  onAction: (id: string) => void;
+  onAction: (id: string, action?: 'accept' | 'complete' | 'cancel') => void;
   onCreate: (input: Pick<HelpRequest, 'title' | 'detail' | 'urgency'>) => Promise<boolean>;
   pending: boolean;
 }) {
@@ -2424,6 +2746,15 @@ function HelpBoard({
               >
                 {request.state === 'assigned' ? 'Mark complete' : 'Tom accepts'}
               </button>
+              {!['completed', 'cancelled', 'declined'].includes(request.state) && (
+                <button
+                  className="text-button"
+                  onClick={() => onAction(request.id, 'cancel')}
+                  disabled={pending}
+                >
+                  Cancel request
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -2435,20 +2766,92 @@ function HelpBoard({
 function Incidents({
   state,
   onAction,
+  onCreate,
   pending,
 }: {
   state: HomeState;
-  onAction: (action: 'escalate' | 'resolve') => void;
+  onAction: (
+    action: 'begin-verification' | 'activate' | 'begin-coordination' | 'escalate' | 'resolve',
+  ) => void;
+  onCreate: (input: {
+    kind: Exclude<Incident['kind'], 'missed-window'>;
+    title: string;
+    severity: Incident['severity'];
+  }) => Promise<boolean>;
   pending: boolean;
 }) {
+  const [creating, setCreating] = useState(false);
+  const [kind, setKind] = useState<Exclude<Incident['kind'], 'missed-window'>>('power-outage');
+  const [title, setTitle] = useState('Power is out in the apartment');
+  const [severity, setSeverity] = useState<Incident['severity']>('attention');
   const incident = state.incidents[0];
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (await onCreate({ kind, title: title.trim(), severity })) setCreating(false);
+  };
   if (!incident)
     return (
-      <div className="empty-state">
-        <ShieldCheck />
-        <h2>No active incidents</h2>
-        <p>When a plan is active, ownership and every update appear here.</p>
-      </div>
+      <>
+        <div className="empty-state">
+          <ShieldCheck />
+          <h2>No active incidents</h2>
+          <p>When a plan is active, ownership and every update appear here.</p>
+          <button className="secondary-button" onClick={() => setCreating((value) => !value)}>
+            <Plus /> Report a home incident
+          </button>
+        </div>
+        {creating && (
+          <form
+            className="panel-card incident-report-form"
+            onSubmit={(event) => void submit(event)}
+          >
+            <div>
+              <label htmlFor="incident-kind">What happened?</label>
+              <select
+                id="incident-kind"
+                value={kind}
+                onChange={(event) =>
+                  setKind(event.target.value as Exclude<Incident['kind'], 'missed-window'>)
+                }
+              >
+                <option value="power-outage">Power outage</option>
+                <option value="water-leak">Water leak</option>
+                <option value="extreme-heat">Extreme heat</option>
+                <option value="severe-weather">Severe weather</option>
+                <option value="custom">Something else</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="incident-title">Short description</label>
+              <input
+                id="incident-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                maxLength={160}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="incident-severity">Attention level</label>
+              <select
+                id="incident-severity"
+                value={severity}
+                onChange={(event) => setSeverity(event.target.value as Incident['severity'])}
+              >
+                <option value="watch">Watch</option>
+                <option value="attention">Attention</option>
+                <option value="urgent">Urgent Circle coordination</option>
+              </select>
+            </div>
+            <button className="primary-button" type="submit" disabled={pending}>
+              Record for verification
+            </button>
+            <small>
+              STAY coordinates only Sarah’s Circle and never claims to contact emergency services.
+            </small>
+          </form>
+        )}
+      </>
     );
   const member = state.circle.find((person) => person.id === incident.assignedMemberId);
   return (
@@ -2461,7 +2864,7 @@ function Incidents({
         </div>
         <div className="incident-heading">
           <div>
-            <span className="eyebrow">MISSED SAFETY WINDOW</span>
+            <span className="eyebrow">{incident.kind.replaceAll('-', ' ')}</span>
             <h2>{incident.title}</h2>
             <p>Circle coordination is active. STAY has not contacted emergency services.</p>
           </div>
@@ -2482,6 +2885,33 @@ function Incidents({
         </div>
         <Timeline events={incident.timeline} timezone={state.resident.timezone} />
         <div className="incident-actions">
+          {incident.state === 'detected' && (
+            <button
+              className="primary-button"
+              onClick={() => onAction('begin-verification')}
+              disabled={pending}
+            >
+              <ShieldCheck /> Begin verification
+            </button>
+          )}
+          {incident.state === 'verifying' && (
+            <button
+              className="primary-button"
+              onClick={() => onAction('activate')}
+              disabled={pending}
+            >
+              <Play /> Activate resident plan
+            </button>
+          )}
+          {incident.state === 'active' && (
+            <button
+              className="primary-button"
+              onClick={() => onAction('begin-coordination')}
+              disabled={pending}
+            >
+              <UsersRound /> Begin Circle coordination
+            </button>
+          )}
           <button
             className="secondary-button"
             onClick={() => onAction('escalate')}
@@ -2512,7 +2942,43 @@ function Incidents({
   );
 }
 
-function People({ state }: { state: HomeState }) {
+function People({
+  state,
+  onAdd,
+  onAvailability,
+  onRemove,
+  pending,
+}: {
+  state: HomeState;
+  onAdd: (input: CircleMemberInput) => Promise<boolean>;
+  onAvailability: (id: string) => void;
+  onRemove: (id: string) => void;
+  pending: boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [relationship, setRelationship] = useState('');
+  const [role, setRole] = useState<CircleMemberInput['role']>('nearby-helper');
+  const [priority, setPriority] = useState(5);
+  const [responseMinutes, setResponseMinutes] = useState(15);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (
+      await onAdd({
+        name: name.trim(),
+        relationship: relationship.trim(),
+        role,
+        priority,
+        responseMinutes,
+        availability: 'available',
+      })
+    ) {
+      setName('');
+      setRelationship('');
+      setCreating(false);
+    }
+  };
   return (
     <section className="panel-card">
       <div className="section-heading compact">
@@ -2520,11 +2986,122 @@ function People({ state }: { state: HomeState }) {
           <span className="eyebrow">ROLES & PRIORITY</span>
           <h2>People Sarah trusts</h2>
         </div>
-        <span className="count-pill">{state.circle.length} trusted people</span>
+        <div className="section-actions">
+          <span className="count-pill">{state.circle.length} trusted people</span>
+          <button className="secondary-button" onClick={() => setCreating((value) => !value)}>
+            <Plus /> {creating ? 'Close form' : 'Add person'}
+          </button>
+        </div>
       </div>
+      {creating && (
+        <form className="circle-person-form" onSubmit={(event) => void submit(event)}>
+          <div>
+            <label htmlFor="circle-person-name">Name</label>
+            <input
+              id="circle-person-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={120}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="circle-person-relationship">Relationship</label>
+            <input
+              id="circle-person-relationship"
+              value={relationship}
+              onChange={(event) => setRelationship(event.target.value)}
+              maxLength={160}
+              placeholder="Neighbor · nearby"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="circle-person-role">Role</label>
+            <select
+              id="circle-person-role"
+              value={role}
+              onChange={(event) => setRole(event.target.value as CircleMemberInput['role'])}
+            >
+              <option value="coordinator">Coordinator</option>
+              <option value="nearby-helper">Nearby helper</option>
+              <option value="backup">Backup</option>
+              <option value="aide">Aide</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="circle-person-priority">Priority</label>
+            <input
+              id="circle-person-priority"
+              type="number"
+              min={1}
+              max={20}
+              value={priority}
+              onChange={(event) => setPriority(event.currentTarget.valueAsNumber)}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="circle-response-time">Usual response, minutes</label>
+            <input
+              id="circle-response-time"
+              type="number"
+              min={0}
+              max={1440}
+              value={responseMinutes}
+              onChange={(event) => setResponseMinutes(event.currentTarget.valueAsNumber)}
+              required
+            />
+          </div>
+          <button className="primary-button" type="submit" disabled={pending}>
+            Add to Circle
+          </button>
+        </form>
+      )}
       <div className="people-list">
         {state.circle.map((member) => (
-          <PersonRow key={member.id} member={member} detailed />
+          <div className="circle-person-manage" key={member.id}>
+            <PersonRow member={member} detailed />
+            <div className="circle-person-actions">
+              <button
+                className="text-button"
+                onClick={() => onAvailability(member.id)}
+                disabled={pending}
+              >
+                Change availability
+              </button>
+              {pendingRemoval === member.id ? (
+                <span className="inline-confirmation" role="group" aria-label="Confirm removal">
+                  <span>
+                    {member.priority === 1
+                      ? 'Remove the primary contact? This protected change is audited.'
+                      : `Remove ${member.name.split(' ')[0]} from the Circle?`}
+                  </span>
+                  <button
+                    className="danger-text-button"
+                    onClick={() => {
+                      onRemove(member.id);
+                      setPendingRemoval(null);
+                    }}
+                    disabled={pending}
+                  >
+                    Confirm removal
+                  </button>
+                  <button className="text-button" onClick={() => setPendingRemoval(null)}>
+                    Keep person
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="text-button"
+                  onClick={() => setPendingRemoval(member.id)}
+                  disabled={pending}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
         ))}
       </div>
     </section>
@@ -2585,7 +3162,10 @@ function PlaybooksSurface({
   pending,
 }: {
   state: HomeState;
-  onRun: (id: string) => void;
+  onRun: (
+    id: string,
+    action: 'start' | 'next-step' | 'pause' | 'resume' | 'cancel' | 'reset',
+  ) => void;
   onCreate: (input: CreatePlaybookInput) => Promise<boolean>;
   pending: boolean;
 }) {
@@ -2689,9 +3269,50 @@ function PlaybooksSurface({
                 <small>
                   {completed} of {plan.steps.length} steps
                 </small>
-                <button onClick={() => onRun(plan.id)} disabled={pending}>
-                  {plan.state === 'ready' ? 'Start plan' : 'Next step'} <ChevronRight />
-                </button>
+                <span className="playbook-actions">
+                  <button
+                    onClick={() =>
+                      onRun(
+                        plan.id,
+                        plan.state === 'ready'
+                          ? 'start'
+                          : plan.state === 'paused'
+                            ? 'resume'
+                            : ['completed', 'cancelled'].includes(plan.state)
+                              ? 'reset'
+                              : 'next-step',
+                      )
+                    }
+                    disabled={pending}
+                  >
+                    {plan.state === 'ready'
+                      ? 'Start plan'
+                      : plan.state === 'paused'
+                        ? 'Resume'
+                        : ['completed', 'cancelled'].includes(plan.state)
+                          ? 'Reset'
+                          : 'Next step'}{' '}
+                    <ChevronRight />
+                  </button>
+                  {plan.state === 'running' && (
+                    <button
+                      className="text-button"
+                      onClick={() => onRun(plan.id, 'pause')}
+                      disabled={pending}
+                    >
+                      Pause
+                    </button>
+                  )}
+                  {['ready', 'running', 'paused'].includes(plan.state) && (
+                    <button
+                      className="text-button"
+                      onClick={() => onRun(plan.id, 'cancel')}
+                      disabled={pending}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </span>
               </div>
             </article>
           );

@@ -11,6 +11,8 @@ import {
   PutCommand,
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { RoleSchema, type Role } from '@stay/contracts';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import type {
   APIGatewayProxyResultV2,
   APIGatewayProxyWebsocketEventV2,
@@ -38,6 +40,37 @@ function tableName(): string {
   return process.env.TABLE_NAME;
 }
 
+interface AuthenticatedConnectionScope {
+  subject: string;
+  householdId: string;
+  residentId: string;
+  role: Role;
+}
+
+export function authenticatedConnectionScope(
+  payload: Record<string, unknown>,
+): AuthenticatedConnectionScope | null {
+  const subject = typeof payload.sub === 'string' ? payload.sub : undefined;
+  const householdId =
+    typeof payload['custom:household_id'] === 'string' ? payload['custom:household_id'] : undefined;
+  const residentId =
+    typeof payload['custom:resident_id'] === 'string' ? payload['custom:resident_id'] : undefined;
+  const role = RoleSchema.safeParse(payload['custom:stay_role']).data;
+  const scopes = typeof payload.scope === 'string' ? payload.scope.split(/\s+/) : [];
+  if (!subject || !householdId || !residentId || !role || !scopes.includes('stay/app')) return null;
+  return { subject, householdId, residentId, role };
+}
+
+async function verifyAccessToken(token: string): Promise<AuthenticatedConnectionScope | null> {
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  const clientId = process.env.COGNITO_PUBLIC_CLIENT_ID;
+  if (!userPoolId || !clientId)
+    throw new Error('Cognito WebSocket verification is not configured.');
+  const verifier = CognitoJwtVerifier.create({ userPoolId, clientId, tokenUse: 'access' });
+  const payload = await verifier.verify(token);
+  return authenticatedConnectionScope(payload);
+}
+
 export async function connectionHandler(
   event: APIGatewayProxyWebsocketEventV2,
 ): Promise<APIGatewayProxyResultV2> {
@@ -49,8 +82,32 @@ export async function connectionHandler(
         queryStringParameters?: Record<string, string | undefined> | null;
       }
     ).queryStringParameters?.demoSession;
+    const authenticated =
+      (
+        event as APIGatewayProxyWebsocketEventV2 & {
+          queryStringParameters?: Record<string, string | undefined> | null;
+        }
+      ).queryStringParameters?.mode === 'authenticated';
+    if (authenticated) {
+      await table.send(
+        new PutCommand({
+          TableName: tableName(),
+          Item: {
+            PK: `CONNECTION#${connectionId}`,
+            SK: 'META',
+            state: 'pending-authentication',
+            connectionId,
+            expiresAt: Math.floor(Date.now() / 1000) + 60,
+          },
+        }),
+      );
+      return { statusCode: 200, body: 'Authenticate after connecting.' };
+    }
     if (!demoSession || !/^demo-[a-f0-9-]{20,}$/i.test(demoSession)) {
-      return { statusCode: 401, body: 'A valid isolated demo session is required.' };
+      return {
+        statusCode: 401,
+        body: 'A valid isolated demo session or authentication is required.',
+      };
     }
     const session = await table.send(
       new GetCommand({
@@ -84,6 +141,34 @@ export async function connectionHandler(
         Key: { PK: `CONNECTION#${connectionId}`, SK: 'META' },
       }),
     );
+  } else {
+    const body = (() => {
+      try {
+        return JSON.parse(event.body ?? '{}') as { action?: string; accessToken?: string };
+      } catch {
+        return {};
+      }
+    })();
+    if (body.action !== 'authenticate' || !body.accessToken) {
+      return { statusCode: 400, body: 'Authenticate this connection first.' };
+    }
+    const scope = await verifyAccessToken(body.accessToken).catch(() => null);
+    if (!scope) return { statusCode: 401, body: 'The access token is invalid.' };
+    await table.send(
+      new PutCommand({
+        TableName: tableName(),
+        Item: {
+          PK: `CONNECTION#${connectionId}`,
+          SK: 'META',
+          GSI1PK: `HOUSEHOLD#${scope.householdId}#CONNECTIONS`,
+          GSI1SK: `CONNECTION#${connectionId}`,
+          ...scope,
+          state: 'authenticated',
+          connectionId,
+          expiresAt: Math.floor(Date.now() / 1000) + 3_600,
+        },
+      }),
+    );
   }
   log('INFO', 'websocket lifecycle', {
     route,
@@ -92,7 +177,7 @@ export async function connectionHandler(
   });
   return {
     statusCode: 200,
-    body: JSON.stringify({ reconciliation: '/v1/incidents?sinceVersion=0' }),
+    body: JSON.stringify({ authenticated: route === '$default', reconciliation: '/v1/incidents' }),
   };
 }
 

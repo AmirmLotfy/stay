@@ -36,6 +36,12 @@ interface TokenResponse {
   token_type: 'Bearer';
 }
 
+export interface AuthenticatedSessionRecord {
+  mode: 'authenticated';
+  accessToken: string;
+  expiresAt: number;
+}
+
 const configKey = 'stay.runtime-config';
 const tokensKey = 'stay.oauth-tokens';
 const verifierKey = 'stay.pkce-verifier';
@@ -151,4 +157,52 @@ export function hasAuthenticatedSession(): boolean {
   if (!raw) return false;
   const tokens = JSON.parse(raw) as TokenResponse & { expires_at?: number };
   return Boolean(tokens.access_token && (tokens.expires_at ?? 0) > Date.now() + 30_000);
+}
+
+export async function getAuthenticatedSession(
+  config: StayRuntimeConfig,
+): Promise<AuthenticatedSessionRecord | null> {
+  const raw = sessionStorage.getItem(tokensKey);
+  if (!raw) return null;
+  let tokens: TokenResponse & { expires_at?: number };
+  try {
+    tokens = JSON.parse(raw) as TokenResponse & { expires_at?: number };
+  } catch {
+    sessionStorage.removeItem(tokensKey);
+    return null;
+  }
+  const expiresAt = tokens.expires_at ?? 0;
+  if (tokens.access_token && expiresAt > Date.now() + 60_000) {
+    return { mode: 'authenticated', accessToken: tokens.access_token, expiresAt };
+  }
+  if (!tokens.refresh_token) {
+    sessionStorage.removeItem(tokensKey);
+    return null;
+  }
+  const response = await fetch(new URL('/oauth2/token', config.cognitoBaseUrl), {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: config.publicClientId,
+      refresh_token: tokens.refresh_token,
+    }),
+  });
+  if (!response.ok) {
+    sessionStorage.removeItem(tokensKey);
+    return null;
+  }
+  const refreshed = (await response.json()) as TokenResponse;
+  const next = {
+    ...tokens,
+    ...refreshed,
+    refresh_token: refreshed.refresh_token ?? tokens.refresh_token,
+    expires_at: Date.now() + refreshed.expires_in * 1000,
+  };
+  sessionStorage.setItem(tokensKey, JSON.stringify(next));
+  return {
+    mode: 'authenticated',
+    accessToken: next.access_token,
+    expiresAt: next.expires_at,
+  };
 }

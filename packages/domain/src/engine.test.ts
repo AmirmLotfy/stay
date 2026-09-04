@@ -11,7 +11,9 @@ const actor: ActorContext = {
   correlationId: 'test-correlation',
   permissions: [
     'home:read',
+    'home:act',
     'tasks:write',
+    'circle:manage',
     'safety-window:manage',
     'incident:coordinate',
     'incident:resolve',
@@ -282,6 +284,54 @@ describe('StayEngine protected demonstration', () => {
     expect(declined.entity.state).toBe('declined');
   });
 
+  it('lets the resident cancel ordinary help even after a Circle member accepts', () => {
+    const engine = new StayEngine();
+    const accepted = engine.acceptHelpRequest('help-groceries', 'member-tom', {
+      actor,
+      idempotencyKey: 'cancel-help-accept',
+      expectedVersion: 1,
+    });
+    const cancelled = engine.cancelHelpRequest('help-groceries', {
+      actor,
+      idempotencyKey: 'cancel-help',
+      expectedVersion: accepted.entity.version,
+    });
+    expect(cancelled.entity.state).toBe('cancelled');
+    expect(cancelled.emittedEvents[0]?.type).toBe('HelpRequest.Cancelled');
+  });
+
+  it('supports pausing, resuming, cancelling, and resetting a playbook run', () => {
+    const engine = new StayEngine();
+    const started = engine.managePlaybookRun('playbook-power', 'start', {
+      actor,
+      idempotencyKey: 'playbook-start',
+      expectedVersion: 1,
+    });
+    const paused = engine.managePlaybookRun('playbook-power', 'pause', {
+      actor,
+      idempotencyKey: 'playbook-pause',
+      expectedVersion: started.entity.version,
+    });
+    const resumed = engine.managePlaybookRun('playbook-power', 'resume', {
+      actor,
+      idempotencyKey: 'playbook-resume',
+      expectedVersion: paused.entity.version,
+    });
+    const cancelled = engine.managePlaybookRun('playbook-power', 'cancel', {
+      actor,
+      idempotencyKey: 'playbook-cancel',
+      expectedVersion: resumed.entity.version,
+    });
+    const reset = engine.managePlaybookRun('playbook-power', 'reset', {
+      actor,
+      idempotencyKey: 'playbook-reset',
+      expectedVersion: cancelled.entity.version,
+    });
+    expect(paused.entity.state).toBe('paused');
+    expect(reset.entity.state).toBe('ready');
+    expect(reset.entity.steps.every((step) => !step.completed)).toBe(true);
+  });
+
   it('escalates only through the preconfigured Circle plan', () => {
     const engine = new StayEngine();
     engine.markSafetyWindowMissed('window-morning', {
@@ -308,6 +358,98 @@ describe('StayEngine protected demonstration', () => {
     expect(escalated.entity.timeline.at(-1)?.detail).toContain('No emergency service');
   });
 
+  it('persists detection, verification, activation, and coordination as distinct incident states', () => {
+    const engine = new StayEngine();
+    const detected = engine.detectIncident(
+      { kind: 'water-leak', title: 'Water near the kitchen sink', severity: 'attention' },
+      { actor, idempotencyKey: 'detect-water' },
+    );
+    const verifying = engine.advanceIncident(detected.entity.id, 'begin-verification', {
+      actor,
+      idempotencyKey: 'verify-water',
+      expectedVersion: 1,
+    });
+    const active = engine.advanceIncident(detected.entity.id, 'activate', {
+      actor,
+      idempotencyKey: 'activate-water',
+      expectedVersion: verifying.entity.version,
+    });
+    const coordinating = engine.advanceIncident(detected.entity.id, 'begin-coordination', {
+      actor,
+      idempotencyKey: 'coordinate-water',
+      expectedVersion: active.entity.version,
+    });
+    expect([
+      detected.entity.state,
+      verifying.entity.state,
+      active.entity.state,
+      coordinating.entity.state,
+    ]).toEqual(['detected', 'verifying', 'active', 'coordinating']);
+    expect(coordinating.entity.timeline).toHaveLength(4);
+  });
+
+  it('requires assignment and explicit confirmation before disclosing incident access', () => {
+    const engine = new StayEngine();
+    const detected = engine.detectIncident(
+      { kind: 'water-leak', title: 'Water by the sink', severity: 'attention' },
+      { actor, idempotencyKey: 'disclosure-detect' },
+    );
+    const verifying = engine.advanceIncident(detected.entity.id, 'begin-verification', {
+      actor,
+      idempotencyKey: 'disclosure-verify',
+      expectedVersion: 1,
+    });
+    const active = engine.advanceIncident(detected.entity.id, 'activate', {
+      actor,
+      idempotencyKey: 'disclosure-activate',
+      expectedVersion: verifying.entity.version,
+    });
+    const asked = engine.offerIncidentToMember(active.entity.id, 'member-tom', {
+      actor,
+      idempotencyKey: 'disclosure-ask',
+      expectedVersion: active.entity.version,
+    });
+    const accepted = engine.acceptIncident(asked.entity.id, 'member-tom', {
+      actor,
+      idempotencyKey: 'disclosure-accept',
+      expectedVersion: asked.entity.version,
+    });
+    const responder: ActorContext = {
+      ...actor,
+      subject: 'circle-tom',
+      role: 'nearby-helper',
+      circleMemberId: 'member-tom',
+      permissions: ['incident:read', 'incident:coordinate'],
+    };
+    expect(() =>
+      engine.discloseIncidentAccess(accepted.entity.id, {
+        actor: responder,
+        idempotencyKey: 'disclosure-without-confirmation',
+        expectedVersion: accepted.entity.version,
+      }),
+    ).toThrow(/explicit confirmation/);
+    const disclosed = engine.discloseIncidentAccess(
+      accepted.entity.id,
+      {
+        actor: responder,
+        idempotencyKey: 'disclosure-confirmed',
+        expectedVersion: accepted.entity.version,
+        now: new Date('2026-09-02T08:00:00.000Z'),
+      },
+      {
+        token: 'incident-access-confirmation-token',
+        purpose: 'disclose-access-instructions',
+        subject: responder.subject,
+        entityId: accepted.entity.id,
+        expiresAt: '2026-09-02T08:05:00.000Z',
+      },
+    );
+    expect(disclosed.emittedEvents[0]).toMatchObject({
+      type: 'Incident.AccessInstructionsDisclosed',
+      data: { memberId: 'member-tom' },
+    });
+  });
+
   it('persists access preferences as a versioned aggregate', () => {
     const engine = new StayEngine();
     const current = engine.snapshot().access;
@@ -326,6 +468,79 @@ describe('StayEngine protected demonstration', () => {
       version: 2,
     });
     expect(result.emittedEvents[0]?.data).toEqual({ changed: ['reducedLoad', 'textScale'] });
+  });
+
+  it('performs a versioned simulated Path Lighting action with provenance and an outbox event', () => {
+    const engine = new StayEngine();
+    const current = engine
+      .snapshot()
+      .devices.find((device) => device.id === 'device-path-lighting');
+    expect(current).toBeDefined();
+    const result = engine.performHomeAction('device-path-lighting', 'turn-on', {
+      actor,
+      idempotencyKey: 'path-lighting-turn-on',
+      expectedVersion: current!.version,
+      now: new Date('2026-09-02T18:00:00.000Z'),
+    });
+    expect(result.entity).toMatchObject({ state: 'on', version: current!.version + 1 });
+    expect(result.provenance).toMatchObject({
+      mode: 'simulated',
+      provider: 'STAY scripted smart-home adapter',
+    });
+    expect(result.emittedEvents[0]).toMatchObject({
+      type: 'HomeDevice.ActionPerformed',
+      data: { action: 'turn-on', state: 'on', simulated: true },
+    });
+  });
+
+  it('derives Circle permissions from roles and confirms primary-contact removal', () => {
+    const engine = new StayEngine();
+    const added = engine.addCircleMember(
+      {
+        name: 'Nora Fields',
+        role: 'backup',
+        priority: 5,
+        availability: 'available',
+        responseMinutes: 20,
+        relationship: 'Friend · backup contact',
+      },
+      { actor, idempotencyKey: 'circle-add-nora' },
+    );
+    expect(added.entity.permissions).toContain('help:respond');
+    expect(added.entity.permissions).not.toContain('circle:manage');
+    expect(
+      engine.removeCircleMember(added.entity.id, {
+        actor,
+        idempotencyKey: 'circle-remove-nora',
+        expectedVersion: added.entity.version,
+      }).entity.active,
+    ).toBe(false);
+
+    expect(() =>
+      new StayEngine().removeCircleMember('member-maya', {
+        actor,
+        idempotencyKey: 'circle-remove-primary-without-confirmation',
+        expectedVersion: 1,
+      }),
+    ).toThrow(/explicit confirmation/);
+
+    const removed = new StayEngine().removeCircleMember(
+      'member-maya',
+      {
+        actor,
+        idempotencyKey: 'circle-remove-primary-confirmed',
+        expectedVersion: 1,
+        now: new Date('2026-09-02T08:00:00.000Z'),
+      },
+      {
+        token: 'circle-confirmation-token-long-enough',
+        purpose: 'remove-primary-contact',
+        subject: actor.subject,
+        entityId: 'member-maya',
+        expiresAt: '2026-09-02T08:05:00.000Z',
+      },
+    );
+    expect(removed.entity).toMatchObject({ active: false, availability: 'unavailable' });
   });
 
   it('adds and updates House Memory without placing the detail value in events', () => {

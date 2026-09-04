@@ -346,6 +346,8 @@ export class StayDemoStack extends Stack {
       customAttributes: {
         household_id: new cognito.StringAttribute({ minLen: 3, maxLen: 120, mutable: false }),
         resident_id: new cognito.StringAttribute({ minLen: 3, maxLen: 120, mutable: false }),
+        stay_role: new cognito.StringAttribute({ minLen: 4, maxLen: 20, mutable: false }),
+        circle_member_id: new cognito.StringAttribute({ minLen: 3, maxLen: 120, mutable: false }),
       },
       featurePlan: cognito.FeaturePlan.PLUS,
       standardThreatProtectionMode: cognito.StandardThreatProtectionMode.FULL_FUNCTION,
@@ -529,6 +531,8 @@ export class StayDemoStack extends Stack {
     );
     const metricsFunction = fn('MetricsFunction', 'services/functions/src/metrics-worker.ts');
     const websocketFunction = fn('WebsocketFunction', 'services/functions/src/websocket.ts');
+    websocketFunction.addEnvironment('COGNITO_USER_POOL_ID', userPool.userPoolId);
+    websocketFunction.addEnvironment('COGNITO_PUBLIC_CLIENT_ID', publicClient.userPoolClientId);
     const staticSiteFunction = distribution
       ? undefined
       : fn('StaticSiteFunction', 'services/functions/src/static-site.ts', {
@@ -645,6 +649,7 @@ export class StayDemoStack extends Stack {
       methods: [apigwv2.HttpMethod.ANY],
       integration: new apigwv2integrations.HttpLambdaIntegration('ApiIntegration', apiFunction),
       authorizer: jwtAuthorizer,
+      authorizationScopes: ['stay/app'],
     });
     for (const pathPattern of [
       '/mcp',

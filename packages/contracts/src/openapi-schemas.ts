@@ -8,6 +8,7 @@ import {
   DemoSessionSchema as DemoSession,
   DomainEventSchema,
   HelpRequestSchema as HelpRequest,
+  HomeDeviceSchema as HomeDevice,
   HouseMemoryItemSchema as HouseMemoryItem,
   IncidentSchema as Incident,
   IntentSchema as Intent,
@@ -26,6 +27,7 @@ export const CircleMemberSchema = CircleMember.meta({ id: 'CircleMember' });
 export const ConfirmationTokenSchema = ConfirmationToken.meta({ id: 'ConfirmationToken' });
 export const DemoSessionSchema = DemoSession.meta({ id: 'DemoSession' });
 export const HelpRequestSchema = HelpRequest.meta({ id: 'HelpRequest' });
+export const HomeDeviceSchema = HomeDevice.meta({ id: 'HomeDevice' });
 export const HouseMemoryItemSchema = HouseMemoryItem.meta({ id: 'HouseMemoryItem' });
 export const IncidentSchema = Incident.meta({ id: 'Incident' });
 export const IntentSchema = Intent.meta({ id: 'InterpretedIntent' });

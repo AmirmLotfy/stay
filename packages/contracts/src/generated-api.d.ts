@@ -29,8 +29,10 @@ export interface paths {
           content: {
             'application/json': {
               data: {
+                resident: unknown;
                 oneThing: unknown;
                 calendar: unknown[];
+                devices: components['schemas']['HomeDevice'][];
               };
               provenance: {
                 /** @enum {string} */
@@ -82,7 +84,74 @@ export interface paths {
       };
     };
     put?: never;
-    post?: never;
+    /** Perform a versioned simulated home-device action */
+    post: {
+      parameters: {
+        query?: never;
+        header: {
+          /** @description Unique command key retained for duplicate suppression. */
+          'Idempotency-Key': string;
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            action: string;
+            entityId?: string;
+            expectedVersion?: number;
+          };
+        };
+      };
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CommandResult'];
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;
@@ -1095,8 +1164,8 @@ export interface paths {
                 steps: string[];
               }
             | {
-                /** @constant */
-                action: 'next-step';
+                /** @enum {string} */
+                action: 'next-step' | 'start' | 'pause' | 'resume' | 'cancel' | 'reset';
                 entityId: string;
                 expectedVersion: number;
               };
@@ -1833,6 +1902,25 @@ export interface components {
       visibleEntityIds: string[];
       locale: string;
     };
+    HomeDevice: {
+      id: string;
+      name: string;
+      /** @enum {string} */
+      kind: 'path-light' | 'entry-sensor' | 'utility-sensor';
+      /** @enum {string} */
+      state: 'on' | 'off' | 'ready' | 'closed' | 'normal' | 'unavailable';
+      version: number;
+      /** Format: date-time */
+      updatedAt: string;
+      provenance: {
+        /** @enum {string} */
+        mode: 'live' | 'simulated' | 'unavailable';
+        provider: string;
+        /** Format: date-time */
+        observedAt: string;
+        reason?: string;
+      };
+    };
     ApiError: {
       /** @enum {string} */
       code:
@@ -1895,6 +1983,8 @@ export interface components {
     };
     CircleMember: {
       id: string;
+      version: number;
+      active: boolean;
       name: string;
       initials: string;
       /** @enum {string} */
@@ -1905,6 +1995,7 @@ export interface components {
       responseMinutes: number;
       permissions: (
         | 'home:read'
+        | 'home:act'
         | 'tasks:write'
         | 'circle:read'
         | 'circle:manage'

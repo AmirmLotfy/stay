@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { AuthInfo } from '@modelcontextprotocol/server';
 import { fetchMcp } from './server.js';
 
-const auth = {
+const auth: AuthInfo = {
   token: 'test',
   clientId: 'test',
   scopes: ['stay/mcp'],
@@ -129,6 +130,60 @@ describe('MCP Streamable HTTP contract', () => {
     );
     expect(reset).toMatchObject({
       result: { structuredContent: { data: { entity: { state: 'not-started', version: 3 } } } },
+    });
+  });
+
+  it('never exposes incident closure to the model-facing tool', async () => {
+    const result = await rpc({
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: {
+        name: 'manage_incident',
+        arguments: {
+          action: 'resolve',
+          entityId: 'incident-window-morning',
+          expectedVersion: 1,
+          idempotencyKey: 'mcp-must-not-resolve',
+        },
+      },
+    });
+    expect(JSON.stringify(result)).toContain('model cannot close incidents');
+  });
+
+  it('runs Path Lighting through the same versioned simulated device aggregate', async () => {
+    const result = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: {
+          name: 'perform_home_action',
+          arguments: {
+            action: 'turn-on',
+            entityId: 'device-path-lighting',
+            expectedVersion: 1,
+            idempotencyKey: 'mcp-path-lighting-on',
+          },
+        },
+      },
+      {
+        ...auth,
+        extra: {
+          subject: 'resident-path-lighting',
+          householdId: 'household-mcp-path-lighting',
+          residentId: 'resident-sarah',
+          role: 'resident',
+        },
+      },
+    );
+    expect(result).toMatchObject({
+      result: {
+        structuredContent: {
+          data: { result: { entity: { state: 'on', version: 2 } } },
+          provenance: { mode: 'simulated', provider: 'STAY scripted smart-home adapter' },
+        },
+      },
     });
   });
 });

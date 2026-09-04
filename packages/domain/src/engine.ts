@@ -1,22 +1,26 @@
 import type {
   AccessPreferences,
   ActorContext,
+  CircleMember,
   CommandResult,
   ConfirmationPurpose,
   ConfirmationToken,
   DomainEvent,
   HelpRequest,
   HouseMemoryItem,
+  HomeDevice,
   Incident,
   Playbook,
   SafetyWindow,
   SafetyWindowTemplate,
   SourceProvenance,
   TimelineEvent,
+  Role,
 } from '@stay/contracts';
 import { createDemoState, type HomeState } from './demo-state.js';
 import { StayDomainError } from './errors.js';
-import { requirePermission } from './permissions.js';
+import { canRevealIncidentAccess, permissionsForRole, requirePermission } from './permissions.js';
+import { transitionIncident } from './state-machines.js';
 
 const domainProvenance: SourceProvenance = {
   mode: 'live',
@@ -49,6 +53,21 @@ export interface CreateSafetyWindowInput {
 export interface CreatePlaybookInput {
   title: string;
   steps: string[];
+}
+
+export interface CircleMemberInput {
+  name: string;
+  role: Exclude<Role, 'resident'>;
+  priority: number;
+  availability: CircleMember['availability'];
+  responseMinutes: number;
+  relationship: string;
+}
+
+export interface DetectIncidentInput {
+  kind: Exclude<Incident['kind'], 'missed-window'>;
+  title: string;
+  severity: Incident['severity'];
 }
 
 export class StayEngine {
@@ -320,6 +339,98 @@ export class StayEngine {
     });
   }
 
+  public detectIncident(
+    input: DetectIncidentInput,
+    meta: Omit<CommandMeta, 'expectedVersion'>,
+  ): CommandResult<Incident> {
+    requirePermission(meta.actor, 'incident:coordinate');
+    return this.#idempotent<Incident>(meta.idempotencyKey, () => {
+      const title = input.title.trim();
+      if (!title || title.length > 160) {
+        throw new StayDomainError('BAD_REQUEST', 'A short incident title is required.');
+      }
+      const now = this.#now(meta);
+      const incident: Incident = {
+        id: this.#entityId('incident', meta.idempotencyKey),
+        residentId: meta.actor.residentId,
+        kind: input.kind,
+        title,
+        state: 'detected',
+        severity: input.severity,
+        accessInstructionsAvailable: true,
+        createdAt: now,
+        version: 1,
+        timeline: [
+          this.#timeline(
+            now,
+            'incident-detected',
+            'Possible incident recorded',
+            'The Circle will verify this report before coordination begins.',
+            this.#state.resident.firstName,
+          ),
+        ],
+      };
+      this.#state.incidents.unshift(incident);
+      const event = this.#event('Incident.Detected', 'incident', incident.id, now, meta.actor, {
+        kind: incident.kind,
+        severity: incident.severity,
+      });
+      this.#outbox(event);
+      return this.#result(incident, [event]);
+    });
+  }
+
+  public advanceIncident(
+    incidentId: string,
+    action: 'begin-verification' | 'activate' | 'begin-coordination',
+    meta: CommandMeta,
+  ): CommandResult<Incident> {
+    requirePermission(meta.actor, 'incident:coordinate');
+    return this.#idempotent<Incident>(meta.idempotencyKey, () => {
+      const incident = this.#incident(incidentId);
+      this.#version(incident.version, meta.expectedVersion);
+      const transition = {
+        'begin-verification': 'BEGIN_VERIFICATION',
+        activate: 'ACTIVATE',
+        'begin-coordination': 'BEGIN_COORDINATION',
+      }[action] as 'BEGIN_VERIFICATION' | 'ACTIVATE' | 'BEGIN_COORDINATION';
+      incident.state = transitionIncident(incident.state, transition);
+      incident.version += 1;
+      const now = this.#now(meta);
+      const copy = {
+        'begin-verification': {
+          title: 'Verification started',
+          detail: 'A Circle coordinator is checking the report before activating the plan.',
+        },
+        activate: {
+          title: 'Incident activated',
+          detail: 'The resident-authored plan is active. No emergency service was contacted.',
+        },
+        'begin-coordination': {
+          title: 'Circle coordination started',
+          detail: 'The preconfigured Circle order is ready for responder offers.',
+        },
+      }[action];
+      incident.timeline.push(
+        this.#timeline(now, action, copy.title, copy.detail, this.#state.resident.firstName),
+      );
+      const event = this.#event(
+        action === 'begin-verification'
+          ? 'Incident.VerificationStarted'
+          : action === 'activate'
+            ? 'Incident.Activated'
+            : 'Incident.CoordinationStarted',
+        'incident',
+        incident.id,
+        now,
+        meta.actor,
+        { state: incident.state, kind: incident.kind },
+      );
+      this.#outbox(event);
+      return this.#result(incident, [event]);
+    });
+  }
+
   public offerIncidentToMember(
     incidentId: string,
     memberId: string,
@@ -448,6 +559,56 @@ export class StayEngine {
     });
   }
 
+  public discloseIncidentAccess(
+    incidentId: string,
+    meta: CommandMeta,
+    confirmation?: ConfirmationToken,
+  ): CommandResult<Incident> {
+    requirePermission(meta.actor, 'incident:coordinate');
+    return this.#idempotent<Incident>(meta.idempotencyKey, () => {
+      const incident = this.#incident(incidentId);
+      this.#version(incident.version, meta.expectedVersion);
+      const active = ['active', 'coordinating', 'responding', 'escalated'].includes(incident.state);
+      const assigned = Boolean(
+        meta.actor.circleMemberId && incident.assignedMemberId === meta.actor.circleMemberId,
+      );
+      if (!canRevealIncidentAccess(meta.actor, active, assigned)) {
+        throw new StayDomainError(
+          'FORBIDDEN',
+          'Access instructions are available only to the assigned Circle responder during an active incident.',
+        );
+      }
+      const now = this.#now(meta);
+      this.#validateConfirmation(
+        confirmation,
+        'disclose-access-instructions',
+        incident.id,
+        meta.actor.subject,
+        now,
+      );
+      incident.version += 1;
+      incident.timeline.push(
+        this.#timeline(
+          now,
+          'access-instructions-disclosed',
+          'Incident access note opened',
+          'The assigned responder opened the resident-authorized access note.',
+          'Assigned responder',
+        ),
+      );
+      const event = this.#event(
+        'Incident.AccessInstructionsDisclosed',
+        'incident',
+        incident.id,
+        now,
+        meta.actor,
+        { memberId: meta.actor.circleMemberId },
+      );
+      this.#outbox(event);
+      return this.#result(incident, [event]);
+    });
+  }
+
   public escalateIncident(incidentId: string, meta: CommandMeta): CommandResult<Incident> {
     requirePermission(meta.actor, 'incident:coordinate');
     return this.#idempotent<Incident>(meta.idempotencyKey, () => {
@@ -509,6 +670,137 @@ export class StayEngine {
       );
       this.#outbox(event);
       return this.#result(task, [event]);
+    });
+  }
+
+  public performHomeAction(
+    deviceId: string,
+    action: 'turn-on' | 'turn-off' | 'ready-at-sunset',
+    meta: CommandMeta,
+  ): CommandResult<HomeDevice> {
+    requirePermission(meta.actor, 'home:act');
+    return this.#idempotent<HomeDevice>(meta.idempotencyKey, () => {
+      const device = this.#state.devices.find((candidate) => candidate.id === deviceId);
+      if (!device) throw new StayDomainError('NOT_FOUND', 'Home device was not found.');
+      this.#version(device.version, meta.expectedVersion);
+      if (device.kind !== 'path-light') {
+        throw new StayDomainError('CONFLICT', 'That action is not supported for this device.');
+      }
+      const nextState = {
+        'turn-on': 'on',
+        'turn-off': 'off',
+        'ready-at-sunset': 'ready',
+      }[action] as HomeDevice['state'];
+      if (device.state === nextState) {
+        throw new StayDomainError('CONFLICT', `Path lighting is already ${nextState}.`);
+      }
+      const now = this.#now(meta);
+      device.state = nextState;
+      device.version += 1;
+      device.updatedAt = now;
+      device.provenance = { ...device.provenance, observedAt: now };
+      const event = this.#event(
+        'HomeDevice.ActionPerformed',
+        'device',
+        device.id,
+        now,
+        meta.actor,
+        { action, state: device.state, simulated: true },
+      );
+      this.#outbox(event);
+      return { ...this.#result(device, [event]), provenance: device.provenance };
+    });
+  }
+
+  public addCircleMember(
+    input: CircleMemberInput,
+    meta: Omit<CommandMeta, 'expectedVersion'>,
+  ): CommandResult<CircleMember> {
+    requirePermission(meta.actor, 'circle:manage');
+    return this.#idempotent<CircleMember>(meta.idempotencyKey, () => {
+      const normalized = this.#circleMemberInput(input);
+      const now = this.#now(meta);
+      const member: CircleMember = {
+        id: this.#entityId('member', meta.idempotencyKey),
+        version: 1,
+        active: true,
+        ...normalized,
+        initials: this.#initials(normalized.name),
+        permissions: permissionsForRole(normalized.role),
+      };
+      this.#state.circle.push(member);
+      const event = this.#event('CircleMember.Added', 'circle-member', member.id, now, meta.actor, {
+        role: member.role,
+        priority: member.priority,
+      });
+      this.#outbox(event);
+      return this.#result(member, [event]);
+    });
+  }
+
+  public updateCircleMember(
+    memberId: string,
+    input: CircleMemberInput,
+    meta: CommandMeta,
+  ): CommandResult<CircleMember> {
+    requirePermission(meta.actor, 'circle:manage');
+    return this.#idempotent<CircleMember>(meta.idempotencyKey, () => {
+      const member = this.#circleMember(memberId);
+      this.#version(member.version, meta.expectedVersion);
+      if (!member.active) throw new StayDomainError('CONFLICT', 'That Circle member was removed.');
+      const normalized = this.#circleMemberInput(input);
+      const now = this.#now(meta);
+      Object.assign(member, normalized, {
+        initials: this.#initials(normalized.name),
+        permissions: permissionsForRole(normalized.role),
+        version: member.version + 1,
+      });
+      const event = this.#event(
+        'CircleMember.Updated',
+        'circle-member',
+        member.id,
+        now,
+        meta.actor,
+        { role: member.role, priority: member.priority, availability: member.availability },
+      );
+      this.#outbox(event);
+      return this.#result(member, [event]);
+    });
+  }
+
+  public removeCircleMember(
+    memberId: string,
+    meta: CommandMeta,
+    confirmation?: ConfirmationToken,
+  ): CommandResult<CircleMember> {
+    requirePermission(meta.actor, 'circle:manage');
+    return this.#idempotent<CircleMember>(meta.idempotencyKey, () => {
+      const member = this.#circleMember(memberId);
+      this.#version(member.version, meta.expectedVersion);
+      if (!member.active) throw new StayDomainError('CONFLICT', 'That Circle member was removed.');
+      const now = this.#now(meta);
+      if (member.priority === 1) {
+        this.#validateConfirmation(
+          confirmation,
+          'remove-primary-contact',
+          member.id,
+          meta.actor.subject,
+          now,
+        );
+      }
+      member.active = false;
+      member.availability = 'unavailable';
+      member.version += 1;
+      const event = this.#event(
+        'CircleMember.Removed',
+        'circle-member',
+        member.id,
+        now,
+        meta.actor,
+        { role: member.role, wasPrimary: member.priority === 1 },
+      );
+      this.#outbox(event);
+      return this.#result(member, [event]);
     });
   }
 
@@ -755,6 +1047,39 @@ export class StayEngine {
     });
   }
 
+  public cancelHelpRequest(helpRequestId: string, meta: CommandMeta): CommandResult<HelpRequest> {
+    requirePermission(meta.actor, 'help:request');
+    return this.#idempotent<HelpRequest>(meta.idempotencyKey, () => {
+      const request = this.#helpRequest(helpRequestId);
+      this.#version(request.version, meta.expectedVersion);
+      if (!['open', 'offered', 'assigned'].includes(request.state)) {
+        throw new StayDomainError('CONFLICT', 'This help request cannot be cancelled now.');
+      }
+      const now = this.#now(meta);
+      request.state = 'cancelled';
+      request.version += 1;
+      request.timeline.push(
+        this.#timeline(
+          now,
+          'help-cancelled',
+          'Help request cancelled',
+          'Sarah cancelled the request. Circle members can see that no action is needed.',
+          this.#state.resident.firstName,
+        ),
+      );
+      const event = this.#event(
+        'HelpRequest.Cancelled',
+        'help-request',
+        request.id,
+        now,
+        meta.actor,
+        {},
+      );
+      this.#outbox(event);
+      return this.#result(request, [event]);
+    });
+  }
+
   public addHouseMemory(
     input: Pick<HouseMemoryItem, 'label' | 'value' | 'category' | 'sensitivity'>,
     meta: Omit<CommandMeta, 'expectedVersion'>,
@@ -845,6 +1170,46 @@ export class StayEngine {
     });
   }
 
+  public managePlaybookRun(
+    playbookId: string,
+    action: 'start' | 'pause' | 'resume' | 'cancel' | 'reset',
+    meta: CommandMeta,
+  ): CommandResult<Playbook> {
+    requirePermission(meta.actor, 'playbook:execute');
+    return this.#idempotent<Playbook>(meta.idempotencyKey, () => {
+      const playbook = this.#state.playbooks.find((candidate) => candidate.id === playbookId);
+      if (!playbook) throw new StayDomainError('NOT_FOUND', 'Playbook was not found.');
+      this.#version(playbook.version, meta.expectedVersion);
+      const nextState = {
+        start: playbook.state === 'ready' ? 'running' : null,
+        pause: playbook.state === 'running' ? 'paused' : null,
+        resume: playbook.state === 'paused' ? 'running' : null,
+        cancel: ['ready', 'running', 'paused'].includes(playbook.state) ? 'cancelled' : null,
+        reset: ['completed', 'cancelled'].includes(playbook.state) ? 'ready' : null,
+      }[action] as Playbook['state'] | null;
+      if (!nextState) {
+        throw new StayDomainError('CONFLICT', `${action} is not available for this playbook now.`);
+      }
+      if (action === 'reset') {
+        for (const step of playbook.steps) step.completed = false;
+      }
+      const now = this.#now(meta);
+      playbook.state = nextState;
+      playbook.version += 1;
+      playbook.provenance = { ...playbook.provenance, observedAt: now };
+      const event = this.#event(
+        `Playbook.${action[0]!.toUpperCase()}${action.slice(1)}`,
+        'playbook',
+        playbook.id,
+        now,
+        meta.actor,
+        { state: playbook.state },
+      );
+      this.#outbox(event);
+      return { ...this.#result(playbook, [event]), provenance: playbook.provenance };
+    });
+  }
+
   public createPlaybook(
     input: CreatePlaybookInput,
     meta: Omit<CommandMeta, 'expectedVersion'>,
@@ -911,6 +1276,40 @@ export class StayEngine {
     return entity;
   }
 
+  #circleMember(id: string): CircleMember {
+    const entity = this.#state.circle.find((member) => member.id === id);
+    if (!entity) throw new StayDomainError('NOT_FOUND', 'Circle member was not found.');
+    return entity;
+  }
+
+  #circleMemberInput(input: CircleMemberInput): CircleMemberInput {
+    const name = input.name.trim();
+    const relationship = input.relationship.trim();
+    if (!name || name.length > 120 || !relationship || relationship.length > 160) {
+      throw new StayDomainError('BAD_REQUEST', 'A short name and relationship are required.');
+    }
+    if (
+      !Number.isInteger(input.priority) ||
+      input.priority < 1 ||
+      input.priority > 20 ||
+      !Number.isInteger(input.responseMinutes) ||
+      input.responseMinutes < 0 ||
+      input.responseMinutes > 1_440
+    ) {
+      throw new StayDomainError('BAD_REQUEST', 'Priority or response time is outside its range.');
+    }
+    return { ...input, name, relationship };
+  }
+
+  #initials(name: string): string {
+    return name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]!.toLocaleUpperCase())
+      .join('');
+  }
+
   #entityId(prefix: string, idempotencyKey: string): string {
     const suffix = idempotencyKey
       .toLowerCase()
@@ -959,7 +1358,7 @@ export class StayEngine {
     ) {
       throw new StayDomainError(
         'CONFIRMATION_REQUIRED',
-        'This privacy change needs a current explicit confirmation.',
+        'This change needs a current explicit confirmation.',
       );
     }
   }

@@ -2,6 +2,7 @@ import type {
   AccessSettings,
   CircleMember,
   HelpRequest,
+  HomeDevice,
   HouseMemoryItem,
   Incident,
   Playbook,
@@ -42,6 +43,7 @@ export interface HomeState {
   incidents: Incident[];
   playbooks: Playbook[];
   houseMemory: HouseMemoryItem[];
+  devices: HomeDevice[];
   privacy: PrivacySettings;
   outbox: Array<{
     id: string;
@@ -102,6 +104,8 @@ export function createDemoState(now = new Date('2026-09-02T10:20:00.000Z')): Hom
     circle: [
       {
         id: 'member-maya',
+        version: 1,
+        active: true,
         name: 'Maya Bennett',
         initials: 'MB',
         role: 'coordinator',
@@ -123,6 +127,8 @@ export function createDemoState(now = new Date('2026-09-02T10:20:00.000Z')): Hom
       },
       {
         id: 'member-tom',
+        version: 1,
+        active: true,
         name: 'Tom Alvarez',
         initials: 'TA',
         role: 'nearby-helper',
@@ -141,6 +147,8 @@ export function createDemoState(now = new Date('2026-09-02T10:20:00.000Z')): Hom
       },
       {
         id: 'member-lena',
+        version: 1,
+        active: true,
         name: 'Lena Ortiz',
         initials: 'LO',
         role: 'aide',
@@ -152,6 +160,8 @@ export function createDemoState(now = new Date('2026-09-02T10:20:00.000Z')): Hom
       },
       {
         id: 'member-james',
+        version: 1,
+        active: true,
         name: 'James Bennett',
         initials: 'JB',
         role: 'backup',
@@ -257,6 +267,22 @@ export function createDemoState(now = new Date('2026-09-02T10:20:00.000Z')): Hom
         sensitivity: 'incident-only',
         updatedAt: iso,
         version: 1,
+      },
+    ],
+    devices: [
+      {
+        id: 'device-path-lighting',
+        name: 'Hall and bathroom path lighting',
+        kind: 'path-light',
+        state: 'ready',
+        version: 1,
+        updatedAt: iso,
+        provenance: {
+          mode: 'simulated',
+          provider: 'STAY scripted smart-home adapter',
+          observedAt: iso,
+          reason: 'No physical smart-home device is connected.',
+        },
       },
     ],
     privacy: {

@@ -12,6 +12,7 @@ import {
   ConfirmationTokenSchema,
   DemoSessionSchema,
   HelpRequestSchema,
+  HomeDeviceSchema,
   HouseMemoryItemSchema,
   IncidentSchema,
   IntentSchema,
@@ -84,7 +85,7 @@ const PlaybookCommand = z.union([
     steps: z.array(z.string().min(1).max(160)).min(2).max(12),
   }),
   z.object({
-    action: z.literal('next-step'),
+    action: z.enum(['next-step', 'start', 'pause', 'resume', 'cancel', 'reset']),
     entityId: z.string().min(1),
     expectedVersion: z.number().int().positive(),
   }),
@@ -149,9 +150,17 @@ const document = createDocument({
       get: {
         summary: 'Get calm home overview',
         responses: responses(
-          envelope(z.object({ oneThing: z.unknown(), calendar: z.array(z.unknown()) })),
+          envelope(
+            z.object({
+              resident: z.unknown(),
+              oneThing: z.unknown(),
+              calendar: z.array(z.unknown()),
+              devices: z.array(HomeDeviceSchema),
+            }),
+          ),
         ),
       },
+      post: command('Perform a versioned simulated home-device action'),
     },
     '/v1/tasks': {
       get: { summary: 'Get One Thing task session', responses: responses(envelope(z.unknown())) },

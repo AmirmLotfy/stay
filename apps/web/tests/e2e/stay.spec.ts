@@ -173,6 +173,13 @@ test('makes adaptive access, routine help, and resident check-in controls functi
   ).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Full home check' }).click();
   await expect(page.getByText('Front and side doors reported closed.')).toBeVisible();
+  await page.getByRole('button', { name: 'Turn on now' }).click();
+  await expect(page.getByText('On now', { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByLabel('Alexa Plus simulator')
+      .getByText(/Path lighting is on in this clearly labeled simulation/),
+  ).toBeVisible();
 
   await navigate('Access');
   await page.getByRole('switch', { name: 'One Thing Mode' }).click();
@@ -403,6 +410,7 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
         resident: fixture.resident,
         oneThing: fixture.oneThing,
         calendar: fixture.calendar,
+        devices: fixture.devices,
       },
       access: fixture.access,
       circle: fixture.circle,
@@ -440,4 +448,50 @@ test('uses the deployed TTL-isolated API session when runtime configuration is p
     'accept',
   ]);
   expect(commands.map((command) => command.expectedVersion)).toEqual([1, 2, 3, 1, 2]);
+});
+
+test('manages Circle membership and complete playbook run controls by touch', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText(/Browser-only demo|Isolated AWS demo/)).toBeVisible();
+
+  const menu = page.getByRole('button', { name: 'Open menu' });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole('button', { name: 'Circle' }).click();
+  await page.getByRole('button', { name: 'People' }).click();
+  await page.getByRole('button', { name: 'Add person' }).click();
+  await page.getByLabel('Name').fill('Nora Fields');
+  await page.getByLabel('Relationship').fill('Friend · backup contact');
+  await page.getByLabel('Role').selectOption('backup');
+  await page.getByLabel('Priority').fill('5');
+  await page.getByLabel('Usual response, minutes').fill('20');
+  await page.getByRole('button', { name: 'Add to Circle' }).click();
+
+  const nora = page.locator('.circle-person-manage').filter({ hasText: 'Nora Fields' });
+  await expect(nora).toBeVisible();
+  await nora.getByRole('button', { name: 'Change availability' }).click();
+  await expect(nora.getByText('busy')).toBeVisible();
+  await nora.getByRole('button', { name: 'Remove' }).click();
+  await nora.getByRole('button', { name: 'Confirm removal' }).click();
+  await expect(nora).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Incidents', exact: true }).click();
+  await page.getByRole('button', { name: 'Report a home incident' }).click();
+  await page.getByLabel('What happened?').selectOption('water-leak');
+  await page.getByLabel('Short description').fill('Water near the kitchen sink');
+  await page.getByRole('button', { name: 'Record for verification' }).click();
+  await expect(page.getByText('detected', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Begin verification' }).click();
+  await page.getByRole('button', { name: 'Activate resident plan' }).click();
+  await page.getByRole('button', { name: 'Begin Circle coordination' }).click();
+  await expect(page.getByText('coordinating', { exact: true })).toBeVisible();
+
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole('button', { name: 'Plans' }).click();
+  const powerPlan = page.locator('.playbook-card').filter({ hasText: 'Power Outage' });
+  await powerPlan.getByRole('button', { name: 'Start plan' }).click();
+  await powerPlan.getByRole('button', { name: 'Pause' }).click();
+  await powerPlan.getByRole('button', { name: 'Resume' }).click();
+  await powerPlan.getByRole('button', { name: 'Cancel' }).click();
+  await powerPlan.getByRole('button', { name: 'Reset' }).click();
+  await expect(powerPlan.getByRole('button', { name: 'Start plan' })).toBeVisible();
 });

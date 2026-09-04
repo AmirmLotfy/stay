@@ -9,7 +9,7 @@
 - [x] Add DynamoDB transaction/outbox, bounded stream publisher, one-time expected-version Scheduler creation/handler, WebSocket, minimal email, and structured logging entrypoints.
 - [x] Add StayDemoStack with private CloudFront/S3, Cognito, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS, SES permissions, alarms, budget, X-Ray, cdk-nag, and GitHub OIDC.
 - [x] Add safety, threat-model, accessibility, architecture, friction, demo, release-evidence, and deployment documents.
-- [x] Pass local format, lint, strict typecheck, unit/contract, monorepo coverage, production build, 36-scenario Playwright/axe, and strict cdk-nag synth checks.
+- [x] Pass local format, lint, strict typecheck, unit/contract, monorepo coverage, production build, 40-scenario Playwright/axe, and strict cdk-nag synth checks.
 - [x] Review visual direction and protected flow with the participant; remove generic AI motifs and preserve the calm civic-wayfinding direction.
 - [x] Reauthenticate AWS and review identity, model access, bootstrap, cost settings, tags, and `cdk diff`.
 - [x] Deploy and collect live AWS/SES/public URL evidence.

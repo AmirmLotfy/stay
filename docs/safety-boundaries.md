@@ -33,7 +33,7 @@ Temporary private time may suppress routine status. It cannot suppress:
 
 Email contains only a neutral sign-in prompt. Address, location, access instructions, spare-key values, health data, and the reason for an incident remain out of email and model context.
 
-The confirmation contract covers ending active private time early, expanding location sharing, removing a primary contact, changing an escalation plan, and disclosing access instructions. The implemented privacy workflow issues a five-minute opaque token, stores only its hash, binds it to actor, entity, purpose, and aggregate version, and consumes it atomically with the confirmed write. Other sensitive command families remain unavailable until their equivalent token checks are implemented.
+The confirmation contract covers ending active private time early, expanding location sharing, removing a primary contact, changing an escalation plan, and disclosing access instructions. Implemented sensitive workflows issue a five-minute opaque token, store only its hash, bind it to actor, entity, purpose, and aggregate version, and consume it atomically with the confirmed write. Incident access disclosure additionally requires an authenticated non-resident Circle identity whose immutable `circle_member_id` matches the incident's current assignment while the incident is active. The disclosure is recorded in the immutable incident timeline and outbox; the note value is never copied into either event.
 
 Access preferences and House Memory are versioned aggregates. House Memory events include category and sensitivity but never the stored value. The MCP tool can read or write only routine entries; sensitive and incident-only values stay outside model context.
 

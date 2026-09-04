@@ -113,7 +113,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-The coverage gate directly exercises aggregate/outbox/idempotency transactions, bounded EventBridge publishing, minimal SES delivery and deduplication, WebSocket session scoping/fan-out/stale cleanup, deterministic state machines, MCP boundaries, and infrastructure synthesis. Playwright covers 36 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard and skip navigation, touch-only protected flow, emergency copy, automated WCAG checks, 48 × 48 touch targets, adaptive Access preferences, system-aware persistent themes, RTL shell readiness, routine Help Board requests, resident Safety Window creation/check-in, responsive header and notification-panel behavior, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
+The coverage gate directly exercises aggregate/outbox/idempotency transactions, bounded EventBridge publishing, minimal SES delivery and deduplication, WebSocket session scoping/fan-out/stale cleanup, deterministic state machines, MCP boundaries, and infrastructure synthesis. Playwright covers 40 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard and skip navigation, touch-only protected flow, emergency copy, automated WCAG checks, 48 × 48 touch targets, adaptive Access preferences, system-aware persistent themes, RTL shell readiness, routine Help Board requests, resident Safety Window creation/check-in, versioned simulated Path Lighting, Circle membership, full playbook controls, responsive header and notification-panel behavior, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
 
 ## Public AWS demo
 

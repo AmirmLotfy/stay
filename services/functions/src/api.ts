@@ -2,14 +2,18 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import {
   AccessPreferencesSchema,
   ConfirmationPurposeSchema,
+  RoleSchema,
   RouteGroups,
   SafetyWindowTemplateSchema,
   MinimalIntentContextSchema,
   type ActorContext,
   type CommandResult,
+  type CircleMember,
   type ConfirmationToken,
   type HelpRequest,
+  type HomeDevice,
   type Incident,
+  type Permission,
   type Playbook,
   type SafetyWindow,
   type SourceProvenance,
@@ -17,6 +21,8 @@ import {
 import {
   createDemoState,
   hasExplicitEmergencyLanguage,
+  permissionsForRole,
+  requirePermission,
   StayDomainError,
   StayEngine,
   type HomeState,
@@ -33,14 +39,38 @@ import { createSafetyWindowSchedules } from './safety-window-schedules.js';
 
 const localEngine = new StayEngine();
 const localConfirmations = new Map<string, StoredConfirmation>();
+const readPermissions: Record<(typeof RouteGroups)[number], Permission | null> = {
+  home: 'home:read',
+  tasks: 'home:read',
+  access: 'access:manage',
+  circle: 'circle:read',
+  'safety-windows': 'safety-window:read',
+  'help-requests': 'help:respond',
+  incidents: 'incident:read',
+  playbooks: 'playbook:execute',
+  privacy: 'privacy:manage',
+  'house-memory': 'memory:read',
+  metrics: 'incident:read',
+  'demo-sessions': null,
+};
 const CommandBodySchema = z.object({
   action: z.string(),
   entityId: z.string().optional(),
   expectedVersion: z.number().int().positive().optional(),
   memberId: z.string().optional(),
+  name: z.string().min(1).max(120).optional(),
+  role: z.enum(['coordinator', 'nearby-helper', 'backup', 'aide']).optional(),
+  priority: z.number().int().min(1).max(20).optional(),
+  availability: z.enum(['available', 'busy', 'unavailable', 'responding']).optional(),
+  responseMinutes: z.number().int().min(0).max(1_440).optional(),
+  relationship: z.string().min(1).max(160).optional(),
   title: z.string().optional(),
   detail: z.string().optional(),
   urgency: z.enum(['normal', 'time-sensitive', 'urgent']).optional(),
+  kind: z
+    .enum(['power-outage', 'water-leak', 'extreme-heat', 'severe-weather', 'custom'])
+    .optional(),
+  severity: z.enum(['watch', 'attention', 'urgent']).optional(),
   template: SafetyWindowTemplateSchema.optional(),
   startsAt: z.iso.datetime().optional(),
   expectedBy: z.iso.datetime().optional(),
@@ -99,37 +129,22 @@ function actorFrom(
     );
   const householdId = claims['custom:household_id']?.toString();
   const residentId = claims['custom:resident_id']?.toString();
-  if (!demo && (!householdId || !residentId)) {
+  const role = demo ? 'resident' : RoleSchema.safeParse(claims['custom:stay_role']).data;
+  const circleMemberId = claims['custom:circle_member_id']?.toString();
+  if (!demo && (!householdId || !residentId || !role)) {
     throw new StayDomainError(
       'FORBIDDEN',
-      'The authenticated identity is missing its household partition claims.',
+      'The authenticated identity is missing its household, resident, or role claims.',
     );
   }
   return {
     subject: claims.sub?.toString() ?? `demo:${demo}`,
     householdId: householdId ?? `demo-household-${demo as string}`,
     residentId: residentId ?? 'resident-sarah',
-    role: 'resident',
+    ...(circleMemberId ? { circleMemberId } : {}),
+    role: role ?? 'resident',
     correlationId,
-    permissions: (demo || scopes.includes('stay/app')
-      ? [
-          'home:read',
-          'tasks:write',
-          'circle:read',
-          'safety-window:read',
-          'safety-window:manage',
-          'help:request',
-          'help:respond',
-          'incident:read',
-          'incident:coordinate',
-          'incident:resolve',
-          'access:manage',
-          'privacy:manage',
-          'memory:read',
-          'memory:manage',
-          'playbook:execute',
-        ]
-      : []) as ActorContext['permissions'],
+    permissions: demo || scopes.includes('stay/app') ? permissionsForRole(role ?? 'resident') : [],
   };
 }
 
@@ -176,6 +191,12 @@ async function commandEngine(
       id ?? 'task-one-thing',
     );
     if (entity) state.oneThing = entity;
+  } else if (group === 'circle') {
+    const entity = await store.get<CircleMember>(actor.householdId, 'circle-member', id);
+    if (entity) state.circle = [entity];
+  } else if (group === 'home') {
+    const entity = await store.get<HomeDevice>(actor.householdId, 'device', id);
+    if (entity) state.devices = [entity];
   } else if (group === 'incidents' && action === 'activate-from-window') {
     const source = await store.get<SafetyWindow>(actor.householdId, 'safety-window', id);
     if (source) state.safetyWindows = [source];
@@ -211,6 +232,8 @@ function aggregateType(group: string): string {
       access: 'access',
       privacy: 'privacy',
       'house-memory': 'house-memory',
+      circle: 'circle-member',
+      home: 'device',
     }[group] ?? group.replace(/s$/, '')
   );
 }
@@ -225,6 +248,8 @@ export function persistedExpectedVersion(
     (group === 'safety-windows' && action === 'create') ||
     (group === 'playbooks' && action === 'create') ||
     (group === 'house-memory' && action === 'add') ||
+    (group === 'circle' && action === 'add') ||
+    (group === 'incidents' && action === 'detect') ||
     (group === 'incidents' && action === 'activate-from-window');
   return createsAggregate ? 0 : (requestedVersion ?? 0);
 }
@@ -235,7 +260,14 @@ async function persistedView(
   group: string,
 ): Promise<VersionedEntity[] | null> {
   if (
-    !['safety-windows', 'help-requests', 'incidents', 'playbooks', 'house-memory'].includes(group)
+    ![
+      'circle',
+      'safety-windows',
+      'help-requests',
+      'incidents',
+      'playbooks',
+      'house-memory',
+    ].includes(group)
   )
     return null;
   const values = await store.list(householdId, aggregateType(group));
@@ -260,7 +292,8 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
           correlationId,
         );
       }
-      actorFrom(event, correlationId, demoRoute);
+      const intentActor = actorFrom(event, correlationId, demoRoute);
+      requirePermission(intentActor, 'home:read');
       const store = repository();
       const demoSession = demoRoute ? event.headers['x-stay-demo-session'] : undefined;
       if (demoRoute && store && !(await store.demoSessionExists(demoSession as string))) {
@@ -337,6 +370,8 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       throw new StayDomainError('FORBIDDEN', 'The isolated demo session is invalid or expired.');
     }
     if (event.requestContext.http.method === 'GET') {
+      const requiredPermission = readPermissions[group as (typeof RouteGroups)[number]];
+      if (requiredPermission) requirePermission(actor, requiredPermission);
       const state = localEngine.snapshot();
       state.householdId = actor.householdId;
       state.resident.id = actor.residentId;
@@ -354,11 +389,25 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         ? await store.get<HomeState['privacy']>(actor.householdId, 'privacy', state.privacy.id)
         : null;
       if (storedPrivacy) state.privacy = storedPrivacy;
+      const storedDevices = store ? await store.list<HomeDevice>(actor.householdId, 'device') : [];
+      if (storedDevices.length) {
+        state.devices = [
+          ...storedDevices,
+          ...state.devices.filter(
+            (device) => !storedDevices.some((storedDevice) => storedDevice.id === device.id),
+          ),
+        ];
+      }
       const view: Record<string, unknown> = {
-        home: { resident: state.resident, oneThing: state.oneThing, calendar: state.calendar },
+        home: {
+          resident: state.resident,
+          oneThing: state.oneThing,
+          calendar: state.calendar,
+          devices: state.devices,
+        },
         tasks: { oneThing: state.oneThing },
         access: state.access,
-        circle: state.circle,
+        circle: state.circle.filter((member) => member.active),
         'safety-windows': state.safetyWindows,
         'help-requests': state.helpRequests,
         incidents: state.incidents,
@@ -371,7 +420,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       };
       const stored = store ? await persistedView(store, actor.householdId, group) : null;
       const fallback = view[group];
-      const data =
+      const mergedData =
         stored && Array.isArray(fallback)
           ? [
               ...stored,
@@ -381,6 +430,10 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
               ),
             ]
           : (stored ?? fallback);
+      const data =
+        group === 'circle' && Array.isArray(mergedData)
+          ? mergedData.filter((member) => (member as CircleMember).active)
+          : mergedData;
       return response(
         200,
         {
@@ -396,7 +449,10 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       throw new StayDomainError('IDEMPOTENCY_REQUIRED', 'Idempotency-Key is required for writes.');
     const body = CommandBodySchema.parse(event.body ? JSON.parse(event.body) : {});
     const id = body.entityId ?? entityId;
-    if (group === 'privacy' && body.action === 'request-confirmation') {
+    if (
+      ['privacy', 'circle', 'incidents'].includes(group) &&
+      body.action === 'request-confirmation'
+    ) {
       if (!body.confirmationPurpose || !body.expectedVersion) {
         throw new StayDomainError(
           'BAD_REQUEST',
@@ -404,6 +460,18 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         );
       }
       const entityIdForConfirmation = id ?? `privacy-${actor.residentId}`;
+      if (group === 'circle' && body.confirmationPurpose !== 'remove-primary-contact') {
+        throw new StayDomainError(
+          'BAD_REQUEST',
+          'Circle removal requires the remove-primary-contact confirmation purpose.',
+        );
+      }
+      if (group === 'incidents' && body.confirmationPurpose !== 'disclose-access-instructions') {
+        throw new StayDomainError(
+          'BAD_REQUEST',
+          'Incident disclosure requires the disclose-access-instructions confirmation purpose.',
+        );
+      }
       const token = `${crypto.randomUUID()}${crypto.randomUUID()}`;
       const confirmation: ConfirmationToken = {
         token,
@@ -484,6 +552,67 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         },
         { actor, idempotencyKey },
       );
+    } else if (
+      group === 'home' &&
+      id &&
+      ['turn-on', 'turn-off', 'ready-at-sunset'].includes(body.action)
+    ) {
+      const homeAction = z.enum(['turn-on', 'turn-off', 'ready-at-sunset']).parse(body.action);
+      result = engine.performHomeAction(id, homeAction, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (
+      group === 'circle' &&
+      body.action === 'add' &&
+      body.name &&
+      body.role &&
+      body.priority &&
+      body.availability &&
+      body.responseMinutes !== undefined &&
+      body.relationship
+    ) {
+      result = engine.addCircleMember(
+        {
+          name: body.name,
+          role: body.role,
+          priority: body.priority,
+          availability: body.availability,
+          responseMinutes: body.responseMinutes,
+          relationship: body.relationship,
+        },
+        { actor, idempotencyKey },
+      );
+    } else if (
+      group === 'circle' &&
+      id &&
+      body.action === 'update' &&
+      body.name &&
+      body.role &&
+      body.priority &&
+      body.availability &&
+      body.responseMinutes !== undefined &&
+      body.relationship
+    ) {
+      result = engine.updateCircleMember(
+        id,
+        {
+          name: body.name,
+          role: body.role,
+          priority: body.priority,
+          availability: body.availability,
+          responseMinutes: body.responseMinutes,
+          relationship: body.relationship,
+        },
+        { actor, idempotencyKey, expectedVersion: body.expectedVersion ?? 0 },
+      );
+    } else if (group === 'circle' && id && body.action === 'remove') {
+      result = engine.removeCircleMember(
+        id,
+        { actor, idempotencyKey, expectedVersion: body.expectedVersion ?? 0 },
+        validConfirmation,
+      );
     } else if (group === 'safety-windows' && id && body.action === 'record-missed-check') {
       result = engine.markSafetyWindowMissed(id, {
         actor,
@@ -549,6 +678,30 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (
+      group === 'incidents' &&
+      body.action === 'detect' &&
+      body.kind &&
+      body.title &&
+      body.severity
+    ) {
+      result = engine.detectIncident(
+        { kind: body.kind, title: body.title, severity: body.severity },
+        { actor, idempotencyKey },
+      );
+    } else if (
+      group === 'incidents' &&
+      id &&
+      ['begin-verification', 'activate', 'begin-coordination'].includes(body.action)
+    ) {
+      const incidentAction = z
+        .enum(['begin-verification', 'activate', 'begin-coordination'])
+        .parse(body.action);
+      result = engine.advanceIncident(id, incidentAction, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
     } else if (group === 'incidents' && id && body.action === 'ask-responder' && body.memberId) {
       result = engine.offerIncidentToMember(id, body.memberId, {
         actor,
@@ -567,6 +720,16 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
       });
+    } else if (group === 'incidents' && id && body.action === 'disclose-access-instructions') {
+      result = engine.discloseIncidentAccess(
+        id,
+        {
+          actor,
+          idempotencyKey,
+          expectedVersion: body.expectedVersion ?? 0,
+        },
+        validConfirmation,
+      );
     } else if (group === 'incidents' && id && body.action === 'escalate') {
       result = engine.escalateIncident(id, {
         actor,
@@ -580,6 +743,19 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       );
     } else if (group === 'playbooks' && id && body.action === 'next-step') {
       result = engine.executePlaybook(id, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (
+      group === 'playbooks' &&
+      id &&
+      ['start', 'pause', 'resume', 'cancel', 'reset'].includes(body.action)
+    ) {
+      const playbookAction = z
+        .enum(['start', 'pause', 'resume', 'cancel', 'reset'])
+        .parse(body.action);
+      result = engine.managePlaybookRun(id, playbookAction, {
         actor,
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
@@ -607,6 +783,12 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       });
     } else if (group === 'help-requests' && id && body.action === 'complete') {
       result = engine.completeHelpRequest(id, {
+        actor,
+        idempotencyKey,
+        expectedVersion: body.expectedVersion ?? 0,
+      });
+    } else if (group === 'help-requests' && id && body.action === 'cancel') {
+      result = engine.cancelHelpRequest(id, {
         actor,
         idempotencyKey,
         expectedVersion: body.expectedVersion ?? 0,
@@ -681,6 +863,27 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       });
     }
     log('INFO', 'command completed', { correlationId, group, action: body.action });
+    if (group === 'incidents' && body.action === 'disclose-access-instructions') {
+      const incidentAccess = store
+        ? (await store.list<HomeState['houseMemory'][number]>(actor.householdId, 'house-memory'))
+            .filter((item) => item.sensitivity === 'incident-only')
+            .map(({ id: itemId, label, value, updatedAt }) => ({
+              id: itemId,
+              label,
+              value,
+              updatedAt,
+            }))
+        : localEngine
+            .snapshot()
+            .houseMemory.filter((item) => item.sensitivity === 'incident-only')
+            .map(({ id: itemId, label, value, updatedAt }) => ({
+              id: itemId,
+              label,
+              value,
+              updatedAt,
+            }));
+      return response(200, { ...result, incidentAccess }, correlationId);
+    }
     return response(200, result, correlationId);
   } catch (error) {
     const domain = error instanceof StayDomainError ? error : null;
