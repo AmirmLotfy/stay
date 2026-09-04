@@ -8,6 +8,7 @@ Everything in this file is prepared for the participant's manual Devpost entry. 
 
 - Uploaded-video source copy: `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`
 - English captions: `assets/submission/video/STAY_DEMO.en.srt`
+- Caption replacement procedure: `docs/media-production/YOUTUBE_UPLOAD_COPY.md#replace-the-automatic-captions`
 - Thumbnail: `assets/submission/video/STAY_YouTube_Thumbnail.png`
 - Ready-to-copy title, description, chapters, tags, and pinned comment: `docs/media-production/YOUTUBE_UPLOAD_COPY.md`
 - Archival master: `assets/submission/video/STAY_Devpost_Demo_MASTER_v01.mp4`

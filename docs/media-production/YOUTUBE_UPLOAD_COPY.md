@@ -48,6 +48,24 @@ Built for the Alexa+ primary track and the AWS Builder and Open Source mini-chal
 - Embedding: enabled so Devpost judges can watch in place.
 - License: Standard YouTube License unless the entrant deliberately chooses otherwise.
 
+## Replace the automatic captions
+
+Do not re-upload the video. Keep `https://youtu.be/oCoXdCRVyMo` so the verified public URL, embed, analytics, and clean copyright review remain attached to the same upload.
+
+1. In YouTube Studio, open the STAY video and choose **Languages** or **Subtitles**.
+2. For English, choose **Upload manual** / **Upload file**, then select **With timing**.
+3. Upload `assets/submission/video/STAY_DEMO.en.srt`. Its SHA-256 is `6304dc386bd7f19d851a7c2b82e3ff4ef490afa49a0d3a6dd100780824d9dfed`.
+4. Preview the track before publishing. It must show 36 sequential cues and end at `00:02:49,800`.
+5. Publish the manual English track. Do not save the inaccurate automatic transcript as a draft or publish edits made against it.
+6. Open the public video signed out, enable **CC**, and spot-check:
+   - `00:00` — `[Soft felt-piano and marimba music]`
+   - `00:04` — “Independent living is often lost…”
+   - `01:39` — “Tom is on the way.”
+   - `02:39` — `[Music continues, then fades]`
+7. Watch once from start to finish with sound and captions enabled. Confirm that cues do not overlap, cover the spoken words, remain readable on mobile, and contain none of the previous automatic errors such as “provenence,” “Dynamob,” or “stateuler.”
+
+After this check, mark the two remaining caption/playback items in `DELIVERY_CHECKLIST.md` complete. No repository or video-file regeneration is needed.
+
 ## Tags
 
 STAY, Alexa+, Model Context Protocol, MCP, Amazon Bedrock, Amazon Nova, Strands Agents SDK, AWS, accessibility, independent living, safety coordination, open source, Devpost
