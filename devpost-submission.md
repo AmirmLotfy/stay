@@ -167,7 +167,7 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 
 ## Official Form Fields — Copy Pack
 
-Official requirements fetched live from Devpost on 2026-09-03 Cairo time. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
+Official requirements revalidated live from the Devpost overview, resources, and rules on 2026-09-04 Cairo time. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
 
 ### 28285 — Submitter Type
 
