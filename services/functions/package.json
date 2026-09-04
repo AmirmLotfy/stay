@@ -27,9 +27,9 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
-    "@types/aws-lambda": "8.10.160",
+    "@types/aws-lambda": "8.10.162",
     "@types/node": "26.4.1",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.11"
   }
 }
