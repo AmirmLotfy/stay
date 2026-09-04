@@ -41,7 +41,7 @@ Review IAM broadening, encrypted API access-log destinations, Cognito callback U
 
 Only the first deployment may need a reviewed non-root local AWS session because the project-scoped GitHub OIDC role is created by this stack. After that initial deployment, record the `GitHubDeploymentRoleArn` stack output as the repository secret `AWS_DEPLOY_ROLE_ARN`. Also configure `ALERT_EMAIL`, `SES_FROM_EMAIL`, and `SES_RECIPIENT_EMAIL` as repository secrets without copying their values into logs or documentation. These four repository secrets were populated on 2026-09-04; verify names and update timestamps with `gh secret list --repo AmirmLotfy/stay`, which never reveals their values.
 
-The OIDC role may assume only the four modern CDK bootstrap roles for this exact account and `us-east-1`. The manual GitHub workflow then enforces the same two-run gate: run it once with `operation=diff`, review the exact output, then start a separate `operation=deploy` run with `confirm_reviewed_diff=true`.
+The OIDC trust matches GitHub's customized subject containing the immutable owner ID `178108135`, repository ID `1354119197`, and `main` ref. The role may assume only the four modern CDK bootstrap roles for this exact account and `us-east-1`. The manual GitHub workflow validates that exact audience and subject before requesting AWS credentials, then enforces the same two-run gate: run it once with `operation=diff`, review the exact output, then start a separate `operation=deploy` run with `confirm_reviewed_diff=true`.
 
 ## 4. Deploy the reviewed fallback update
 

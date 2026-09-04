@@ -877,20 +877,24 @@ export class StayDemoStack extends Stack {
       retainOnDelete: false,
     });
 
-    // GitHub OIDC is intentionally project-scoped. Review the role and cdk diff before deployment.
+    // GitHub OIDC is intentionally project-scoped. The account uses GitHub's customized
+    // subject template with immutable owner and repository IDs. Review the role and cdk diff
+    // before deployment.
     const githubProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
       url: 'https://token.actions.githubusercontent.com',
       clientIds: ['sts.amazonaws.com'],
     });
     const deploymentRole = new iam.Role(this, 'GitHubDeploymentRole', {
       assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
-        StringEquals: { 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com' },
-        StringLike: {
-          'token.actions.githubusercontent.com:sub': 'repo:AmirmLotfy/stay:ref:refs/heads/main',
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+          'token.actions.githubusercontent.com:sub':
+            'repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main',
         },
       }),
       maxSessionDuration: Duration.hours(1),
-      description: 'GitHub Actions deployment role restricted to AmirmLotfy/stay main.',
+      description:
+        'GitHub Actions deployment role restricted to immutable AmirmLotfy/stay IDs on main.',
     });
     deploymentRole.addToPolicy(
       new iam.PolicyStatement({

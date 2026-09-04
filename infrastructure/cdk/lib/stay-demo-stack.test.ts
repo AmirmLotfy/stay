@@ -115,6 +115,23 @@ describe('StayDemoStack', () => {
         ]),
       },
     });
+    template.hasResourceProperties('AWS::IAM::Role', {
+      AssumeRolePolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'sts:AssumeRoleWithWebIdentity',
+            Condition: {
+              StringEquals: {
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+                'token.actions.githubusercontent.com:sub':
+                  'repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main',
+              },
+            },
+            Effect: 'Allow',
+          }),
+        ]),
+      },
+    });
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyName: 'stay-demo-bedrock-invoke',
       PolicyDocument: {

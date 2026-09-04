@@ -61,7 +61,10 @@ jobs:
           };
           console.log(JSON.stringify(observed));
           if (payload.aud !== 'sts.amazonaws.com') throw new Error('Unexpected OIDC audience');
-          if (payload.sub !== 'repo:AmirmLotfy/stay:ref:refs/heads/main') {
+          if (
+            payload.sub !==
+            'repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main'
+          ) {
             throw new Error('Unexpected OIDC subject');
           }
           NODE
@@ -97,10 +100,11 @@ jobs:
       - name: Generate exact stack diff
         if: inputs.operation == 'diff'
         run: >-
-          pnpm --filter @stay/infra diff --
+          pnpm --filter @stay/infra exec cdk diff StayDemoStack --strict
           -c enableCloudFront=false
           -c enableDeletionProtection=true
           -c enableCustomDomain=${{ inputs.enable_custom_domain }}
+          --method template
       - name: Deploy reviewed stack
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
         env:
@@ -109,7 +113,7 @@ jobs:
           SES_RECIPIENT_EMAIL: ${{ secrets.SES_RECIPIENT_EMAIL }}
           BEDROCK_MODEL_ID: ${{ inputs.bedrock_model_id }}
         run: |
-          pnpm --filter @stay/infra deploy -- \
+          pnpm --filter @stay/infra exec cdk deploy StayDemoStack \
             -c enableCloudFront=false \
             -c enableDeletionProtection=true \
             -c enableCustomDomain=${{ inputs.enable_custom_domain }} \
