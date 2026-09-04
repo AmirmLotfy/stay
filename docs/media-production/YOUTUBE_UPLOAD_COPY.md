@@ -62,4 +62,4 @@ The public demo uses synthetic people and clearly labeled simulated provider dat
 
 ## Post-upload evidence
 
-The final public URL is `https://youtu.be/oCoXdCRVyMo`. Signed-out verification confirmed public playback, 170-second duration, 1080p availability, captions, and embedding. A signed-in read-only inspection of YouTube Studio's Claim overview on 2026-09-04 reported no claims and no copyrighted content found.
+The final public URL is `https://youtu.be/oCoXdCRVyMo`. Signed-out verification confirmed public playback, 170-second duration, 1080p availability, and embedding. A signed-in read-only inspection on 2026-09-04 found that the current English track is YouTube's imperfect auto-caption transcript; replace it with `assets/submission/video/STAY_DEMO.en.srt` and publish the replacement. The Studio Claim overview reported no claims and no copyrighted content found.

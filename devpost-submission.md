@@ -30,7 +30,7 @@ https://saystay.site
 
 https://youtu.be/oCoXdCRVyMo
 
-Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out on 2026-09-04: playable, embeddable, 170 seconds, 1080p available, and captions present. The upload uses the approved Higgsfield voice/music and the verified public demo URL.
+Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out on 2026-09-04: playable, embeddable, 170 seconds, and 1080p available. The upload uses the approved Higgsfield voice/music and the verified public demo URL. Before submission, replace YouTube's current auto-caption transcript with the packaged 34-cue English SRT.
 
 ## Problem
 
@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for video-link commit `5ab6ea8`: https://github.com/AmirmLotfy/stay/actions/runs/33819563970 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
+Public CI evidence for release commit `3385296`: https://github.com/AmirmLotfy/stay/actions/runs/33832437130 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
 
 ## Screenshot Shot List
 
@@ -290,11 +290,11 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; video-link commit `5ab6ea8` has green CI with 36/36 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; release commit `3385296` has green CI with 36/36 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://saystay.site`; both the custom domain and `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com` passed 32/32 applicable live browser scenarios, and the hosting mode remains secure API Gateway/private-S3.
-- **Video:** the finished 170-second H.264/AAC master is public at `https://youtu.be/oCoXdCRVyMo`; signed-out checks confirmed playback, embedding, 1080p, duration, and captions. The identical source copy, 34-cue English captions, and real-product thumbnail remain packaged; private human playback/caption/copyright review remains.
+- **Video:** the finished 170-second H.264/AAC master is public at `https://youtu.be/oCoXdCRVyMo`; signed-out checks confirmed playback, embedding, 1080p, and duration. The identical source copy, 34-cue English SRT, and real-product thumbnail remain packaged. The copyright-claim gate passed, but the current YouTube auto-caption transcript must be replaced with the packaged SRT and reviewed during private playback.
 - **Higgsfield:** selected Recraft V4.1 logo, locked Faye Seed Audio narration, and Sonilo Music tonal bed were generated, reviewed, integrated, and provenance-locked. The recorded spend is 56.93 credits.
 - **Participant assertions:** stored only in the ignored local handoff. The current values do not pass the official eligibility gate and must not be changed unless the user confirms they were mistakes and truthfully corrects them.
 - **Final action:** do not submit without the dedicated final confirmation.
