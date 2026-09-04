@@ -14,7 +14,7 @@ Everything in this file is prepared for the participant's manual Devpost entry. 
 
 The upload and archival files are byte-identical, 170 seconds, 1920 × 1080, H.264 High at 30 fps with AAC-LC 48 kHz stereo. SHA-256: `63354dc8a1a25809bb530aed28d417279c941da97817636cf3a825b00814f00c`.
 
-The public page was verified signed out on 2026-09-04: playable, embeddable, public and not unlisted, 170 seconds, and 1080p available. YouTube currently exposes an English auto-caption track, but a signed-in read-only Studio inspection found transcription errors and a structure that does not match the approved 34-cue SRT. Replace that track with `assets/submission/video/STAY_DEMO.en.srt`, publish it, and perform the final playback check. The Studio Claim overview reported no claims and no copyrighted content found.
+The public page was verified signed out on 2026-09-04: playable, embeddable, public and not unlisted, 170 seconds, and 1080p available. YouTube currently exposes an English auto-caption track, but a signed-in read-only Studio inspection found transcription errors and a structure that does not match the approved 36-cue SRT. Replace that track with `assets/submission/video/STAY_DEMO.en.srt`, publish it, and perform the final playback check. The Studio Claim overview reported no claims and no copyrighted content found.
 
 ## Devpost copy kit
 

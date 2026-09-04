@@ -30,7 +30,7 @@ https://saystay.site
 
 https://youtu.be/oCoXdCRVyMo
 
-Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out on 2026-09-04: playable, embeddable, 170 seconds, and 1080p available. The upload uses the approved Higgsfield voice/music and the verified public demo URL. Before submission, replace YouTube's current auto-caption transcript with the packaged 34-cue English SRT.
+Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out on 2026-09-04: playable, embeddable, 170 seconds, and 1080p available. The upload uses the approved Higgsfield voice/music and the verified public demo URL. Before submission, replace YouTube's current auto-caption transcript with the packaged 36-cue English SRT.
 
 ## Problem
 
@@ -294,7 +294,7 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://saystay.site`; both the custom domain and `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com` passed 32/32 applicable live browser scenarios, and the hosting mode remains secure API Gateway/private-S3.
-- **Video:** the finished 170-second H.264/AAC master is public at `https://youtu.be/oCoXdCRVyMo`; signed-out checks confirmed playback, embedding, 1080p, and duration. The identical source copy, 34-cue English SRT, and real-product thumbnail remain packaged. The copyright-claim gate passed, but the current YouTube auto-caption transcript must be replaced with the packaged SRT and reviewed during private playback.
+- **Video:** the finished 170-second H.264/AAC master is public at `https://youtu.be/oCoXdCRVyMo`; signed-out checks confirmed playback, embedding, 1080p, and duration. The identical source copy, 36-cue English SRT, and real-product thumbnail remain packaged. The SRT includes the measured narration plus accessible opening/closing music cues. The copyright-claim gate passed, but the current YouTube auto-caption transcript must be replaced with the packaged SRT and reviewed during private playback.
 - **Higgsfield:** selected Recraft V4.1 logo, locked Faye Seed Audio narration, and Sonilo Music tonal bed were generated, reviewed, integrated, and provenance-locked. The recorded spend is 56.93 credits.
 - **Participant assertions:** stored only in the ignored local handoff. The current values do not pass the official eligibility gate and must not be changed unless the user confirms they were mistakes and truthfully corrects them.
 - **Final action:** do not submit without the dedicated final confirmation.

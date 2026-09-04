@@ -1,156 +1,164 @@
 1
+00:00:00,000 --> 00:00:03,600
+[Soft felt-piano and marimba music]
+
+2
 00:00:04,000 --> 00:00:09,360
 Independent living is often lost in the space
 between “everything is fine” and an emergency:
 
-2
+3
 00:00:10,020 --> 00:00:15,900
 one missed check-in, one small household
 problem, or one favor nobody clearly owns.
 
-3
+4
 00:00:17,400 --> 00:00:20,520
 STAY gives Sarah one calm place for that
 middle ground.
 
-4
+5
 00:00:21,100 --> 00:00:25,900
 Today shows one thing at a time, an ordinary
 home check, and useful context.
 
-5
+6
 00:00:26,740 --> 00:00:34,740
 Every weather, device, utility, maintenance, and travel signal
 in this demo is clearly labeled as simulated.
 
-6
+7
 00:00:36,100 --> 00:00:40,660
 Access preferences make the same experience
 work voice-first or touch-first.
 
-7
+8
 00:00:41,500 --> 00:00:48,460
 Sarah can choose captions, more response time, higher
 contrast, reduced motion, and repeated key information.
 
-8
+9
 00:00:49,140 --> 00:00:50,740
 These settings change presentation.
 
-9
+10
 00:00:51,400 --> 00:00:53,540
 They never change her safety policy.
 
-10
+11
 00:00:54,620 --> 00:00:56,420
 Privacy is scoped by role and moment.
 
-11
+12
 00:00:57,280 --> 00:00:59,080
 Routine details stay private.
 
-12
+13
 00:00:59,720 --> 00:01:07,560
 Access instructions and location can appear only inside an
 authenticated, assigned incident when Sarah’s plan permits it.
 
-13
+14
 00:01:08,240 --> 00:01:10,440
 Now Sarah misses her Morning Safety Window.
 
-14
+15
 00:01:11,220 --> 00:01:16,400
 STAY makes one deterministic check, waits through
 the grace period, and checks once more.
 
-15
+16
 00:01:17,260 --> 00:01:19,480
 Bedrock does not choose what happens next.
 
-16
+17
 00:01:20,280 --> 00:01:21,480
 Sarah’s saved plan does.
 
-17
+18
 00:01:22,160 --> 00:01:26,080
 After the second missed check, her Circle
 plan opens an incident.
 
-18
+19
 00:01:26,720 --> 00:01:29,280
 STAY has not contacted emergency services.
 
-19
+20
 00:01:30,000 --> 00:01:32,080
 Sarah asks Tom, a nearby helper.
 
-20
+21
 00:01:32,740 --> 00:01:37,420
 Only the minimum incident detail is shared,
 and every action enters the timeline.
 
-21
+22
 00:01:38,240 --> 00:01:38,720
 Tom accepts.
 
-22
+23
 00:01:39,340 --> 00:01:40,140
 Tom is on the way.
 
-23
+24
 00:01:40,600 --> 00:01:41,940
 He now owns the response,
 
-24
+25
 00:01:42,740 --> 00:01:44,480
 and the Circle sees the same update.
 
-25
+26
 00:01:44,580 --> 00:01:51,320
 STAY also handles ordinary Help Requests, household
 playbooks, availability, and privacy-filtered House Memory.
 
-26
+27
 00:01:51,840 --> 00:01:55,460
 The deterministic workflows keep working if
 the language model is unavailable.
 
-27
+28
 00:01:56,180 --> 00:02:02,500
 For Alexa Plus, STAY exposes ten goal-level
 tools through a standards-based MCP server with
 
-28
+29
 00:02:02,500 --> 00:02:07,400
 accessible text, typed structured content,
 provenance, and Alexa-style widgets.
 
-29
+30
 00:02:08,160 --> 00:02:14,800
 On AWS, Cognito protects identity; DynamoDB
 transactions and an outbox preserve state;
 
-30
+31
 00:02:15,680 --> 00:02:20,820
 Scheduler and EventBridge coordinate checks; WebSockets
 and minimal email deliver updates;
 
-31
+32
 00:02:21,360 --> 00:02:25,080
 and Nova interprets only redacted,
 non-critical intent.
 
-32
+33
 00:02:26,180 --> 00:02:32,420
 STAY does not contact emergency services, diagnose a
 condition, detect a fall, or replace Alexa
 
-33
+34
 00:02:32,420 --> 00:02:33,380
 Emergency Assist.
 
-34
+35
 00:02:33,380 --> 00:02:38,900
 STAY helps people stay at home, stay
 connected, and stay in control.
+
+36
+00:02:39,100 --> 00:02:49,800
+[Music continues, then fades]
 

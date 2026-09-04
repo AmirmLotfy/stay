@@ -21,6 +21,7 @@
     "captions:submission": "pnpm --filter @stay/web captions:submission",
     "render:submission": "pnpm --filter @stay/web render:submission",
     "verify:submission": "pnpm --filter @stay/web verify:submission",
+    "verify:submission:local": "pnpm --filter @stay/web verify:submission:local",
     "cdk:synth": "pnpm --filter @stay/infra synth",
     "cdk:diff": "pnpm --filter @stay/infra diff",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm cdk:synth"

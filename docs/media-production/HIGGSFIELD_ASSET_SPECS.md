@@ -60,6 +60,6 @@ Prompt direction: warm felt piano, low marimba pulse, restrained brushed acousti
 - Audio: AAC, 48 kHz stereo
 - Integrated loudness: −14.58 LUFS
 - True peak: −0.92 dBTP
-- Captions: 34 measured cues ending at 02:38.900
+- Captions: 36 cues ending at 02:49.800: 34 measured narration cues plus accessible opening/closing music cues
 
 The final MP4 uses deterministic editing and the real STAY product capture. No product screen was generatively altered.

@@ -29,6 +29,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:coverage
+      - run: pnpm verify:submission:local
       - run: pnpm build
       - run: pnpm cdk:synth
       - run: pnpm --filter @stay/web exec playwright install --with-deps chromium

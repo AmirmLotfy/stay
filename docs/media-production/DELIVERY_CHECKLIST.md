@@ -7,7 +7,7 @@
 - [x] Recapture all seven product screenshots from the verified public AWS demo, including the functional mobile Updates panel, and record their hashes and deployed provenance.
 - [x] Capture the 170-second 1080p picture-only walkthrough and record its hash as local-only evidence.
 - [x] Conform the edit to the real product capture and approved voice-over.
-- [ ] Replace the current YouTube auto-caption track with `assets/submission/video/STAY_DEMO.en.srt`, publish it, and manually QA all 34 cues against the mixed master. A 2026-09-04 read-only Studio inspection found transcription errors in the current automatic track.
+- [ ] Replace the current YouTube auto-caption track with `assets/submission/video/STAY_DEMO.en.srt`, publish it, and manually QA all 36 cues against the mixed master. A 2026-09-04 read-only Studio inspection found transcription errors in the current automatic track. The packaged SRT covers all measured narration and the music-only opening/closing.
 - [x] Verify 1920×1080, 30 fps, H.264/AAC, 48 kHz stereo, and 170-second runtime below 02:59.
 - [ ] Confirm speech is comfortably audible on the user's laptop speakers.
 - [x] Verify the final audible master and every current copy field stay within `docs/release-evidence.md`.

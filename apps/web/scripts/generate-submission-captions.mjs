@@ -97,6 +97,12 @@ const measuredCues = [
   [153.38, 158.9, 'STAY helps people stay at home, stay connected, and stay in control.'],
 ];
 
+const accessibilityCues = [
+  [0, 3.6, '[Soft felt-piano and marimba music]'],
+  ...measuredCues,
+  [159.1, 169.8, '[Music continues, then fades]'],
+];
+
 function wrapCaption(text, width = 44) {
   const words = text.split(/\s+/);
   const lines = [];
@@ -143,7 +149,7 @@ if (normalizeSpeech(timedNarration) !== normalizeSpeech(narration)) {
   );
 }
 
-const entries = measuredCues.map(
+const entries = accessibilityCues.map(
   ([start, end, text], index) =>
     `${index + 1}\n${timestamp(start)} --> ${timestamp(end)}\n${wrapCaption(text)}\n`,
 );
@@ -151,5 +157,5 @@ const entries = measuredCues.map(
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${entries.join('\n')}\n`, 'utf8');
 process.stdout.write(
-  `Wrote ${measuredCues.length} measured captions ending at ${timestamp(measuredCues.at(-1)[1])} to ${outputPath}\n`,
+  `Wrote ${accessibilityCues.length} captions with measured narration and music cues ending at ${timestamp(accessibilityCues.at(-1)[1])} to ${outputPath}\n`,
 );

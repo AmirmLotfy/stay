@@ -7,10 +7,22 @@ import process from 'node:process';
 
 const workspaceRoot = path.resolve(import.meta.dirname, '../../..');
 const allowPending = process.argv.includes('--allow-pending');
+const localOnly = process.argv.includes('--local-only');
 const results = [];
 
 function record(status, check, detail) {
   results.push({ status, check, detail });
+}
+
+function finish() {
+  const counts = results.reduce(
+    (summary, result) => ({ ...summary, [result.status]: summary[result.status] + 1 }),
+    { passed: 0, pending: 0, failed: 0 },
+  );
+  process.stdout.write(`${JSON.stringify({ counts, results }, null, 2)}\n`);
+
+  if (counts.failed > 0) process.exitCode = 1;
+  else if (counts.pending > 0 && !allowPending) process.exitCode = 2;
 }
 
 async function exists(file) {
@@ -60,6 +72,78 @@ function validateVideo(file, { audioRequired }) {
   if (audioRequired && audio?.sample_rate !== '48000') failures.push('audio is not 48 kHz');
 
   return { duration, failures };
+}
+
+function parseSrtTimestamp(value) {
+  const match = value.match(/^(\d{2}):(\d{2}):(\d{2}),(\d{3})$/);
+  if (!match) return Number.NaN;
+  const [, hours, minutes, seconds, milliseconds] = match;
+  return (
+    Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(milliseconds) / 1000
+  );
+}
+
+function normalizeSpeech(text) {
+  return text
+    .normalize('NFKD')
+    .toLocaleLowerCase('en')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+async function validateCaptions(file, videoDuration) {
+  const source = (await readFile(file, 'utf8')).trim();
+  const blocks = source.split(/\r?\n\s*\r?\n/);
+  const failures = [];
+  const speech = [];
+  let previousEnd = 0;
+  let musicCueCount = 0;
+
+  if (blocks.length !== 36) failures.push(`expected 36 cues, found ${blocks.length}`);
+
+  blocks.forEach((block, position) => {
+    const lines = block.split(/\r?\n/);
+    const expectedIndex = position + 1;
+    if (Number(lines[0]) !== expectedIndex) {
+      failures.push(`cue ${expectedIndex} has invalid sequence number`);
+    }
+
+    const timing = lines[1]?.match(/^(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})$/);
+    if (!timing) {
+      failures.push(`cue ${expectedIndex} has invalid timing`);
+      return;
+    }
+
+    const start = parseSrtTimestamp(timing[1]);
+    const end = parseSrtTimestamp(timing[2]);
+    const textLines = lines.slice(2);
+    const cueText = textLines.join(' ').trim();
+
+    if (!cueText) failures.push(`cue ${expectedIndex} is empty`);
+    if (textLines.length > 2) failures.push(`cue ${expectedIndex} exceeds two lines`);
+    if (!(end > start)) failures.push(`cue ${expectedIndex} has non-positive duration`);
+    if (start < previousEnd) failures.push(`cue ${expectedIndex} overlaps the previous cue`);
+    if (end > videoDuration + 0.05) failures.push(`cue ${expectedIndex} exceeds video duration`);
+
+    if (/^\[.*music.*\]$/i.test(cueText)) musicCueCount += 1;
+    else speech.push(cueText);
+    previousEnd = end;
+  });
+
+  if (musicCueCount < 2) failures.push('opening and closing music cues are required');
+  if (previousEnd < videoDuration - 0.5)
+    failures.push('captions do not cover the music-only close');
+
+  const voiceover = await readFile(
+    path.join(workspaceRoot, 'docs/media-production/VOICEOVER_SCRIPT.md'),
+    'utf8',
+  );
+  const narration = voiceover.split('## Script')[1]?.trim();
+  if (!narration || normalizeSpeech(speech.join(' ')) !== normalizeSpeech(narration)) {
+    failures.push('caption narration does not match the approved voice-over script');
+  }
+
+  return { cueCount: blocks.length, musicCueCount, failures };
 }
 
 async function verifyCandidateHashes() {
@@ -139,8 +223,10 @@ const finalMaster = path.join(
   workspaceRoot,
   'assets/submission/video/STAY_Devpost_Demo_MASTER_v01.mp4',
 );
+let finalDuration;
 if (await exists(finalMaster)) {
   const final = validateVideo(finalMaster, { audioRequired: true });
+  finalDuration = final.duration;
   record(
     final.failures.length === 0 ? 'passed' : 'failed',
     'final audible master',
@@ -152,95 +238,133 @@ if (await exists(finalMaster)) {
   record('pending', 'final audible master', 'approved voice-over is still required');
 }
 
-const devpostCopy = await readFile(path.join(workspaceRoot, 'devpost-submission.md'), 'utf8');
-const privateAnswersPath = path.join(workspaceRoot, 'devpost-private-answers.md');
-const privateAnswers = (await exists(privateAnswersPath))
-  ? await readFile(privateAnswersPath, 'utf8')
-  : '';
-
-function privateFieldAnswer(fieldId) {
-  const privateField = privateAnswers.match(
-    new RegExp(`\\*\\*${fieldId}[^\\n]*\\*\\*\\s*([^\\n]+)`, 'i'),
-  );
-  return privateField?.[1]?.trim();
+const uploadCopy = path.join(
+  workspaceRoot,
+  'assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4',
+);
+if ((await exists(finalMaster)) && (await exists(uploadCopy))) {
+  const upload = validateVideo(uploadCopy, { audioRequired: true });
+  const [masterHash, uploadHash] = await Promise.all([sha256(finalMaster), sha256(uploadCopy)]);
+  if (upload.failures.length > 0) {
+    record('failed', 'YouTube upload copy', upload.failures.join('; '));
+  } else if (masterHash !== uploadHash) {
+    record('failed', 'YouTube upload copy', 'upload copy is not byte-identical to final master');
+  } else {
+    record('passed', 'YouTube upload copy', `${upload.duration.toFixed(2)}s; matches final master`);
+  }
+} else {
+  record('pending', 'YouTube upload copy', 'final master or upload copy is missing');
 }
 
-const unresolvedPublic =
-  devpostCopy.match(/\[(?:PUBLIC_YOUTUBE_URL|CONFIRM[^\]]*|AMIR MUST CONFIRM[^\]]*)\]/g) ?? [];
-const privateFieldIds = ['28285', '28286', '28287', '28288', '28308', '28309', '28310'];
-const missingPrivateFields = privateFieldIds.filter((fieldId) => !privateFieldAnswer(fieldId));
-const unresolvedCount = unresolvedPublic.length + missingPrivateFields.length;
-record(
-  unresolvedCount > 0 ? 'pending' : 'passed',
-  'Devpost copy placeholders',
-  unresolvedCount > 0 ? `${unresolvedCount} unresolved form fields` : 'none',
-);
-
-function formFieldAnswer(fieldId) {
-  const privateField = privateFieldAnswer(fieldId);
-  if (privateField) return privateField;
-  const field = devpostCopy.match(new RegExp(`### ${fieldId}[^\\n]*\\n\\n([^\\n]+)`, 'i'));
-  return field?.[1]?.trim();
-}
-
-const participantEligibility = [
-  ['28308', 'age of majority'],
-  ['28309', 'eligible jurisdiction'],
-].map(([fieldId, label]) => ({ answer: formFieldAnswer(fieldId), label }));
-const deniedEligibility = participantEligibility.filter(({ answer }) =>
-  /^no\b/i.test(answer ?? ''),
-);
-const unresolvedEligibility = participantEligibility.filter(
-  ({ answer }) => !answer || /^\[|must confirm/i.test(answer),
-);
-
-if (deniedEligibility.length > 0) {
+const captionsPath = path.join(workspaceRoot, 'assets/submission/video/STAY_DEMO.en.srt');
+if ((await exists(captionsPath)) && Number.isFinite(finalDuration)) {
+  const captions = await validateCaptions(captionsPath, finalDuration);
   record(
-    'failed',
-    'participant eligibility',
-    `negative confirmation: ${deniedEligibility.map(({ label }) => label).join(', ')}`,
-  );
-} else if (unresolvedEligibility.length > 0) {
-  record(
-    'pending',
-    'participant eligibility',
-    `unresolved: ${unresolvedEligibility.map(({ label }) => label).join(', ')}`,
+    captions.failures.length === 0 ? 'passed' : 'failed',
+    'English caption package',
+    captions.failures.length === 0
+      ? `${captions.cueCount} sequential cues, including ${captions.musicCueCount} music cues; narration matches approved script`
+      : captions.failures.join('; '),
   );
 } else {
-  record('passed', 'participant eligibility', 'age and jurisdiction confirmed eligible');
+  record('pending', 'English caption package', 'caption file or final video duration is missing');
 }
 
-await verifyUrl('public judge demo', 'https://saystay.site', [200]);
-await verifyUrl('MCP bearer boundary', 'https://saystay.site/mcp', [401]);
-await verifyUrl('public GitHub repository', 'https://api.github.com/repos/AmirmLotfy/stay', [200]);
+if (localOnly) {
+  finish();
+} else {
+  const devpostCopy = await readFile(path.join(workspaceRoot, 'devpost-submission.md'), 'utf8');
+  const privateAnswersPath = path.join(workspaceRoot, 'devpost-private-answers.md');
+  const privateAnswers = (await exists(privateAnswersPath))
+    ? await readFile(privateAnswersPath, 'utf8')
+    : '';
 
-const expectedNameServers = [
-  'ns-349.awsdns-43.com',
-  'ns-1914.awsdns-47.co.uk',
-  'ns-816.awsdns-38.net',
-  'ns-1302.awsdns-34.org',
-].sort();
-try {
-  const actualNameServers = (await resolveNs('saystay.site'))
-    .map((nameServer) => nameServer.replace(/\.$/, ''))
-    .sort();
-  const delegated = JSON.stringify(actualNameServers) === JSON.stringify(expectedNameServers);
+  function privateFieldAnswer(fieldId) {
+    const privateField = privateAnswers.match(
+      new RegExp(`\\*\\*${fieldId}[^\\n]*\\*\\*\\s*([^\\n]+)`, 'i'),
+    );
+    return privateField?.[1]?.trim();
+  }
+
+  const unresolvedPublic =
+    devpostCopy.match(/\[(?:PUBLIC_YOUTUBE_URL|CONFIRM[^\]]*|AMIR MUST CONFIRM[^\]]*)\]/g) ?? [];
+  const privateFieldIds = ['28285', '28286', '28287', '28288', '28308', '28309', '28310'];
+  const missingPrivateFields = privateFieldIds.filter((fieldId) => !privateFieldAnswer(fieldId));
+  const unresolvedCount = unresolvedPublic.length + missingPrivateFields.length;
   record(
-    delegated ? 'passed' : 'pending',
-    'saystay.site delegation',
-    delegated
-      ? 'registrar nameservers match Route 53'
-      : `observed: ${actualNameServers.join(', ')}`,
+    unresolvedCount > 0 ? 'pending' : 'passed',
+    'Devpost copy placeholders',
+    unresolvedCount > 0 ? `${unresolvedCount} unresolved form fields` : 'none',
   );
-} catch {
-  record('pending', 'saystay.site delegation', 'no public NS records observed');
+
+  function formFieldAnswer(fieldId) {
+    const privateField = privateFieldAnswer(fieldId);
+    if (privateField) return privateField;
+    const field = devpostCopy.match(new RegExp(`### ${fieldId}[^\\n]*\\n\\n([^\\n]+)`, 'i'));
+    return field?.[1]?.trim();
+  }
+
+  const participantEligibility = [
+    ['28308', 'age of majority'],
+    ['28309', 'eligible jurisdiction'],
+  ].map(([fieldId, label]) => ({ answer: formFieldAnswer(fieldId), label }));
+  const deniedEligibility = participantEligibility.filter(({ answer }) =>
+    /^no\b/i.test(answer ?? ''),
+  );
+  const unresolvedEligibility = participantEligibility.filter(
+    ({ answer }) => !answer || /^\[|must confirm/i.test(answer),
+  );
+
+  if (deniedEligibility.length > 0) {
+    record(
+      'failed',
+      'participant eligibility',
+      `negative confirmation: ${deniedEligibility.map(({ label }) => label).join(', ')}`,
+    );
+  } else if (unresolvedEligibility.length > 0) {
+    record(
+      'pending',
+      'participant eligibility',
+      `unresolved: ${unresolvedEligibility.map(({ label }) => label).join(', ')}`,
+    );
+  } else {
+    record('passed', 'participant eligibility', 'age and jurisdiction confirmed eligible');
+  }
+
+  await verifyUrl('public judge demo', 'https://saystay.site', [200]);
+  await verifyUrl('MCP bearer boundary', 'https://saystay.site/mcp', [401]);
+  await verifyUrl(
+    'public GitHub repository',
+    'https://api.github.com/repos/AmirmLotfy/stay',
+    [200],
+  );
+  await verifyUrl(
+    'public YouTube video',
+    'https://www.youtube.com/oembed?url=https%3A%2F%2Fyoutu.be%2FoCoXdCRVyMo&format=json',
+    [200],
+  );
+
+  const expectedNameServers = [
+    'ns-349.awsdns-43.com',
+    'ns-1914.awsdns-47.co.uk',
+    'ns-816.awsdns-38.net',
+    'ns-1302.awsdns-34.org',
+  ].sort();
+  try {
+    const actualNameServers = (await resolveNs('saystay.site'))
+      .map((nameServer) => nameServer.replace(/\.$/, ''))
+      .sort();
+    const delegated = JSON.stringify(actualNameServers) === JSON.stringify(expectedNameServers);
+    record(
+      delegated ? 'passed' : 'pending',
+      'saystay.site delegation',
+      delegated
+        ? 'registrar nameservers match Route 53'
+        : `observed: ${actualNameServers.join(', ')}`,
+    );
+  } catch {
+    record('pending', 'saystay.site delegation', 'no public NS records observed');
+  }
+
+  finish();
 }
-
-const counts = results.reduce(
-  (summary, result) => ({ ...summary, [result.status]: summary[result.status] + 1 }),
-  { passed: 0, pending: 0, failed: 0 },
-);
-process.stdout.write(`${JSON.stringify({ counts, results }, null, 2)}\n`);
-
-if (counts.failed > 0) process.exitCode = 1;
-else if (counts.pending > 0 && !allowPending) process.exitCode = 2;
