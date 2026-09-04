@@ -125,10 +125,16 @@ jobs:
       - name: Enforce and verify stack termination protection
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
         run: |
-          aws cloudformation update-termination-protection \
+          protection="$(aws cloudformation describe-stacks \
             --stack-name StayDemoStack \
-            --enable-termination-protection
+            --query 'Stacks[0].EnableTerminationProtection' \
+            --output text)"
+          if [ "$protection" != 'True' ]; then
+            aws cloudformation update-termination-protection \
+              --stack-name StayDemoStack \
+              --enable-termination-protection
+          fi
           test "$(aws cloudformation describe-stacks \
             --stack-name StayDemoStack \
             --query 'Stacks[0].EnableTerminationProtection' \
-            --output text)" = "True"
+            --output text)" = 'True'

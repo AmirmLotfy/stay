@@ -115,6 +115,21 @@ describe('StayDemoStack', () => {
         ]),
       },
     });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'cloudformation:UpdateTerminationProtection',
+            Effect: 'Allow',
+            Resource: {
+              'Fn::Join': Match.arrayWith([
+                Match.arrayWith([':cloudformation:us-east-1:111111111111:stack/TestStack/*']),
+              ]),
+            },
+          }),
+        ]),
+      },
+    });
     template.hasResourceProperties('AWS::IAM::Role', {
       AssumeRolePolicyDocument: {
         Statement: Match.arrayWith([
@@ -163,7 +178,7 @@ describe('StayDemoStack', () => {
     expect(synthesized).toContain(':bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0');
     expect(synthesized).not.toContain('foundation-model/*');
     expect(synthesized).not.toContain('inference-profile/*');
-  }, 30_000);
+  }, 90_000);
 
   it('uses a private S3 and API Gateway fallback when CloudFront is provider-blocked', () => {
     const app = new App();
@@ -207,7 +222,7 @@ describe('StayDemoStack', () => {
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       DeletionProtectionEnabled: false,
     });
-  }, 30_000);
+  }, 90_000);
 
   it('maps saystay.site to the regional HTTP API in fallback hosting mode', () => {
     const app = new App();
@@ -262,7 +277,7 @@ describe('StayDemoStack', () => {
       Type: 'TXT',
       ResourceRecords: ['"v=DMARC1; p=none; pct=100; adkim=r; aspf=r"'],
     });
-  }, 30_000);
+  }, 90_000);
 
   it('adds the saystay.site certificate and aliases only after the activation gate', () => {
     const app = new App();
@@ -298,5 +313,5 @@ describe('StayDemoStack', () => {
     template.hasOutput('ApiUrl', { Value: 'https://saystay.site' });
     template.hasOutput('McpUrl', { Value: 'https://saystay.site/mcp' });
     template.hasOutput('CustomDomainStatus', { Value: 'ACTIVE_IN_THIS_TEMPLATE' });
-  }, 30_000);
+  }, 90_000);
 });

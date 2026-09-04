@@ -914,6 +914,18 @@ export class StayDemoStack extends Stack {
     );
     deploymentRole.addToPolicy(
       new iam.PolicyStatement({
+        actions: ['cloudformation:UpdateTerminationProtection'],
+        resources: [
+          this.formatArn({
+            service: 'cloudformation',
+            resource: 'stack',
+            resourceName: `${this.stackName}/*`,
+          }),
+        ],
+      }),
+    );
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({
         actions: ['sts:AssumeRole', 'sts:TagSession'],
         resources: [
           `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-${this.region}`,
