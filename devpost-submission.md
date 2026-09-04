@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for release commit `3385296`: https://github.com/AmirmLotfy/stay/actions/runs/33832437130 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
+Public CI evidence for release commit `07e04b5`: https://github.com/AmirmLotfy/stay/actions/runs/33852275234 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, the 8/8 deterministic submission-media gate, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
 
 ## Screenshot Shot List
 
@@ -290,7 +290,7 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; release commit `3385296` has green CI with 36/36 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; release commit `07e04b5` has green CI with an 8/8 media gate and 36/36 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
 - **AWS/public demo:** deployed and verified at `https://saystay.site`; both the custom domain and `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com` passed 32/32 applicable live browser scenarios, and the hosting mode remains secure API Gateway/private-S3.
