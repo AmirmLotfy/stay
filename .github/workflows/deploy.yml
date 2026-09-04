@@ -38,6 +38,33 @@ jobs:
       NEXT_PUBLIC_APP_URL: ${{ inputs.enable_custom_domain && 'https://saystay.site' || 'https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com' }}
     steps:
       - uses: actions/checkout@v7
+      - name: Confirm scoped GitHub OIDC claims
+        run: |
+          node <<'NODE'
+          const response = await fetch(
+            `${process.env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com`,
+            {
+              headers: {
+                authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}`,
+              },
+            },
+          );
+          if (!response.ok) throw new Error(`OIDC token request failed: ${response.status}`);
+          const { value } = await response.json();
+          const payload = JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString());
+          const observed = {
+            iss: payload.iss,
+            aud: payload.aud,
+            sub: payload.sub,
+            repository: payload.repository,
+            ref: payload.ref,
+          };
+          console.log(JSON.stringify(observed));
+          if (payload.aud !== 'sts.amazonaws.com') throw new Error('Unexpected OIDC audience');
+          if (payload.sub !== 'repo:AmirmLotfy/stay:ref:refs/heads/main') {
+            throw new Error('Unexpected OIDC subject');
+          }
+          NODE
       - uses: pnpm/action-setup@v6
         with:
           version: 11.25.0
