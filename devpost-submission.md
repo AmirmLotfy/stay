@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for evidence commit `c1d3deb`: https://github.com/AmirmLotfy/stay/actions/runs/33816115703 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
+Public CI evidence for video-link commit `5ab6ea8`: https://github.com/AmirmLotfy/stay/actions/runs/33819563970 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
 
 ## Screenshot Shot List
 

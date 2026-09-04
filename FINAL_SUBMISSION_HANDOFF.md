@@ -23,7 +23,7 @@ The public page was verified signed out on 2026-09-04: playable, embeddable, pub
 - Judge link manifest: `docs/release-links.md`
 - Submission readiness audit: `docs/submission-readiness-audit.md`
 
-The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for evidence commit `c1d3deb` is `https://github.com/AmirmLotfy/stay/actions/runs/33816115703`.
+The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for video-link commit `5ab6ea8` is `https://github.com/AmirmLotfy/stay/actions/runs/33819563970`.
 
 ## Gallery order
 
