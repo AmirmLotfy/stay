@@ -23,7 +23,7 @@ The public page was verified signed out on 2026-09-04: playable, embeddable, pub
 - Judge link manifest: `docs/release-links.md`
 - Submission readiness audit: `docs/submission-readiness-audit.md`
 
-The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for release commit `a6b9a50` is `https://github.com/AmirmLotfy/stay/actions/runs/33830870928`. The reviewed AWS diff is `https://github.com/AmirmLotfy/stay/actions/runs/33830875464`; the successful OIDC deployment is `https://github.com/AmirmLotfy/stay/actions/runs/33831042059`.
+The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for release commit `3385296` is `https://github.com/AmirmLotfy/stay/actions/runs/33832437130`. The reviewed AWS diff is `https://github.com/AmirmLotfy/stay/actions/runs/33830875464`; the successful OIDC deployment is `https://github.com/AmirmLotfy/stay/actions/runs/33831042059`.
 
 ## Gallery order
 
