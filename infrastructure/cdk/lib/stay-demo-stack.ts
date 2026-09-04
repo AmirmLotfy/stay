@@ -943,11 +943,6 @@ export class StayDemoStack extends Stack {
           'Before the custom-domain gate is active, SES uses the separately verified sender parameter. The active saystay.site path grants only its identity ARN.',
       });
     }
-    Validations.of(deploymentRole).acknowledge({
-      id: 'AwsSolutions-IAM5',
-      reason:
-        'CDK bootstrap asset and CloudFormation change-set ARNs are account-generated; the trust policy remains repo-and-branch scoped.',
-    });
     if (distribution) {
       for (const suppression of [
         {
@@ -987,6 +982,11 @@ export class StayDemoStack extends Stack {
     const acknowledgedAccount = Token.isUnresolved(this.account)
       ? '<AWS::AccountId>'
       : this.account;
+    acknowledgeGranular(
+      deploymentRole,
+      `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/StayDemoStack/*]`,
+      'The GitHub deployment role may update termination protection only for versions of the single StayDemoStack; its OIDC trust remains repository, immutable-ID, and main-branch scoped.',
+    );
     for (const suppression of [
       {
         id: 'AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]',
