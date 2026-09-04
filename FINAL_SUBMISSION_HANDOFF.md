@@ -6,7 +6,7 @@ Everything in this file is prepared for the participant's manual Devpost entry. 
 
 - Verified public video: `https://youtu.be/oCoXdCRVyMo`
 
-- Video to upload: `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`
+- Uploaded-video source copy: `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`
 - English captions: `assets/submission/video/STAY_DEMO.en.srt`
 - Thumbnail: `assets/submission/video/STAY_YouTube_Thumbnail.png`
 - Ready-to-copy title, description, chapters, tags, and pinned comment: `docs/media-production/YOUTUBE_UPLOAD_COPY.md`

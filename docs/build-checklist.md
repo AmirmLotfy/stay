@@ -16,4 +16,5 @@
 - [x] Capture seven submission screenshots and a verified 2:50 picture-only master under three minutes.
 - [x] Generate approved Higgsfield identity/audio, insert the deployed URL, and render the final audible upload master.
 - [x] Draft all 26 live Devpost field answers, feedback, primary track, mini-challenges, media metadata, and copy-ready handoff.
-- [ ] Participant must truthfully pass the eligibility gate, complete human video/caption playback QA, upload the public video, paste the prepared fields, and use Devpost's final confirmation.
+- [x] Upload and verify the public YouTube video, including public playback, embedding, 1080p, duration, and captions.
+- [ ] Participant must truthfully pass the eligibility gate, complete the private video/caption/copyright review, paste the prepared fields, and use Devpost's final confirmation.

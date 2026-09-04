@@ -125,7 +125,7 @@ The secure fallback serves the static PWA from a private KMS-encrypted S3 bucket
 
 The deployed MCP endpoint is `https://saystay.site/mcp`. Cognito Managed Login, the WebSocket API, DynamoDB/KMS/PITR/TTL/Streams, EventBridge/SQS consumers, authenticated SES delivery from `STAY <updates@saystay.site>`, logs, alarms, X-Ray, Secrets Manager, and the $25 monthly alert-only budget are deployed. AWS accepted the transactional SES production-access request and the requested follow-up in case `178838582000594`; the last verified API state remains `DENIED` with `ProductionAccessEnabled=false`, so the sandbox is still active while Support reviews the reply. Bedrock remains disabled until the exact Nova Micro profile passes a live Converse authorization check.
 
-For a reviewed redeployment:
+For a reviewed redeployment, prefer the repository's two-run GitHub Actions workflow so AWS credentials come from the repository-scoped OIDC role. Run `diff`, review it, then run `deploy` with the confirmation input. Local commands are for read-only preflight or a non-root emergency operator session only:
 
 ```bash
 aws login
@@ -137,6 +137,8 @@ cd infrastructure/cdk
 pnpm build
 pnpm exec cdk diff StayDemoStack --strict -c enableCloudFront=false -c enableDeletionProtection=true --method template
 ```
+
+If `get-caller-identity` returns an ARN ending in `:root`, stop after read-only inspection and use the OIDC workflow for any change.
 
 The current CDK CLI evaluates parameters at deploy time, not during `cdk diff`. Review the
 parameter values separately, then supply stack-qualified values to the reviewed deploy command in
