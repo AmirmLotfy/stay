@@ -14,7 +14,7 @@ Everything in this file is prepared for the participant's manual Devpost entry. 
 
 The upload and archival files are byte-identical, 170 seconds, 1920 × 1080, H.264 High at 30 fps with AAC-LC 48 kHz stereo. SHA-256: `63354dc8a1a25809bb530aed28d417279c941da97817636cf3a825b00814f00c`.
 
-The public page was verified signed out on 2026-09-04: playable, embeddable, public and not unlisted, 170 seconds, 1080p available, and captions detected. Confirm the private copyright-claim status in YouTube Studio.
+The public page was verified signed out on 2026-09-04: playable, embeddable, public and not unlisted, 170 seconds, 1080p available, and captions detected. The signed-in YouTube Studio Claim overview was also inspected read-only on 2026-09-04 and reported no claims and no copyrighted content found.
 
 ## Devpost copy kit
 
@@ -42,7 +42,7 @@ All seven were captured from the deployed public demo after the responsive-acces
 ## Final human gates
 
 1. Correct the Age of Majority and Eligible Jurisdiction answers only if the recorded `No` values were mistakes and the truthful answers are `Yes`. An individual submission is not eligible with the current values.
-2. Complete the private video, audio, caption, and copyright-claim review if not already done.
+2. Complete the private start-to-finish video, audio, and 34-cue caption review if not already done. The copyright-claim gate has passed.
 3. Paste the prepared Devpost answers and gallery in the order above.
 4. Recheck the public demo, repository, video embedding, track, mini-challenges, and official form.
 5. Use Devpost's final confirmation only when every gate passes.

@@ -62,4 +62,4 @@ The public demo uses synthetic people and clearly labeled simulated provider dat
 
 ## Post-upload evidence
 
-The final public URL is `https://youtu.be/oCoXdCRVyMo`. Signed-out verification confirmed public playback, 170-second duration, 1080p availability, captions, and embedding. Confirm in YouTube Studio that no copyright claim appears before using the URL on Devpost.
+The final public URL is `https://youtu.be/oCoXdCRVyMo`. Signed-out verification confirmed public playback, 170-second duration, 1080p availability, captions, and embedding. A signed-in read-only inspection of YouTube Studio's Claim overview on 2026-09-04 reported no claims and no copyrighted content found.
