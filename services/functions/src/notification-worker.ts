@@ -77,12 +77,25 @@ function parseDelivery(body: string) {
   });
 }
 
+function isIsolatedDemoNotification(body: string): boolean {
+  try {
+    const envelope = EventBridgeEnvelopeSchema.safeParse(JSON.parse(body));
+    return envelope.success && envelope.data.detail.householdId.startsWith('demo-household-demo-');
+  } catch {
+    return false;
+  }
+}
+
 export async function handler(
   event: SQSEvent,
 ): Promise<{ batchItemFailures: Array<{ itemIdentifier: string }> }> {
   const failures: Array<{ itemIdentifier: string }> = [];
   for (const record of event.Records) {
     try {
+      if (isIsolatedDemoNotification(record.body)) {
+        log('INFO', 'isolated demo email suppressed', { messageId: record.messageId });
+        continue;
+      }
       const delivery = parseDelivery(record.body);
       if (!process.env.SES_FROM_EMAIL) throw new Error('SES_FROM_EMAIL is not configured.');
       if (!process.env.TABLE_NAME) throw new Error('TABLE_NAME is not configured.');

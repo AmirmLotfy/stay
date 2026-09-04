@@ -62,6 +62,16 @@ function sqsEvent(messageId = 'message-one'): SQSEvent {
   };
 }
 
+function isolatedDemoEvent(): SQSEvent {
+  const event = sqsEvent('demo-message');
+  const envelope = JSON.parse(event.Records[0]!.body) as {
+    detail: { householdId: string };
+  };
+  envelope.detail.householdId = 'demo-household-demo-2958959b-6203-4bdc-a0db-26196450b032';
+  event.Records[0]!.body = JSON.stringify(envelope);
+  return event;
+}
+
 describe('notification worker', () => {
   beforeEach(() => {
     process.env.TABLE_NAME = 'stay-test';
@@ -98,6 +108,12 @@ describe('notification worker', () => {
     await expect(handler(sqsEvent('duplicate'))).resolves.toEqual({ batchItemFailures: [] });
     expect(mocks.sesSend).not.toHaveBeenCalled();
     expect(mocks.tableSend).toHaveBeenCalledOnce();
+  });
+
+  it('suppresses public isolated-demo email before creating a delivery marker', async () => {
+    await expect(handler(isolatedDemoEvent())).resolves.toEqual({ batchItemFailures: [] });
+    expect(mocks.sesSend).not.toHaveBeenCalled();
+    expect(mocks.tableSend).not.toHaveBeenCalled();
   });
 
   it('releases the delivery marker and returns a partial failure when SES rejects email', async () => {
