@@ -29,6 +29,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:coverage
+      - name: Install media verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
       - run: pnpm verify:submission:local
       - run: pnpm build
       - run: pnpm cdk:synth

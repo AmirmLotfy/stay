@@ -58,7 +58,20 @@ function probe(file) {
 }
 
 function validateVideo(file, { audioRequired }) {
-  const metadata = probe(file);
+  let metadata;
+  try {
+    metadata = probe(file);
+  } catch (error) {
+    const unavailable = error && typeof error === 'object' && error.code === 'ENOENT';
+    return {
+      duration: Number.NaN,
+      failures: [
+        unavailable
+          ? 'ffprobe is required for media verification'
+          : 'ffprobe could not inspect the media file',
+      ],
+    };
+  }
   const video = metadata.streams.find((stream) => stream.codec_type === 'video');
   const audio = metadata.streams.find((stream) => stream.codec_type === 'audio');
   const duration = Number(metadata.format.duration);
