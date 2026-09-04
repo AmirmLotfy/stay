@@ -73,8 +73,7 @@ jobs:
           node-version: 22.13.1
       - name: Activate pinned pnpm
         run: |
-          corepack enable
-          corepack prepare pnpm@11.25.0 --activate
+          npm install --global pnpm@11.25.0 --ignore-scripts --no-audit --no-fund
           test "$(pnpm --version)" = '11.25.0'
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
