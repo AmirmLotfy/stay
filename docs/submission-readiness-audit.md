@@ -42,3 +42,7 @@ Current text fields show no HTML `maxlength`; server validation may still impose
 3. Participant enters root `devpost-submission.md`, ignored private answers, thumbnail, seven gallery images, judge links and video into the verified draft.
 4. Participant reviews Devpost validation, legal assertions and final confirmation; record submitted URL and confirmation only after completion.
 5. Pilot deployment, delivery, restore, device and observation gates remain separate; see `pilot-runbook.md`.
+
+## Recovery candidate — 2026-09-06
+
+The separate pilot/recovery candidate is saved in [draft PR #3](https://github.com/AmirmLotfy/stay/pull/3). [CI 33991750541](https://github.com/AmirmLotfy/stay/actions/runs/33991750541) passed on `b38cee9`, including all 44 local browser scenarios and strict demo/pilot synthesis. The public judge deployment remains `d569032`; passing candidate CI does not mean the pilot is deployed. Final strict submission verification again returned 15 passes with no pending exceptions. Complete live/manual gates in `RECOVERY_CHECKPOINT.md` remain open.
