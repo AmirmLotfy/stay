@@ -8,7 +8,7 @@ import type {
   SafetyWindowTemplate,
 } from '@stay/contracts';
 import type { HomeState } from '@stay/domain';
-import type { StayRuntimeConfig } from './auth';
+import { getAuthenticatedSession, type StayRuntimeConfig } from './auth';
 import type { AuthenticatedSessionRecord } from './auth';
 
 export const demoSessionStorageKey = 'stay-demo-session-v2';
@@ -191,7 +191,7 @@ export async function hydrateDemoState(
     privacy,
     memory,
   ] = await Promise.all([
-    getDemoView<Pick<HomeState, 'resident' | 'oneThing' | 'calendar' | 'devices'>>(
+    getDemoView<Pick<HomeState, 'householdId' | 'resident' | 'oneThing' | 'calendar' | 'devices'>>(
       config,
       session,
       'home',
@@ -205,6 +205,20 @@ export async function hydrateDemoState(
     getDemoView<HomeState['privacy']>(config, session, 'privacy'),
     getDemoView<HomeState['houseMemory']>(config, session, 'house-memory'),
   ]);
+  if (session.mode === 'authenticated')
+    return {
+      ...fallback,
+      ...home,
+      access,
+      circle,
+      safetyWindows,
+      helpRequests,
+      incidents: remoteIncidents,
+      playbooks,
+      privacy,
+      houseMemory: memory,
+      outbox: [],
+    };
   const incidents = preferNewestEntities(remoteIncidents, fallback.incidents);
   const respondingMemberIds = new Set(
     incidents
@@ -213,9 +227,8 @@ export async function hydrateDemoState(
   );
   return {
     ...fallback,
-    householdId:
-      session.mode === 'isolated-demo' ? `demo-household-${session.id}` : fallback.householdId,
     ...home,
+    householdId: `demo-household-${session.id}`,
     oneThing: preferNewestEntity(home.oneThing, fallback.oneThing),
     devices: preferNewestEntities(home.devices, fallback.devices),
     access: preferNewestEntity(access, fallback.access),
@@ -377,6 +390,7 @@ export function connectDemoUpdates(
   let attempt = 0;
   let socket: WebSocket | null = null;
   let retry: ReturnType<typeof setTimeout> | null = null;
+  let renewal: ReturnType<typeof setTimeout> | null = null;
   const connect = () => {
     const url = new URL(config.websocketUrl);
     if (session.mode === 'isolated-demo') url.searchParams.set('demoSession', session.id);
@@ -385,12 +399,35 @@ export function connectDemoUpdates(
     socket.addEventListener('open', () => {
       attempt = 0;
       if (session.mode === 'authenticated') {
-        socket?.send(JSON.stringify({ action: 'authenticate', accessToken: session.accessToken }));
-      }
-      onReconcile();
+        const currentSocket = socket;
+        void getAuthenticatedSession(config)
+          .then((fresh) => {
+            if (stopped || currentSocket !== socket || currentSocket?.readyState !== WebSocket.OPEN)
+              return;
+            if (!fresh) {
+              stopped = true;
+              currentSocket.close();
+              onReconcile();
+              return;
+            }
+            currentSocket.send(
+              JSON.stringify({ action: 'authenticate', accessToken: fresh.accessToken }),
+            );
+            renewal = setTimeout(
+              () => currentSocket.close(1000, 'Renew household access'),
+              Math.max(1_000, fresh.expiresAt - Date.now() - 30_000),
+            );
+            onReconcile();
+          })
+          .catch(() => {
+            currentSocket?.close();
+            onReconcile();
+          });
+      } else onReconcile();
     });
     socket.addEventListener('message', onReconcile);
     socket.addEventListener('close', () => {
+      if (renewal) clearTimeout(renewal);
       if (stopped) return;
       onReconcile();
       attempt += 1;
@@ -401,6 +438,7 @@ export function connectDemoUpdates(
   return () => {
     stopped = true;
     if (retry) clearTimeout(retry);
+    if (renewal) clearTimeout(renewal);
     socket?.close(1000, 'STAY surface closed');
   };
 }

@@ -1,4 +1,4 @@
-import { CreateScheduleCommand, UpdateScheduleCommand } from '@aws-sdk/client-scheduler';
+import { CreateScheduleCommand } from '@aws-sdk/client-scheduler';
 import type { SafetyWindow } from '@stay/contracts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -46,7 +46,20 @@ describe('Safety Window schedules', () => {
     expect(inputs.every((input) => input.ActionAfterCompletion === 'DELETE')).toBe(true);
   });
 
-  it('updates an existing named schedule on an idempotent conflict', async () => {
+  it('isolates identical window IDs in separate households and binds deadlines', () => {
+    const env = { groupName: 'pilot', targetArn: 'target', roleArn: 'role' };
+    const first = safetyWindowScheduleInputs('house-a', window, env);
+    const second = safetyWindowScheduleInputs('house-b', window, env);
+    const changed = safetyWindowScheduleInputs(
+      'house-a',
+      { ...window, startsAt: '2026-09-03T15:01:00.000Z' },
+      env,
+    );
+    expect(first.every((item, i) => item.Name !== second[i]!.Name)).toBe(true);
+    expect(first[0]!.Name).not.toBe(changed[0]!.Name);
+  });
+
+  it('leaves an existing immutable schedule unchanged on an idempotent conflict', async () => {
     vi.stubEnv('SAFETY_WINDOW_SCHEDULE_GROUP', 'stay-demo-safety-windows');
     vi.stubEnv(
       'SAFETY_WINDOW_SCHEDULER_TARGET_ARN',
@@ -57,9 +70,9 @@ describe('Safety Window schedules', () => {
       'arn:aws:iam::111111111111:role/stay-scheduler-role',
     );
     let calls = 0;
-    const commands: Array<CreateScheduleCommand | UpdateScheduleCommand> = [];
+    const commands: Array<CreateScheduleCommand> = [];
     const sender = {
-      send: vi.fn(async (command: CreateScheduleCommand | UpdateScheduleCommand) => {
+      send: vi.fn(async (command: CreateScheduleCommand) => {
         commands.push(command);
         calls += 1;
         if (calls === 1) {
@@ -74,7 +87,7 @@ describe('Safety Window schedules', () => {
     await createSafetyWindowSchedules('household-sarah', window, sender);
 
     expect(commands[0]).toBeInstanceOf(CreateScheduleCommand);
-    expect(commands[1]).toBeInstanceOf(UpdateScheduleCommand);
+    expect(commands).toHaveLength(3);
     expect(commands.filter((command) => command instanceof CreateScheduleCommand)).toHaveLength(3);
   });
 });

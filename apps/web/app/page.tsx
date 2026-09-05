@@ -1,5 +1,7 @@
 'use client';
 
+import { PilotApp } from './pilot-app';
+
 import type {
   AccessPreferences,
   ActorContext,
@@ -67,6 +69,7 @@ import {
   completeSignIn,
   getAuthenticatedSession,
   hasAuthenticatedSession,
+  hasAuthenticationIntent,
   loadRuntimeConfig,
   signOut,
   type StayRuntimeConfig,
@@ -235,6 +238,15 @@ export default function StayApp() {
     let cancelled = false;
     const useBrowserFallback = (message?: string) => {
       if (cancelled) return;
+      if (
+        !['localhost', '127.0.0.1', 'saystay.site'].includes(window.location.hostname) ||
+        hasAuthenticationIntent()
+      ) {
+        setLastError(
+          'Your household could not be loaded. Reconnect or sign in again; no demo data has been substituted.',
+        );
+        return;
+      }
       const session = browserDemoSession();
       const next = engine.current.snapshot();
       next.access = browserAccessPreferences(next.access);
@@ -254,6 +266,11 @@ export default function StayApp() {
         }
         if (cancelled) return;
         setRuntimeConfig(config);
+        if (config.environment === 'pilot' || hasAuthenticationIntent()) {
+          setAuthenticated(hasAuthenticationIntent());
+          setReady(true);
+          return;
+        }
         let signedIn = false;
         try {
           signedIn = (await completeSignIn(config)) || hasAuthenticatedSession();
@@ -1517,6 +1534,16 @@ export default function StayApp() {
   const activeIncident = state.incidents[0];
   const interactionPending = !ready || actionPending;
 
+  if (runtimeConfig && (runtimeConfig.environment === 'pilot' || authenticated))
+    return <PilotApp config={runtimeConfig} />;
+  if (!ready)
+    return (
+      <main className="pilot-shell">
+        <h1>STAY</h1>
+        <p role="status">Opening your home…</p>
+        {lastError && <p role="alert">{lastError}</p>}
+      </main>
+    );
   return (
     <main
       className="app-shell"

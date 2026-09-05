@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { createDocument } from 'zod-openapi';
 import { z } from 'zod';
 import {
+  HouseholdProfileSchema,
+  NotificationPreferenceSchema,
+  ProfileUpdateSchema,
+  NotificationPreferenceUpdateSchema,
+} from './household.js';
+import {
   AccessPreferencesSchema,
   AccessSettingsSchema,
   ApiErrorSchema,
@@ -146,6 +152,35 @@ const document = createDocument({
   ],
   security: [{ cognito: [] }],
   paths: {
+    '/v1/profile': {
+      get: {
+        summary: 'Read the authenticated household profile',
+        responses: responses(envelope(HouseholdProfileSchema)),
+      },
+      post: command('Update the resident profile', ProfileUpdateSchema),
+    },
+    '/v1/notification-preferences': {
+      get: {
+        summary: 'Read own email preference without exposing contact addresses',
+        responses: responses(envelope(NotificationPreferenceSchema)),
+      },
+      post: command('Update own email consent preference', NotificationPreferenceUpdateSchema),
+    },
+    '/v1/session': {
+      get: {
+        summary: 'Read current active membership and permissions',
+        responses: responses(
+          envelope(
+            z.object({
+              subject: z.string(),
+              role: z.string(),
+              circleMemberId: z.string().optional(),
+              permissions: z.array(z.string()),
+            }),
+          ),
+        ),
+      },
+    },
     '/v1/home': {
       get: {
         summary: 'Get calm home overview',

@@ -68,8 +68,20 @@ function sqsEvent(messageId = 'message-one'): SQSEvent {
 describe('metrics worker', () => {
   beforeEach(() => {
     process.env.TABLE_NAME = 'stay-test';
+    delete process.env.STAY_ENVIRONMENT;
     mocks.cloudwatchSend.mockReset();
     mocks.tableSend.mockReset();
+  });
+
+  it('isolates pilot metrics from judge metrics', async () => {
+    process.env.STAY_ENVIRONMENT = 'pilot';
+    mocks.tableSend.mockResolvedValue({});
+    mocks.cloudwatchSend.mockResolvedValue({});
+    await handler(sqsEvent());
+    expect(mocks.cloudwatchSend.mock.calls[0]![0].input.Namespace).toBe('STAY/Pilot');
+    expect(mocks.cloudwatchSend.mock.calls[0]![0].input.MetricData[0].Dimensions).toEqual([
+      { Name: 'Stage', Value: 'pilot' },
+    ]);
   });
 
   it('emits only bounded event metadata and records delivery', async () => {

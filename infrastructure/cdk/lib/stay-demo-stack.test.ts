@@ -4,6 +4,67 @@ import { describe, expect, it } from 'vitest';
 import { StayDemoStack } from './stay-demo-stack.js';
 
 describe('StayDemoStack', () => {
+  it('prepares an isolated pilot with imported DNS, required MFA, and actionable delivery alarms', () => {
+    const app = new App();
+    app.node.setContext('allowPlaceholderWebsite', true);
+    app.node.setContext('enableCloudFront', false);
+    app.node.setContext('enableCustomDomain', true);
+    const stack = new StayDemoStack(app, 'StayPilotStack', {
+      stage: 'pilot',
+      env: { account: '111111111111', region: 'us-east-1' },
+    });
+    const template = Template.fromStack(stack);
+    template.resourceCountIs('AWS::Route53::HostedZone', 0);
+    template.resourceCountIs('AWS::SES::EmailIdentity', 0);
+    template.resourceCountIs('AWS::IAM::OIDCProvider', 0);
+    template.hasResourceProperties('AWS::Cognito::UserPool', {
+      UserPoolName: 'stay-pilot-users',
+      MfaConfiguration: 'ON',
+      AdminCreateUserConfig: { AllowAdminCreateUserOnly: true },
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::DomainName', {
+      DomainName: 'pilot.saystay.site',
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-pilot-notification',
+      Environment: {
+        Variables: Match.objectLike({
+          STAY_ENVIRONMENT: 'pilot',
+          SES_CONFIGURATION_SET: Match.anyValue(),
+          SES_FEEDBACK_QUEUE_ARN: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmActions: Match.anyValue(),
+      OKActions: Match.anyValue(),
+    });
+    template.resourceCountIs('AWS::SES::ConfigurationSetEventDestination', 1);
+    template.hasResourceProperties('AWS::Lambda::EventInvokeConfig', {
+      MaximumRetryAttempts: 2,
+      DestinationConfig: { OnFailure: { Destination: Match.anyValue() } },
+    });
+    template.hasOutput('Stage', { Value: 'pilot' });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-pilot-notification',
+      Timeout: 60,
+      ReservedConcurrentExecutions: 4,
+    });
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      BatchSize: 1,
+      ScalingConfig: { MaximumConcurrency: 2 },
+    });
+    for (const stage of Object.values(template.findResources('AWS::ApiGatewayV2::Stage')))
+      expect(stage.Properties.DefaultRouteSettings?.DetailedMetricsEnabled ?? false).toBe(false);
+    for (const type of ['A', 'AAAA'])
+      template.hasResourceProperties('AWS::Route53::RecordSet', {
+        Name: 'pilot.saystay.site.',
+        Type: type,
+      });
+    const serialized = JSON.stringify(template.toJSON());
+    expect(serialized.replaceAll('x-stay-demo-session', '')).not.toContain('stay-demo-');
+    expect(serialized).not.toContain('_dmarc.saystay.site');
+  }, 90_000);
   it('synthesizes the durable safety and delivery topology', () => {
     const app = new App();
     app.node.setContext('allowPlaceholderWebsite', true);

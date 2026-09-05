@@ -88,14 +88,18 @@ export async function handler(
 
       await cloudwatch.send(
         new PutMetricDataCommand({
-          Namespace: 'STAY/Demo',
+          Namespace: process.env.STAY_ENVIRONMENT === 'pilot' ? 'STAY/Pilot' : 'STAY/Demo',
           MetricData: [
             {
               MetricName: 'DomainEventCount',
-              Dimensions: [
-                { Name: 'EventType', Value: envelope['detail-type'] },
-                { Name: 'AggregateType', Value: envelope.detail.aggregateType },
-              ],
+              // Pilot event detail stays in logs; one total avoids per-type metric charges.
+              Dimensions:
+                process.env.STAY_ENVIRONMENT === 'pilot'
+                  ? [{ Name: 'Stage', Value: 'pilot' }]
+                  : [
+                      { Name: 'EventType', Value: envelope['detail-type'] },
+                      { Name: 'AggregateType', Value: envelope.detail.aggregateType },
+                    ],
               Timestamp: new Date(envelope.time),
               Unit: 'Count',
               Value: 1,

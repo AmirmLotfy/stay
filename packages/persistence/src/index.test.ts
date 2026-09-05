@@ -37,6 +37,82 @@ const event = {
 describe('DynamoStayRepository', () => {
   beforeEach(() => mocks.send.mockReset());
 
+  it('paginates household records rather than dropping later members', async () => {
+    mocks.send
+      .mockResolvedValueOnce({
+        Items: [{ entity: { id: 'one', version: 1 } }],
+        LastEvaluatedKey: { PK: 'next' },
+      })
+      .mockResolvedValueOnce({ Items: [{ entity: { id: 'two', version: 1 } }] });
+    const rows = await new DynamoStayRepository('test').list('house-one', 'membership');
+    expect(rows.map((row) => row.id)).toEqual(['one', 'two']);
+    expect(mocks.send.mock.calls[1]![0].input.ExclusiveStartKey).toEqual({ PK: 'next' });
+  });
+
+  it('rejects signed identities whose stored membership was revoked or moved', async () => {
+    const profile = {
+      id: 'house-one',
+      version: 1,
+      status: 'active',
+      residentId: 'resident-one',
+      name: 'Ava',
+      firstName: 'Ava',
+      timezone: 'UTC',
+      createdAt: occurredAt,
+      consentedAt: occurredAt,
+      consentVersion: 'pilot-v1',
+    };
+    const actor = {
+      subject: 'subject-one',
+      householdId: 'house-one',
+      residentId: 'resident-one',
+      role: 'resident' as const,
+    };
+    const repo = new DynamoStayRepository('test');
+    mocks.send.mockResolvedValueOnce({ Item: { entity: profile } }).mockResolvedValueOnce({
+      Item: {
+        entity: {
+          id: 'subject-one',
+          version: 2,
+          active: false,
+          residentId: 'resident-one',
+          role: 'resident',
+        },
+      },
+    });
+    await expect(repo.authorize(actor)).rejects.toThrow('MEMBERSHIP_REVOKED');
+    mocks.send.mockResolvedValueOnce({ Item: { entity: profile } }).mockResolvedValueOnce({
+      Item: {
+        entity: {
+          id: 'subject-one',
+          version: 1,
+          active: true,
+          residentId: 'resident-other',
+          role: 'resident',
+        },
+      },
+    });
+    await expect(repo.authorize(actor)).rejects.toThrow('MEMBERSHIP_REVOKED');
+  });
+
+  it('guards membership and household status in the same transaction as a real write', async () => {
+    mocks.send.mockResolvedValue({});
+    await new DynamoStayRepository('test').write({
+      householdId: 'house-one',
+      aggregateType: 'incident',
+      entity,
+      expectedVersion: 1,
+      idempotencyKey: 'safe-write',
+      idempotencyExpiresAt: 9999999999,
+      event,
+      authorization: { subject: 'subject-one', membershipVersion: 2, profileVersion: 1 },
+    });
+    const transaction = mocks.send.mock.calls[0]![0].input.TransactItems;
+    expect(transaction[0].ConditionCheck.Key.SK).toBe('MEMBERSHIP#subject-one');
+    expect(transaction[1].ConditionCheck.Key.SK).toBe('PROFILE#house-one');
+    expect(transaction[2].Put.ConditionExpression).toBe('#version = :expected');
+  });
+
   it('reads consistent household-scoped aggregates and idempotency records', async () => {
     mocks.send
       .mockResolvedValueOnce({ Item: { entity } })

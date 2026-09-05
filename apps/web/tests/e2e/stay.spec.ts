@@ -19,6 +19,7 @@ test('supports keyboard navigation and has no serious automatic accessibility fi
   page,
 }) => {
   await page.goto('/');
+  await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeVisible();
   await page.keyboard.press('Tab');
   const skipLink = page.getByRole('link', { name: 'Skip to main content' });
   await expect(skipLink).toBeFocused();

@@ -23,6 +23,9 @@ import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -31,6 +34,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as lambdaDestinations from 'aws-cdk-lib/aws-lambda-destinations';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
@@ -55,15 +59,21 @@ function acknowledgeGranular(scope: Construct, id: string, reason: string): void
 }
 
 export class StayDemoStack extends Stack {
-  public constructor(scope: Construct, id: string, props: StackProps = {}) {
+  public constructor(
+    scope: Construct,
+    id: string,
+    props: StackProps & { stage?: 'demo' | 'pilot' } = {},
+  ) {
     super(scope, id, props);
+    const stage = props.stage ?? 'demo';
+    const pilot = stage === 'pilot';
 
     if (Stack.of(this).region !== 'us-east-1' && !Stack.of(this).region.includes('${Token')) {
       throw new Error('StayDemoStack is intentionally restricted to us-east-1.');
     }
 
     Tags.of(this).add('Project', 'STAY');
-    Tags.of(this).add('Environment', 'demo');
+    Tags.of(this).add('Environment', stage);
     Tags.of(this).add('ManagedBy', 'AWS-CDK');
     Tags.of(this).add('Hackathon', 'amazon-app-dev-2026');
 
@@ -99,7 +109,7 @@ export class StayDemoStack extends Stack {
       'true';
 
     const dataKey = new kms.Key(this, 'DataKey', {
-      alias: 'alias/stay-demo-data',
+      alias: `alias/stay-${stage}-data`,
       enableKeyRotation: true,
       removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
       description: 'Encrypts the STAY DynamoDB table and sensitive demo data at rest.',
@@ -120,8 +130,8 @@ export class StayDemoStack extends Stack {
         conditions: {
           ArnLike: {
             'kms:EncryptionContext:aws:logs:arn': [
-              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/lambda/stay-demo-*`,
-              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/apigateway/stay-demo-*`,
+              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/lambda/stay-${stage}-*`,
+              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/apigateway/stay-${stage}-*`,
             ],
           },
         },
@@ -146,33 +156,42 @@ export class StayDemoStack extends Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    const customDomainName = 'saystay.site';
+    const customDomainName = pilot ? 'pilot.saystay.site' : 'saystay.site';
     const enableCustomDomain =
       String(this.node.tryGetContext('enableCustomDomain') ?? 'false').toLowerCase() === 'true';
     const enableCloudFront =
       String(this.node.tryGetContext('enableCloudFront') ?? 'true').toLowerCase() === 'true';
-    const hostedZone = new route53.PublicHostedZone(this, 'PublicHostedZone', {
-      zoneName: customDomainName,
-      comment:
-        'STAY public demo zone. Delegate the registrar nameservers before enabling the custom domain context.',
-    });
+    const hostedZone = pilot
+      ? route53.HostedZone.fromHostedZoneAttributes(this, 'ExistingZone', {
+          hostedZoneId: new CfnParameter(this, 'ExistingHostedZoneId', {
+            type: 'String',
+            allowedPattern: '^Z[A-Z0-9]+$',
+          }).valueAsString,
+          zoneName: 'saystay.site',
+        })
+      : new route53.PublicHostedZone(this, 'PublicHostedZone', {
+          zoneName: customDomainName,
+          comment:
+            'STAY public demo zone. Delegate the registrar nameservers before enabling the custom domain context.',
+        });
     const customDomainCertificate = enableCustomDomain
       ? new acm.Certificate(this, 'CustomDomainCertificate', {
           domainName: customDomainName,
           validation: acm.CertificateValidation.fromDns(hostedZone),
         })
       : undefined;
-    const sesDomainIdentity = enableCustomDomain
-      ? new ses.EmailIdentity(this, 'SesDomainIdentity', {
-          identity: ses.Identity.publicHostedZone(hostedZone),
-          dkimIdentity: ses.DkimIdentity.easyDkim(ses.EasyDkimSigningKeyLength.RSA_2048_BIT),
-          dkimSigning: true,
-          feedbackForwarding: true,
-          mailFromDomain: `mail.${customDomainName}`,
-          mailFromBehaviorOnMxFailure: ses.MailFromBehaviorOnMxFailure.REJECT_MESSAGE,
-        })
-      : undefined;
-    if (enableCustomDomain) {
+    const sesDomainIdentity =
+      enableCustomDomain && !pilot
+        ? new ses.EmailIdentity(this, 'SesDomainIdentity', {
+            identity: ses.Identity.publicHostedZone(hostedZone),
+            dkimIdentity: ses.DkimIdentity.easyDkim(ses.EasyDkimSigningKeyLength.RSA_2048_BIT),
+            dkimSigning: true,
+            feedbackForwarding: true,
+            mailFromDomain: `mail.${customDomainName}`,
+            mailFromBehaviorOnMxFailure: ses.MailFromBehaviorOnMxFailure.REJECT_MESSAGE,
+          })
+        : undefined;
+    if (enableCustomDomain && !pilot) {
       new route53.TxtRecord(this, 'DmarcRecord', {
         zone: hostedZone,
         recordName: '_dmarc',
@@ -234,10 +253,12 @@ export class StayDemoStack extends Stack {
         new route53Targets.CloudFrontTarget(distribution),
       );
       new route53.ARecord(this, 'CustomDomainAliasA', {
+        recordName: customDomainName,
         zone: hostedZone,
         target: cloudFrontTarget,
       });
       new route53.AaaaRecord(this, 'CustomDomainAliasAaaa', {
+        recordName: customDomainName,
         zone: hostedZone,
         target: cloudFrontTarget,
       });
@@ -248,7 +269,7 @@ export class StayDemoStack extends Stack {
     const customDomainOrigin = `https://${customDomainName}`;
     const corsOrigins = distribution ? [] : enableCustomDomain ? [customDomainOrigin] : [];
     const httpAccessLogs = new logs.LogGroup(this, 'HttpAccessLogs', {
-      logGroupName: '/aws/apigateway/stay-demo-http',
+      logGroupName: `/aws/apigateway/stay-${stage}-http`,
       retention: logs.RetentionDays.ONE_MONTH,
       encryptionKey: dataKey,
       removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
@@ -265,7 +286,7 @@ export class StayDemoStack extends Stack {
       }),
     );
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
-      apiName: 'stay-demo-api',
+      apiName: `stay-${stage}-api`,
       ...(corsOrigins.length > 0
         ? {
             corsPreflight: {
@@ -287,7 +308,7 @@ export class StayDemoStack extends Stack {
     const httpStage = new apigwv2.HttpStage(this, 'HttpStage', {
       httpApi,
       autoDeploy: true,
-      detailedMetricsEnabled: true,
+      detailedMetricsEnabled: !pilot,
       accessLogSettings: {
         destination: new apigwv2.LogGroupLogDestination(httpAccessLogs),
         format: apiAccessLogFormat,
@@ -312,10 +333,12 @@ export class StayDemoStack extends Stack {
         ),
       );
       new route53.ARecord(this, 'CustomDomainAliasA', {
+        recordName: customDomainName,
         zone: hostedZone,
         target: apiTarget,
       });
       new route53.AaaaRecord(this, 'CustomDomainAliasAaaa', {
+        recordName: customDomainName,
         zone: hostedZone,
         target: apiTarget,
       });
@@ -328,12 +351,12 @@ export class StayDemoStack extends Stack {
     const apiBaseUrl = enableCustomDomain ? customDomainOrigin : transportOrigin;
 
     const userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'stay-demo-users',
+      userPoolName: `stay-${stage}-users`,
       selfSignUpEnabled: false,
       signInAliases: { email: true },
       autoVerify: { email: true },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      mfa: cognito.Mfa.OPTIONAL,
+      mfa: pilot ? cognito.Mfa.REQUIRED : cognito.Mfa.OPTIONAL,
       mfaSecondFactor: { sms: false, otp: true },
       passwordPolicy: {
         minLength: 12,
@@ -355,7 +378,7 @@ export class StayDemoStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
     const domain = userPool.addDomain('ManagedLoginDomain', {
-      cognitoDomain: { domainPrefix: `stay-demo-${this.account}` },
+      cognitoDomain: { domainPrefix: `stay-${stage}-${this.account}` },
       managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     });
     const cognitoBaseUrl = `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`;
@@ -429,7 +452,7 @@ export class StayDemoStack extends Stack {
       },
     });
 
-    const bus = new events.EventBus(this, 'DomainBus', { eventBusName: 'stay-demo-domain' });
+    const bus = new events.EventBus(this, 'DomainBus', { eventBusName: `stay-${stage}-domain` });
     const domainDlq = new sqs.Queue(this, 'DomainDlq', {
       encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
@@ -443,7 +466,7 @@ export class StayDemoStack extends Stack {
     const notificationQueue = new sqs.Queue(this, 'NotificationQueue', {
       encryption: sqs.QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
-      visibilityTimeout: Duration.seconds(90),
+      visibilityTimeout: Duration.seconds(pilot ? 360 : 90),
       deadLetterQueue: { queue: notificationDlq, maxReceiveCount: 4 },
     });
     const metricsDlq = new sqs.Queue(this, 'MetricsDlq', {
@@ -469,6 +492,7 @@ export class StayDemoStack extends Stack {
         TABLE_NAME: table.tableName,
         EVENT_BUS_NAME: bus.eventBusName,
         NODE_OPTIONS: '--enable-source-maps',
+        STAY_ENVIRONMENT: stage,
       },
     } satisfies Partial<nodeLambda.NodejsFunctionProps>;
     const fn = (
@@ -476,7 +500,7 @@ export class StayDemoStack extends Stack {
       entry: string,
       overrides: Partial<nodeLambda.NodejsFunctionProps> = {},
     ) => {
-      const functionName = `stay-demo-${name
+      const functionName = `stay-${stage}-${name
         .replace(/Function$/, '')
         .replace(/([a-z])([A-Z])/g, '$1-$2')
         .toLowerCase()}`;
@@ -523,6 +547,7 @@ export class StayDemoStack extends Stack {
       'NotificationFunction',
       'services/functions/src/notification-worker.ts',
       {
+        ...(pilot ? { timeout: Duration.seconds(60), reservedConcurrentExecutions: 4 } : {}),
         environment: {
           SES_FROM_EMAIL: sesFromEmail.valueAsString,
           SES_RECIPIENT_EMAIL: sesRecipientEmail.valueAsString,
@@ -569,7 +594,8 @@ export class StayDemoStack extends Stack {
     );
     notificationFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(notificationQueue, {
-        batchSize: 10,
+        batchSize: pilot ? 1 : 10,
+        ...(pilot ? { maxConcurrency: 2 } : {}),
         reportBatchItemFailures: true,
       }),
     );
@@ -583,10 +609,18 @@ export class StayDemoStack extends Stack {
       new iam.PolicyStatement({
         actions: ['cloudwatch:PutMetricData'],
         resources: ['*'],
-        conditions: { StringEquals: { 'cloudwatch:namespace': 'STAY/Demo' } },
+        conditions: {
+          StringEquals: { 'cloudwatch:namespace': pilot ? 'STAY/Pilot' : 'STAY/Demo' },
+        },
       }),
     );
-    if (sesDomainIdentity) {
+    if (pilot) {
+      ses.EmailIdentity.fromEmailIdentityName(
+        this,
+        'ExistingSenderIdentity',
+        'saystay.site',
+      ).grantSendEmail(notificationFunction);
+    } else if (sesDomainIdentity) {
       sesDomainIdentity.grantSendEmail(notificationFunction);
     } else {
       notificationFunction.addToRolePolicy(
@@ -594,7 +628,7 @@ export class StayDemoStack extends Stack {
       );
     }
     const bedrockInvokePolicy = new iam.CfnPolicy(this, 'BedrockInvokePolicy', {
-      policyName: 'stay-demo-bedrock-invoke',
+      policyName: `stay-${stage}-bedrock-invoke`,
       roles: [apiFunction.role!.roleName],
       policyDocument: {
         Version: '2012-10-17',
@@ -623,7 +657,7 @@ export class StayDemoStack extends Stack {
       },
     );
     const webSocketAccessLogs = new logs.LogGroup(this, 'WebSocketAccessLogs', {
-      logGroupName: '/aws/apigateway/stay-demo-websocket',
+      logGroupName: `/aws/apigateway/stay-${stage}-websocket`,
       retention: logs.RetentionDays.ONE_MONTH,
       encryptionKey: dataKey,
       removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
@@ -700,7 +734,7 @@ export class StayDemoStack extends Stack {
     }
 
     const webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
-      apiName: 'stay-demo-updates',
+      apiName: `stay-${stage}-updates`,
       connectRouteOptions: {
         integration: new apigwv2integrations.WebSocketLambdaIntegration(
           'ConnectIntegration',
@@ -724,7 +758,7 @@ export class StayDemoStack extends Stack {
       webSocketApi,
       stageName: 'prod',
       autoDeploy: true,
-      detailedMetricsEnabled: true,
+      detailedMetricsEnabled: !pilot,
       accessLogSettings: {
         destination: new apigwv2.LogGroupLogDestination(webSocketAccessLogs),
         format: apiAccessLogFormat,
@@ -746,7 +780,7 @@ export class StayDemoStack extends Stack {
       ],
     });
 
-    const scheduleGroupName = 'stay-demo-safety-windows';
+    const scheduleGroupName = `stay-${stage}-safety-windows`;
     const scheduleGroup = new scheduler.CfnScheduleGroup(this, 'SafetyWindowScheduleGroup', {
       name: scheduleGroupName,
     });
@@ -755,6 +789,15 @@ export class StayDemoStack extends Stack {
       description: 'Invokes only the deterministic STAY Safety Window transition Lambda.',
     });
     schedulerFunction.grantInvoke(schedulerRole);
+    if (pilot) {
+      domainDlq.grantSendMessages(schedulerRole);
+      schedulerFunction.configureAsyncInvoke({
+        maxEventAge: Duration.hours(2),
+        retryAttempts: 2,
+        onFailure: new lambdaDestinations.SqsDestination(domainDlq),
+      });
+      apiFunction.addEnvironment('SAFETY_WINDOW_DLQ_ARN', domainDlq.queueArn);
+    }
     apiFunction.addEnvironment('SAFETY_WINDOW_SCHEDULE_GROUP', scheduleGroupName);
     apiFunction.addEnvironment('SAFETY_WINDOW_SCHEDULER_TARGET_ARN', schedulerFunction.functionArn);
     apiFunction.addEnvironment('SAFETY_WINDOW_SCHEDULER_ROLE_ARN', schedulerRole.roleArn);
@@ -768,7 +811,7 @@ export class StayDemoStack extends Stack {
           'scheduler:GetSchedule',
         ],
         resources: [
-          `arn:${this.partition}:scheduler:${this.region}:${this.account}:schedule/stay-demo-safety-windows/*`,
+          `arn:${this.partition}:scheduler:${this.region}:${this.account}:schedule/stay-${stage}-safety-windows/*`,
         ],
       }),
     );
@@ -784,7 +827,12 @@ export class StayDemoStack extends Stack {
       eventBus: bus,
       eventPattern: {
         source: ['stay.domain'],
-        detailType: ['HelpRequest.Opened', 'Incident.ResponderAccepted', 'Incident.Activated'],
+        detailType: [
+          'HelpRequest.Opened',
+          'Incident.ResponderAccepted',
+          'Incident.Activated',
+          ...(pilot ? ['Incident.ResponderAsked', 'HelpRequest.Accepted'] : []),
+        ],
       },
       targets: [
         new eventTargets.SqsQueue(notificationQueue, {
@@ -833,9 +881,92 @@ export class StayDemoStack extends Stack {
     void apiErrorAlarm;
     void metricsDlqAlarm;
 
+    if (pilot) {
+      const alertTopic = new sns.Topic(this, 'OperationalAlerts', { masterKey: dataKey });
+      alertTopic.addSubscription(new subscriptions.EmailSubscription(alertEmail.valueAsString));
+      const feedbackTopic = new sns.Topic(this, 'EmailFeedback', { masterKey: dataKey });
+      feedbackTopic.addToResourcePolicy(
+        new iam.PolicyStatement({
+          principals: [new iam.ServicePrincipal('ses.amazonaws.com')],
+          actions: ['sns:Publish'],
+          resources: [feedbackTopic.topicArn],
+          conditions: { StringEquals: { 'AWS:SourceAccount': this.account } },
+        }),
+      );
+      dataKey.addToResourcePolicy(
+        new iam.PolicyStatement({
+          principals: [
+            new iam.ServicePrincipal('ses.amazonaws.com'),
+            new iam.ServicePrincipal('cloudwatch.amazonaws.com'),
+          ],
+          actions: ['kms:Decrypt', 'kms:GenerateDataKey*'],
+          resources: ['*'],
+          conditions: { StringEquals: { 'aws:SourceAccount': this.account } },
+        }),
+      );
+      const feedbackQueue = new sqs.Queue(this, 'EmailFeedbackQueue', {
+        encryption: sqs.QueueEncryption.SQS_MANAGED,
+        enforceSSL: true,
+        visibilityTimeout: Duration.minutes(6),
+        retentionPeriod: Duration.days(4),
+        deadLetterQueue: { queue: notificationDlq, maxReceiveCount: 3 },
+      });
+      feedbackTopic.addSubscription(
+        new subscriptions.SqsSubscription(feedbackQueue, { rawMessageDelivery: true }),
+      );
+      const configurationSet = new ses.ConfigurationSet(this, 'PilotEmailConfiguration', {
+        suppressionReasons: ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS,
+      });
+      configurationSet.addEventDestination('FeedbackDestination', {
+        destination: ses.EventDestination.snsTopic(feedbackTopic),
+        events: [ses.EmailSendingEvent.BOUNCE, ses.EmailSendingEvent.COMPLAINT],
+      });
+      notificationFunction.addEnvironment(
+        'SES_CONFIGURATION_SET',
+        configurationSet.configurationSetName,
+      );
+      notificationFunction.addEnvironment('SES_FEEDBACK_QUEUE_ARN', feedbackQueue.queueArn);
+      notificationFunction.addEnvironment('PILOT_URL', preferredDemoUrl);
+      notificationFunction.addEventSource(
+        new lambdaEventSources.SqsEventSource(feedbackQueue, {
+          batchSize: 10,
+          maxConcurrency: 2,
+          reportBatchItemFailures: true,
+        }),
+      );
+      const moreAlarms = [
+        new cloudwatch.Alarm(this, 'DomainFailureAlarm', {
+          metric: domainDlq.metricApproximateNumberOfMessagesVisible({
+            period: Duration.minutes(1),
+          }),
+          threshold: 1,
+          evaluationPeriods: 1,
+        }),
+        new cloudwatch.Alarm(this, 'DelayedNotificationAlarm', {
+          metric: notificationQueue.metricApproximateAgeOfOldestMessage({
+            period: Duration.minutes(1),
+          }),
+          threshold: 120,
+          evaluationPeriods: 2,
+        }),
+        new cloudwatch.Alarm(this, 'ScheduleFailureAlarm', {
+          metric: schedulerFunction.metricErrors({ period: Duration.minutes(1) }),
+          threshold: 1,
+          evaluationPeriods: 1,
+        }),
+      ];
+      for (const alarm of [dlqAlarm, apiErrorAlarm, metricsDlqAlarm, ...moreAlarms]) {
+        alarm.addAlarmAction(new cloudwatchActions.SnsAction(alertTopic));
+        alarm.addOkAction(new cloudwatchActions.SnsAction(alertTopic));
+      }
+      new CfnOutput(this, 'OperationalAlertTopicArn', { value: alertTopic.topicArn });
+      new CfnOutput(this, 'NotificationQueueUrl', { value: notificationQueue.queueUrl });
+      new CfnOutput(this, 'NotificationDlqUrl', { value: notificationDlq.queueUrl });
+    }
+
     new budgets.CfnBudget(this, 'MonthlyAlertBudget', {
       budget: {
-        budgetName: 'STAY demo monthly alert',
+        budgetName: `STAY ${stage} monthly alert`,
         budgetType: 'COST',
         timeUnit: 'MONTHLY',
         budgetLimit: { amount: 25, unit: 'USD' },
@@ -867,6 +998,7 @@ export class StayDemoStack extends Stack {
         s3deploy.Source.data(
           'config.json',
           JSON.stringify({
+            environment: stage,
             apiUrl: apiBaseUrl,
             fallbackUrl: transportOrigin,
             websocketUrl: webSocketStage.url,
@@ -885,10 +1017,16 @@ export class StayDemoStack extends Stack {
     // GitHub OIDC is intentionally project-scoped. The account uses GitHub's customized
     // subject template with immutable owner and repository IDs. Review the role and cdk diff
     // before deployment.
-    const githubProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
-      url: 'https://token.actions.githubusercontent.com',
-      clientIds: ['sts.amazonaws.com'],
-    });
+    const githubProvider = pilot
+      ? iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+          this,
+          'ExistingGitHubProvider',
+          `arn:${this.partition}:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
+        )
+      : new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
+          url: 'https://token.actions.githubusercontent.com',
+          clientIds: ['sts.amazonaws.com'],
+        });
     const deploymentRole = new iam.Role(this, 'GitHubDeploymentRole', {
       assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
         StringEquals: {
@@ -941,7 +1079,7 @@ export class StayDemoStack extends Stack {
       }),
     );
 
-    if (!sesDomainIdentity) {
+    if (!sesDomainIdentity && !pilot) {
       Validations.of(notificationFunction).acknowledge({
         id: 'AwsSolutions-IAM5',
         reason:
@@ -989,8 +1127,8 @@ export class StayDemoStack extends Stack {
       : this.account;
     acknowledgeGranular(
       deploymentRole,
-      `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/StayDemoStack/*]`,
-      'The GitHub deployment role may update termination protection only for versions of the single StayDemoStack; its OIDC trust remains repository, immutable-ID, and main-branch scoped.',
+      `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/${this.stackName}/*]`,
+      'The GitHub deployment role may update termination protection only for versions of this one STAY stack; its OIDC trust remains repository, immutable-ID, and main-branch scoped.',
     );
     for (const suppression of [
       {
@@ -1019,7 +1157,7 @@ export class StayDemoStack extends Stack {
           'CDK emits the ReEncrypt action family for the single STAY product key; the resource is bound to that key.',
       },
       {
-        id: `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:scheduler:us-east-1:${acknowledgedAccount}:schedule/stay-demo-safety-windows/*]`,
+        id: `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:scheduler:us-east-1:${acknowledgedAccount}:schedule/stay-${stage}-safety-windows/*]`,
         reason:
           'The API can manage only one-time schedules under the dedicated STAY safety-window schedule group.',
       },
@@ -1117,11 +1255,12 @@ export class StayDemoStack extends Stack {
         ? 'saystay.site Easy DKIM 2048 + mail.saystay.site SPF + DMARC'
         : 'EMAIL_IDENTITY_FALLBACK',
     });
-    new CfnOutput(this, 'DomainDelegationNameServers', {
-      value: Fn.join(',', hostedZone.hostedZoneNameServers ?? []),
-      description:
-        'Set these four nameservers at the saystay.site registrar, then deploy with -c enableCustomDomain=true.',
-    });
+    if (!pilot)
+      new CfnOutput(this, 'DomainDelegationNameServers', {
+        value: Fn.join(',', (hostedZone as route53.PublicHostedZone).hostedZoneNameServers ?? []),
+        description:
+          'Set these four nameservers at the saystay.site registrar, then deploy with -c enableCustomDomain=true.',
+      });
     new CfnOutput(this, 'CustomDomainStatus', {
       value: enableCustomDomain
         ? 'ACTIVE_IN_THIS_TEMPLATE'
@@ -1135,6 +1274,9 @@ export class StayDemoStack extends Stack {
     });
     new CfnOutput(this, 'AlexaCredentialsSecretArn', { value: alexaCredentials.secretArn });
     new CfnOutput(this, 'GitHubDeploymentRoleArn', { value: deploymentRole.roleArn });
+    new CfnOutput(this, 'ProductTableName', { value: table.tableName });
+    new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
+    new CfnOutput(this, 'Stage', { value: stage });
     new CfnOutput(this, 'BudgetNotice', {
       value: 'Alert only: this budget does not stop AWS spend.',
     });

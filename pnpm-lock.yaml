@@ -233,6 +233,9 @@ importers:
       '@stay/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@stay/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       '@types/node':
         specifier: 26.4.1

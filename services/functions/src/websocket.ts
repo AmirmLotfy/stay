@@ -19,6 +19,7 @@ import type {
   EventBridgeEvent,
 } from 'aws-lambda';
 import { log } from './logging.js';
+import { DynamoStayRepository } from './repository.js';
 
 const table = DynamoDBDocumentClient.from(
   new DynamoDBClient({
@@ -45,6 +46,8 @@ interface AuthenticatedConnectionScope {
   householdId: string;
   residentId: string;
   role: Role;
+  circleMemberId?: string;
+  tokenExpiresAt?: number;
 }
 
 export function authenticatedConnectionScope(
@@ -58,7 +61,16 @@ export function authenticatedConnectionScope(
   const role = RoleSchema.safeParse(payload['custom:stay_role']).data;
   const scopes = typeof payload.scope === 'string' ? payload.scope.split(/\s+/) : [];
   if (!subject || !householdId || !residentId || !role || !scopes.includes('stay/app')) return null;
-  return { subject, householdId, residentId, role };
+  return {
+    subject,
+    householdId,
+    residentId,
+    role,
+    ...(typeof payload['custom:circle_member_id'] === 'string'
+      ? { circleMemberId: payload['custom:circle_member_id'] }
+      : {}),
+    ...(typeof payload.exp === 'number' ? { tokenExpiresAt: payload.exp } : {}),
+  };
 }
 
 async function verifyAccessToken(token: string): Promise<AuthenticatedConnectionScope | null> {
@@ -109,6 +121,8 @@ export async function connectionHandler(
         body: 'A valid isolated demo session or authentication is required.',
       };
     }
+    if (process.env.STAY_ENVIRONMENT === 'pilot')
+      return { statusCode: 403, body: 'Public demo disabled.' };
     const session = await table.send(
       new GetCommand({
         TableName: tableName(),
@@ -154,6 +168,11 @@ export async function connectionHandler(
     }
     const scope = await verifyAccessToken(body.accessToken).catch(() => null);
     if (!scope) return { statusCode: 401, body: 'The access token is invalid.' };
+    try {
+      await new DynamoStayRepository(tableName()).authorize(scope);
+    } catch {
+      return { statusCode: 403, body: 'Household membership is inactive.' };
+    }
     await table.send(
       new PutCommand({
         TableName: tableName(),
@@ -165,7 +184,7 @@ export async function connectionHandler(
           ...scope,
           state: 'authenticated',
           connectionId,
-          expiresAt: Math.floor(Date.now() / 1000) + 3_600,
+          expiresAt: Math.min(scope.tokenExpiresAt ?? 0, Math.floor(Date.now() / 1000) + 3_600),
         },
       }),
     );
@@ -196,28 +215,74 @@ export async function broadcastHandler(
     log('WARN', 'websocket event omitted household scope', { eventId: event.id });
     return;
   }
-  const stored = await table.send(
-    new QueryCommand({
-      TableName: tableName(),
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :household',
-      ExpressionAttributeValues: { ':household': `HOUSEHOLD#${householdId}#CONNECTIONS` },
-      ProjectionExpression: 'connectionId',
-    }),
-  );
-  const connectionIds = [
-    ...new Set([
-      ...(event.detail.connectionIds ?? []),
-      ...(stored.Items ?? []).flatMap((item) =>
-        typeof item.connectionId === 'string' ? [item.connectionId] : [],
-      ),
-    ]),
-  ];
+  const connectionSet = new Set(event.detail.connectionIds ?? []);
+  let cursor: Record<string, unknown> | undefined;
+  do {
+    const stored = await table.send(
+      new QueryCommand({
+        TableName: tableName(),
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :household',
+        ExpressionAttributeValues: { ':household': `HOUSEHOLD#${householdId}#CONNECTIONS` },
+        ProjectionExpression: 'connectionId',
+        ExclusiveStartKey: cursor,
+      }),
+    );
+    for (const item of stored.Items ?? [])
+      if (typeof item.connectionId === 'string') connectionSet.add(item.connectionId);
+    cursor = stored.LastEvaluatedKey;
+  } while (cursor);
+  const connectionIds = [...connectionSet];
   const data = new TextEncoder().encode(
-    JSON.stringify({ event: event['detail-type'], detail: event.detail, reconcile: true }),
+    JSON.stringify({ event: event['detail-type'], reconcile: true }),
   );
   for (const connectionId of connectionIds) {
     try {
+      const connection = await table.send(
+        new GetCommand({
+          TableName: tableName(),
+          Key: { PK: `CONNECTION#${connectionId}`, SK: 'META' },
+          ConsistentRead: true,
+        }),
+      );
+      const item = connection.Item;
+      if (
+        !item ||
+        item.householdId !== householdId ||
+        Number(item.expiresAt) <= Math.floor(Date.now() / 1000)
+      )
+        continue;
+      if (item.state === 'authenticated') {
+        try {
+          await new DynamoStayRepository(tableName()).authorize({
+            subject: String(item.subject),
+            householdId,
+            residentId: String(item.residentId),
+            role: RoleSchema.parse(item.role),
+            ...(item.circleMemberId ? { circleMemberId: String(item.circleMemberId) } : {}),
+          });
+        } catch {
+          await table.send(
+            new DeleteCommand({
+              TableName: tableName(),
+              Key: { PK: `CONNECTION#${connectionId}`, SK: 'META' },
+            }),
+          );
+          continue;
+        }
+      } else {
+        if (
+          process.env.STAY_ENVIRONMENT === 'pilot' ||
+          !householdId.startsWith('demo-household-demo-')
+        )
+          continue;
+        if (
+          !(await new DynamoStayRepository(tableName()).demoSessionExists(
+            householdId.slice('demo-household-'.length),
+          ))
+        )
+          continue;
+      }
       await client.send(new PostToConnectionCommand({ ConnectionId: connectionId, Data: data }));
     } catch (error) {
       if (error instanceof GoneException) {

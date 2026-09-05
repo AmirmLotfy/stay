@@ -81,47 +81,58 @@ try {
     throw new Error(`Cognito token exchange failed with status ${tokenResponse.status}.`);
   }
 
-  const mcpResponse = await fetch(mcpUrl, {
-    method: 'POST',
-    headers: {
-      accept: 'application/json, text/event-stream',
-      authorization: `Bearer ${tokens.access_token}`,
-      'content-type': 'application/json',
-      'mcp-protocol-version': '2025-11-25',
-      origin: new URL(redirectUri).origin,
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2025-11-25',
-        capabilities: {},
-        clientInfo: { name: 'stay-live-verifier', version: '1.0.0' },
+  const rpc = async (id, method, params) => {
+    const response = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${tokens.access_token}`,
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+        origin: new URL(redirectUri).origin,
       },
-    }),
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+    });
+    const text = await response.text();
+    const raw = response.headers.get('content-type')?.includes('text/event-stream')
+      ? text
+          .split('\n')
+          .find((line) => line.startsWith('data: '))
+          ?.slice(6)
+      : text;
+    const payload = JSON.parse(raw ?? '{}');
+    if (!response.ok || payload.error || payload.result?.isError)
+      throw new Error(`MCP ${method} failed with HTTP ${response.status}.`);
+    return payload;
+  };
+  const payload = await rpc(1, 'initialize', {
+    protocolVersion: '2025-11-25',
+    capabilities: {},
+    clientInfo: { name: 'stay-live-verifier', version: '1.0.0' },
   });
-  const responseText = await mcpResponse.text();
-  const jsonText = mcpResponse.headers.get('content-type')?.includes('text/event-stream')
-    ? responseText
-        .split('\n')
-        .find((line) => line.startsWith('data: '))
-        ?.slice(6)
-    : responseText;
-  const payload = JSON.parse(jsonText ?? '{}');
-  if (!mcpResponse.ok || payload.error) {
-    throw new Error(`MCP initialization failed with status ${mcpResponse.status}.`);
-  }
   if (
     payload.result?.protocolVersion !== '2025-11-25' ||
     payload.result?.serverInfo?.name !== 'STAY'
-  ) {
-    throw new Error('MCP initialization returned an unexpected server contract.');
-  }
+  )
+    throw new Error('Unexpected MCP protocol contract.');
+  const listed = await rpc(2, 'tools/list', {});
+  if (
+    listed.result?.tools?.length !== 10 ||
+    !listed.result.tools.some((tool) => tool.name === 'get_home_overview')
+  )
+    throw new Error('Expected ten STAY tools.');
+  const called = await rpc(3, 'tools/call', { name: 'get_home_overview', arguments: {} });
+  if (
+    !called.result?.content?.some((item) => item.type === 'text') ||
+    !called.result?.structuredContent
+  )
+    throw new Error('MCP read call lacks accessible text or structured content.');
   process.stdout.write(
     `${JSON.stringify({
       oauthCodePkce: 'PASS',
-      mcpStatus: mcpResponse.status,
+      mcpStatus: 200,
+      toolsListed: listed.result.tools.length,
+      readOnlyCall: 'PASS',
       protocolVersion: payload.result.protocolVersion,
       serverName: payload.result.serverInfo.name,
     })}\n`,

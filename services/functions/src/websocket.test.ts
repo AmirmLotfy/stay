@@ -62,7 +62,10 @@ function domainEvent(): EventBridgeEvent<
     resources: [],
     source: 'stay.domain',
     'detail-type': 'Incident.ResponderAccepted',
-    detail: { householdId: 'household-demo', connectionIds: ['explicit-one'] },
+    detail: {
+      householdId: 'demo-household-demo-1234567890abcdef1234',
+      connectionIds: ['explicit-one'],
+    },
   };
 }
 
@@ -149,6 +152,12 @@ describe('WebSocket lifecycle and fan-out', () => {
     mocks.tableSend.mockResolvedValueOnce({
       Items: [{ connectionId: 'explicit-one' }, { connectionId: 'stored-two' }],
     });
+    mocks.tableSend.mockResolvedValue({
+      Item: {
+        householdId: 'demo-household-demo-1234567890abcdef1234',
+        expiresAt: Math.floor(Date.now() / 1000) + 60,
+      },
+    });
     mocks.managementSend.mockResolvedValue({});
 
     await expect(broadcastHandler(domainEvent())).resolves.toBeUndefined();
@@ -163,6 +172,12 @@ describe('WebSocket lifecycle and fan-out', () => {
 
   it('removes a stale connection after API Gateway reports it gone', async () => {
     mocks.tableSend.mockResolvedValueOnce({ Items: [{ connectionId: 'stored-gone' }] });
+    mocks.tableSend.mockResolvedValue({
+      Item: {
+        householdId: 'demo-household-demo-1234567890abcdef1234',
+        expiresAt: Math.floor(Date.now() / 1000) + 60,
+      },
+    });
     mocks.managementSend.mockRejectedValueOnce(
       new GoneException({ message: 'Connection is gone.', $metadata: {} }),
     );
@@ -171,8 +186,8 @@ describe('WebSocket lifecycle and fan-out', () => {
 
     await expect(broadcastHandler(event)).resolves.toBeUndefined();
 
-    expect(mocks.tableSend).toHaveBeenCalledTimes(2);
-    const cleanup = mocks.tableSend.mock.calls[1]![0] as { input: Record<string, unknown> };
+    expect(mocks.tableSend).toHaveBeenCalledTimes(4);
+    const cleanup = mocks.tableSend.mock.calls[3]![0] as { input: Record<string, unknown> };
     expect(cleanup.input).toMatchObject({
       Key: { PK: 'CONNECTION#stored-gone', SK: 'META' },
     });

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export * from './household.js';
 
 export const RoleSchema = z.enum(['resident', 'coordinator', 'nearby-helper', 'backup', 'aide']);
 export type Role = z.infer<typeof RoleSchema>;

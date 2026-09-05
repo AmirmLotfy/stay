@@ -15,7 +15,7 @@ Everything in this file is prepared for the participant's manual Devpost entry. 
 
 The upload and archival files are byte-identical, 170 seconds, 1920 × 1080, H.264 High at 30 fps with AAC-LC 48 kHz stereo. SHA-256: `63354dc8a1a25809bb530aed28d417279c941da97817636cf3a825b00814f00c`.
 
-The public page was verified signed out on 2026-09-04: playable, embeddable, public and not unlisted, 170 seconds, and 1080p available. YouTube currently exposes an English auto-caption track, but a signed-in read-only Studio inspection found transcription errors and a structure that does not match the approved 36-cue SRT. Replace that track with `assets/submission/video/STAY_DEMO.en.srt`, publish it, and perform the final playback check. The Studio Claim overview reported no claims and no copyrighted content found.
+The approved 36-cue SRT is now saved in YouTube Studio and its opening music caption visibly renders in the public player (2026-09-05). The historical signed-out check confirmed public, embeddable, 170-second, 1080p playback. Complete the final start-to-finish audio/caption review and signed-out/mobile check before submission. No video or source asset was regenerated.
 
 ## Devpost copy kit
 
@@ -24,7 +24,7 @@ The public page was verified signed out on 2026-09-04: playable, embeddable, pub
 - Judge link manifest: `docs/release-links.md`
 - Submission readiness audit: `docs/submission-readiness-audit.md`
 
-The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for release commit `07e04b5` is `https://github.com/AmirmLotfy/stay/actions/runs/33852275234`; it includes the deterministic 8/8 submission-media gate and all 36 browser scenarios. The reviewed AWS diff is `https://github.com/AmirmLotfy/stay/actions/runs/33830875464`; the successful OIDC deployment is `https://github.com/AmirmLotfy/stay/actions/runs/33831042059`.
+The live project URL is `https://saystay.site`. The public repository is `https://github.com/AmirmLotfy/stay`. Public CI for release evidence commit `503b56b` is `https://github.com/AmirmLotfy/stay/actions/runs/33933798929`; it includes the deterministic 8/8 submission-media gate and all 40 browser scenarios (36 apply to the deployed public runtime). The reviewed AWS diff is `https://github.com/AmirmLotfy/stay/actions/runs/33886709356`; the successful OIDC deployment is `https://github.com/AmirmLotfy/stay/actions/runs/33886987014`.
 
 ## Gallery order
 
@@ -40,10 +40,12 @@ Upload these screenshots in this order:
 
 All seven were captured from the deployed public demo after the responsive-accessibility release. Their checksums and provenance are recorded in `assets/submission/candidate-checksums.sha256` and `docs/media-production/VISUAL_PROVENANCE.csv`.
 
+The draft was freshly verified under `amirmolotfy`: **DRAFT, 1/5 steps done**. All 26 official additional-field IDs still match the copy pack. [Continue the verified draft](https://devpost.com/submit-to/30992-build-ship-shape-amazon-developer-hackathon/manage/submissions/1166410-stay/project-overview).
+
 ## Final human gates
 
-1. Correct the Age of Majority and Eligible Jurisdiction answers only if the recorded `No` values were mistakes and the truthful answers are `Yes`. An individual submission is not eligible with the current values.
-2. In YouTube Studio, replace the current auto-caption transcript with `assets/submission/video/STAY_DEMO.en.srt`, publish it, and complete a private start-to-finish video, audio, and caption review. The copyright-claim gate has passed.
+1. The participant confirmed on 2026-09-05 that both negative eligibility answers were entry errors. The ignored private handoff records Yes; copy the confirmed answers into the official form.
+2. The approved manual English captions are available. Complete a private start-to-finish video, audio, and caption review plus signed-out/mobile playback. The copyright-claim gate has passed.
 3. Paste the prepared Devpost answers and gallery in the order above.
 4. Recheck the public demo, repository, video embedding, track, mini-challenges, and official form.
 5. Use Devpost's final confirmation only when every gate passes.

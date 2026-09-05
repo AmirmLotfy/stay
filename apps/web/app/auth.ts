@@ -1,4 +1,5 @@
 export interface StayRuntimeConfig {
+  environment?: 'demo' | 'pilot';
   apiUrl: string;
   fallbackUrl?: string;
   websocketUrl: string;
@@ -150,6 +151,12 @@ export async function signOut(config: StayRuntimeConfig): Promise<void> {
     logout_uri: config.logoutUri,
   }).toString();
   window.location.assign(url);
+}
+
+export function hasAuthenticationIntent(): boolean {
+  return Boolean(
+    sessionStorage.getItem(tokensKey) || new URL(window.location.href).searchParams.get('code'),
+  );
 }
 
 export function hasAuthenticatedSession(): boolean {

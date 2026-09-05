@@ -23,8 +23,10 @@
     "verify:submission": "pnpm --filter @stay/web verify:submission",
     "verify:submission:local": "pnpm --filter @stay/web verify:submission:local",
     "cdk:synth": "pnpm --filter @stay/infra synth",
+    "cdk:synth:pilot": "pnpm --filter @stay/infra build && pnpm --filter @stay/infra exec cdk synth StayPilotStack --strict --quiet -c stage=pilot -c enableCloudFront=false -c enableCustomDomain=true",
     "cdk:diff": "pnpm --filter @stay/infra diff",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm cdk:synth"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm cdk:synth",
+    "pilot:operator": "pnpm exec turbo run build --filter=@stay/functions && node services/functions/dist/pilot-operator.js"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

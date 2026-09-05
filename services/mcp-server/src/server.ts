@@ -10,23 +10,12 @@ import { SimulatedHomeContextProvider } from '@stay/adapters';
 import type {
   ActorContext,
   CommandResult,
-  HelpRequest,
-  HomeDevice,
-  Incident,
   McpToolName,
-  Playbook,
-  SafetyWindow,
   SourceProvenance,
   Role,
 } from '@stay/contracts';
-import {
-  createDemoState,
-  permissionsForRole,
-  StayDomainError,
-  StayEngine,
-  type HomeState,
-} from '@stay/domain';
-import { DynamoStayRepository, type VersionedEntity } from '@stay/persistence';
+import { permissionsForRole, requirePermission, StayDomainError, StayEngine } from '@stay/domain';
+import { DynamoStayRepository, commandFingerprint, type VersionedEntity } from '@stay/persistence';
 import { z } from 'zod';
 
 const householdEngines = new Map<string, StayEngine>();
@@ -40,43 +29,11 @@ function householdIdFor(context: McpRequestContext): string {
   throw new StayDomainError('FORBIDDEN', 'The authenticated household scope is missing.');
 }
 
-function mergeById<T extends { id: string }>(stored: T[], fallback: T[]): T[] {
-  return [...stored, ...fallback.filter((item) => !stored.some((saved) => saved.id === item.id))];
-}
-
 async function engineFor(context: McpRequestContext): Promise<StayEngine> {
   const householdId = householdIdFor(context);
   if (repository) {
-    const residentId = context.authInfo?.extra?.residentId?.toString() ?? 'resident-sarah';
-    const state = createDemoState();
-    state.householdId = householdId;
-    state.resident.id = residentId;
-    state.access.id = `access-${residentId}`;
-    state.privacy.id = `privacy-${residentId}`;
-    const [task, access, privacy, circle, devices, windows, help, incidents, playbooks, memory] =
-      await Promise.all([
-        repository.get<HomeState['oneThing']>(householdId, 'task', state.oneThing.id),
-        repository.get<HomeState['access']>(householdId, 'access', state.access.id),
-        repository.get<HomeState['privacy']>(householdId, 'privacy', state.privacy.id),
-        repository.list<HomeState['circle'][number]>(householdId, 'circle-member'),
-        repository.list<HomeDevice>(householdId, 'device'),
-        repository.list<SafetyWindow>(householdId, 'safety-window'),
-        repository.list<HelpRequest>(householdId, 'help-request'),
-        repository.list<Incident>(householdId, 'incident'),
-        repository.list<Playbook>(householdId, 'playbook'),
-        repository.list<HomeState['houseMemory'][number]>(householdId, 'house-memory'),
-      ]);
-    if (task) state.oneThing = task;
-    if (access) state.access = access;
-    if (privacy) state.privacy = privacy;
-    state.circle = mergeById(circle, state.circle).filter((member) => member.active);
-    state.devices = mergeById(devices, state.devices);
-    state.safetyWindows = mergeById(windows, state.safetyWindows);
-    state.helpRequests = mergeById(help, state.helpRequests);
-    state.incidents = mergeById(incidents, state.incidents);
-    state.playbooks = mergeById(playbooks, state.playbooks);
-    state.houseMemory = mergeById(memory, state.houseMemory);
-    return new StayEngine(state);
+    await repository.authorize(actor(context));
+    return new StayEngine(await repository.loadHouseholdState(householdId));
   }
   const existing = householdEngines.get(householdId);
   if (existing) return existing;
@@ -96,15 +53,33 @@ async function executeCommand<T extends VersionedEntity>(
     idempotencyKey: string;
     expectedVersion: number;
     create?: boolean;
+    request: Record<string, unknown>;
   },
   operation: (engine: StayEngine) => CommandResult<T>,
 ): Promise<CommandResult<T>> {
   const householdId = householdIdFor(context);
+  const operationKey = commandFingerprint(actor(context), `mcp:${input.aggregateType}`, {
+    ...input.request,
+    expectedVersion: input.expectedVersion,
+  });
   if (repository) {
+    await repository.authorize(actor(context));
     const prior = await repository.getIdempotency(householdId, input.idempotencyKey);
     if (prior) {
+      if (
+        prior.actorSubject !== actor(context).subject ||
+        prior.operation !== operationKey ||
+        prior.aggregateType !== input.aggregateType ||
+        ['notification-contact', 'membership', 'profile'].includes(prior.aggregateType)
+      )
+        throw new StayDomainError('CONFLICT', 'This command key belongs to another operation.');
       const entity = await repository.get<T>(householdId, prior.aggregateType, prior.aggregateId);
       if (entity) {
+        if (
+          input.aggregateType === 'house-memory' &&
+          (entity as VersionedEntity & { sensitivity?: string }).sensitivity !== 'routine'
+        )
+          throw new StayDomainError('FORBIDDEN', 'Incident access requires confirmed disclosure.');
         return {
           entity,
           version: entity.version,
@@ -119,9 +94,18 @@ async function executeCommand<T extends VersionedEntity>(
   const result = operation(engine);
   const event = result.emittedEvents[0];
   if (repository && event) {
+    const memberActor = actor(context);
+    const authorization = await repository.authorize(memberActor);
     await repository.write({
+      authorization: {
+        subject: memberActor.subject,
+        membershipVersion: authorization.membership.version,
+        profileVersion: authorization.profile.version,
+        ...(authorization.circleMember ? { circleMember: authorization.circleMember } : {}),
+      },
       householdId,
       aggregateType: input.aggregateType,
+      operation: operationKey,
       entity: result.entity,
       expectedVersion: input.create ? 0 : input.expectedVersion,
       idempotencyKey: input.idempotencyKey,
@@ -220,14 +204,14 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     {
       title: 'Get home overview',
       description:
-        'Read Sarah’s calm home summary, next task, calendar, and active coordination state.',
+        'Read the resident’s home summary, next task, calendar, and active coordination state.',
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async () => {
       const engine = await engineFor(context);
       const state = engine.snapshot();
-      const weather = await providers.getWeather();
+      const weather = repository ? null : await providers.getWeather();
       return toolResult(
         'get_home_overview',
         `${state.resident.firstName}’s home is settled. One thing: ${state.oneThing.title}.`,
@@ -257,7 +241,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
         .parse(action);
       const result = await executeCommand(
         context,
-        { aggregateType: 'task', idempotencyKey, expectedVersion },
+        { aggregateType: 'task', idempotencyKey, expectedVersion, request: { action } },
         (engine) =>
           engine.manageTaskSession(taskAction, {
             actor: actor(context),
@@ -296,7 +280,12 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       }
       const result = await executeCommand(
         context,
-        { aggregateType: 'safety-window', idempotencyKey, expectedVersion },
+        {
+          aggregateType: 'safety-window',
+          idempotencyKey,
+          expectedVersion,
+          request: { action, entityId },
+        },
         (engine) =>
           action === 'record-missed-check'
             ? engine.markSafetyWindowMissed(entityId, {
@@ -340,7 +329,13 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     async ({ title, detail, urgency, idempotencyKey }) => {
       const result = await executeCommand(
         context,
-        { aggregateType: 'help-request', idempotencyKey, expectedVersion: 0, create: true },
+        {
+          aggregateType: 'help-request',
+          idempotencyKey,
+          expectedVersion: 0,
+          create: true,
+          request: { title, detail, urgency },
+        },
         (engine) =>
           engine.requestHelp({ title, detail, urgency }, { actor: actor(context), idempotencyKey }),
       );
@@ -397,6 +392,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
         context,
         {
           aggregateType: 'incident',
+          request: { action, entityId, memberId },
           idempotencyKey,
           expectedVersion,
           create: action === 'activate-from-window',
@@ -472,6 +468,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       sensitivity,
     }) => {
       const engine = await engineFor(context);
+      requirePermission(actor(context), 'memory:read');
       const visible = engine
         .snapshot()
         .houseMemory.filter((item) => item.sensitivity === 'routine');
@@ -495,6 +492,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
         context,
         {
           aggregateType: 'house-memory',
+          request: { action, entityId, label, value, category, sensitivity },
           idempotencyKey,
           expectedVersion,
           create: action === 'add',
@@ -535,7 +533,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       if (!entityId) throw new StayDomainError('BAD_REQUEST', 'entityId is required.');
       const result = await executeCommand(
         context,
-        { aggregateType: 'playbook', idempotencyKey, expectedVersion },
+        { aggregateType: 'playbook', idempotencyKey, expectedVersion, request: { entityId } },
         (engine) =>
           engine.executePlaybook(entityId, {
             actor: actor(context),
@@ -568,6 +566,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
     },
     async ({ action, expectedVersion = 1, idempotencyKey, temporaryPrivateUntil }) => {
       const engine = await engineFor(context);
+      requirePermission(actor(context), 'privacy:manage');
       const privacy = engine.snapshot().privacy;
       if (action === 'private-for-two-hours') {
         if (!idempotencyKey || !temporaryPrivateUntil) {
@@ -578,7 +577,12 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
         }
         const result = await executeCommand(
           context,
-          { aggregateType: 'privacy', idempotencyKey, expectedVersion },
+          {
+            aggregateType: 'privacy',
+            idempotencyKey,
+            expectedVersion,
+            request: { action, temporaryPrivateUntil },
+          },
           (current) =>
             current.updatePrivacy(
               { temporaryPrivateUntil },
@@ -627,7 +631,7 @@ function registerTools(server: McpServer, context: McpRequestContext): void {
       const observation = await providers.getDeviceStatus();
       const result = await executeCommand(
         context,
-        { aggregateType: 'device', idempotencyKey, expectedVersion },
+        { aggregateType: 'device', idempotencyKey, expectedVersion, request: { action, entityId } },
         (engine) =>
           engine.performHomeAction(entityId, action, {
             actor: actor(context),
@@ -659,7 +663,7 @@ function registerWidgetResource(server: McpServer): void {
         {
           uri: uri.href,
           mimeType: 'text/html;profile=mcp-app',
-          text: `<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light dark;font-family:Arial,sans-serif;background:#f3f0e8;color:#1e2321}body{margin:0;padding:24px}.card{min-height:180px;padding:26px;border-radius:22px 7px 22px 7px;background:#245248;color:#fffefa}.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#b7d3c8}h1{font-size:clamp(28px,7vw,54px);line-height:1;margin:18px 0 10px}p{font-size:18px;opacity:.8}.tag{display:inline-block;margin-top:20px;padding:7px 10px;border:1px solid #b7d3c8;border-radius:999px;font-size:13px}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style><body><main class="card"><span class="eyebrow">STAY · ${String(variables.kind).replaceAll('-', ' ')}</span><h1 id="title">Help that keeps you in control.</h1><p id="detail">Open STAY to see the current, authorized update.</p><span class="tag">Private by design</span></main><script>window.addEventListener('message',e=>{const d=e.data?.structuredContent?.data;if(!d)return;const entity=d.entity??d;const title=entity?.timeline?.at?.(-1)?.title??entity?.title;if(title)document.getElementById('title').textContent=title;document.getElementById('detail').textContent=e.data?.content?.[0]?.text??'Current STAY update.'})</script></body></html>`,
+          text: `<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light dark;font-family:Arial,sans-serif;background:#f3f0e8;color:#1e2321}body{margin:0;padding:24px}.card{min-height:180px;padding:26px;border-radius:22px 7px 22px 7px;background:#245248;color:#fffefa}.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#b7d3c8}h1{font-size:clamp(28px,7vw,54px);line-height:1;margin:18px 0 10px}p{font-size:18px;opacity:.8}.tag{display:inline-block;margin-top:20px;padding:7px 10px;border:1px solid #b7d3c8;border-radius:999px;font-size:13px}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style><body><main class="card"><span class="eyebrow">STAY · ${['status', 'incident', 'setup', 'playbook'].includes(String(variables.kind)) ? String(variables.kind) : 'status'}</span><h1 id="title">Help that keeps you in control.</h1><p id="detail">Open STAY to see the current, authorized update.</p><span class="tag">Private by design</span></main><script>window.addEventListener('message',e=>{const d=e.data?.structuredContent?.data;if(!d)return;const entity=d.entity??d;const title=entity?.timeline?.at?.(-1)?.title??entity?.title;if(title)document.getElementById('title').textContent=title;document.getElementById('detail').textContent=e.data?.content?.[0]?.text??'Current STAY update.'})</script></body></html>`,
         },
       ],
     }),

@@ -16,3 +16,5 @@ assets/submission/video/.raw/
 brandkit/state.json
 devpost-private-answers.md
 *.tsbuildinfo
+
+pilot-private/
