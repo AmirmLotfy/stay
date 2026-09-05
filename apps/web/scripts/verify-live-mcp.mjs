@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import { URL, URLSearchParams } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -8,6 +9,7 @@ const fetch = globalThis.fetch;
 const interactiveLogin = process.env.STAY_INTERACTIVE_LOGIN === 'true';
 const required = [
   'STAY_COGNITO_BASE_URL',
+  'STAY_COGNITO_ISSUER_URL',
   'STAY_CLIENT_ID',
   'STAY_REDIRECT_URI',
   ...(interactiveLogin ? [] : ['STAY_USERNAME', 'STAY_PASSWORD']),
@@ -18,6 +20,7 @@ for (const name of required) {
 }
 
 const cognitoBaseUrl = process.env.STAY_COGNITO_BASE_URL;
+const cognitoIssuerUrl = process.env.STAY_COGNITO_ISSUER_URL;
 const clientId = process.env.STAY_CLIENT_ID;
 const redirectUri = process.env.STAY_REDIRECT_URI;
 const username = process.env.STAY_USERNAME;
@@ -27,11 +30,13 @@ const browserPath = process.env.STAY_BROWSER_PATH;
 
 const verifier = randomBytes(48).toString('base64url');
 const state = randomBytes(24).toString('base64url');
+const nonce = randomBytes(24).toString('base64url');
 const challenge = createHash('sha256').update(verifier).digest('base64url');
 const authorizeUrl = new URL('/oauth2/authorize', cognitoBaseUrl);
 authorizeUrl.search = new URLSearchParams({
   response_type: 'code',
   state,
+  nonce,
   client_id: clientId,
   redirect_uri: redirectUri,
   scope: 'openid email stay/mcp',
@@ -87,9 +92,24 @@ try {
     }),
   });
   const tokens = await tokenResponse.json();
-  if (!tokenResponse.ok || typeof tokens.access_token !== 'string') {
+  if (
+    !tokenResponse.ok ||
+    typeof tokens.access_token !== 'string' ||
+    typeof tokens.id_token !== 'string'
+  ) {
     throw new Error(`Cognito token exchange failed with status ${tokenResponse.status}.`);
   }
+  const idClaims = JSON.parse(
+    Buffer.from(tokens.id_token.split('.')[1] ?? '', 'base64url').toString('utf8'),
+  );
+  if (
+    idClaims.nonce !== nonce ||
+    idClaims.aud !== clientId ||
+    idClaims.iss !== cognitoIssuerUrl ||
+    idClaims.token_use !== 'id' ||
+    Number(idClaims.exp) <= Date.now() / 1000
+  )
+    throw new Error('Cognito ID token did not match the nonce-bound OAuth request.');
 
   const rpc = async (id, method, params) => {
     const response = await fetch(mcpUrl, {

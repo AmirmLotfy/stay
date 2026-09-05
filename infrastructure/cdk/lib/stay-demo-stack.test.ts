@@ -45,6 +45,24 @@ describe('StayDemoStack', () => {
       DestinationConfig: { OnFailure: { Destination: Match.anyValue() } },
     });
     template.hasOutput('Stage', { Value: 'pilot' });
+    expect(template.findParameters('SesRecipientEmail')).toEqual({});
+    template.hasOutput('CognitoIssuerUrl', { Value: Match.anyValue() });
+    template.hasOutput('PilotOperatorPolicyArn', { Value: Match.anyValue() });
+    template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
+      ManagedPolicyName: 'stay-pilot-household-operator',
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:TransactWriteItems']),
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith(['cognito-idp:AdminDisableUser']),
+          }),
+        ]),
+      },
+    });
+    template.resourceCountIs('AWS::IAM::OIDCProvider', 0);
+    expect(template.findOutputs('GitHubDeploymentRoleArn')).toEqual({});
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'stay-pilot-notification',
       Timeout: 60,
@@ -63,6 +81,8 @@ describe('StayDemoStack', () => {
       });
     const serialized = JSON.stringify(template.toJSON());
     expect(serialized.replaceAll('x-stay-demo-session', '')).not.toContain('stay-demo-');
+    expect(serialized).not.toContain('SES_RECIPIENT_EMAIL');
+    expect(serialized).not.toContain('token.actions.githubusercontent.com');
     expect(serialized).not.toContain('_dmarc.saystay.site');
   }, 90_000);
   it('synthesizes the durable safety and delivery topology', () => {

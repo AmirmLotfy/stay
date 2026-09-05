@@ -87,11 +87,13 @@ export class StayDemoStack extends Stack {
       description: 'SES-verified sender. Sandbox accounts may send only to verified recipients.',
       allowedPattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$',
     });
-    const sesRecipientEmail = new CfnParameter(this, 'SesRecipientEmail', {
-      type: 'String',
-      description: 'SES-approved demo recipient used to prove minimal transactional delivery.',
-      allowedPattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$',
-    });
+    const sesRecipientEmail = pilot
+      ? undefined
+      : new CfnParameter(this, 'SesRecipientEmail', {
+          type: 'String',
+          description: 'SES-approved demo recipient used to prove minimal transactional delivery.',
+          allowedPattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$',
+        });
     const bedrockModelId = new CfnParameter(this, 'BedrockModelId', {
       type: 'String',
       description:
@@ -443,6 +445,52 @@ export class StayDemoStack extends Stack {
       clientId: alexaClient.userPoolClientId,
       useCognitoProvidedValues: true,
     });
+    const pilotOperatorPolicy = pilot
+      ? new iam.ManagedPolicy(this, 'PilotOperatorPolicy', {
+          managedPolicyName: 'stay-pilot-household-operator',
+          description:
+            'Least-privilege provider operations for the owner-assisted STAY household pilot.',
+          statements: [
+            new iam.PolicyStatement({
+              actions: ['cloudformation:DescribeStacks'],
+              resources: [
+                this.formatArn({
+                  service: 'cloudformation',
+                  resource: 'stack',
+                  resourceName: `${this.stackName}/*`,
+                }),
+              ],
+            }),
+            new iam.PolicyStatement({
+              actions: [
+                'dynamodb:GetItem',
+                'dynamodb:Query',
+                'dynamodb:PutItem',
+                'dynamodb:UpdateItem',
+                'dynamodb:DeleteItem',
+                'dynamodb:TransactWriteItems',
+              ],
+              resources: [table.tableArn],
+            }),
+            new iam.PolicyStatement({
+              actions: [
+                'cognito-idp:AdminCreateUser',
+                'cognito-idp:AdminGetUser',
+                'cognito-idp:AdminDisableUser',
+                'cognito-idp:AdminUserGlobalSignOut',
+                'cognito-idp:AdminDeleteUser',
+              ],
+              resources: [userPool.userPoolArn],
+            }),
+            new iam.PolicyStatement({
+              actions: ['ses:GetEmailIdentity'],
+              resources: [
+                this.formatArn({ service: 'ses', resource: 'identity', resourceName: '*' }),
+              ],
+            }),
+          ],
+        })
+      : undefined;
     const alexaCredentials = new secretsmanager.Secret(this, 'AlexaAccountLinkingSecret', {
       description: 'Confidential Cognito client credentials for Alexa account linking.',
       encryptionKey: dataKey,
@@ -550,7 +598,7 @@ export class StayDemoStack extends Stack {
         ...(pilot ? { timeout: Duration.seconds(60), reservedConcurrentExecutions: 4 } : {}),
         environment: {
           SES_FROM_EMAIL: sesFromEmail.valueAsString,
-          SES_RECIPIENT_EMAIL: sesRecipientEmail.valueAsString,
+          ...(sesRecipientEmail ? { SES_RECIPIENT_EMAIL: sesRecipientEmail.valueAsString } : {}),
         },
       },
     );
@@ -1003,6 +1051,7 @@ export class StayDemoStack extends Stack {
             fallbackUrl: transportOrigin,
             websocketUrl: webSocketStage.url,
             cognitoBaseUrl,
+            cognitoIssuerUrl: userPool.userPoolProviderUrl,
             publicClientId: publicClient.userPoolClientId,
             redirectUri: `${demoUrl}/auth/callback`,
             logoutUri: `${demoUrl}/`,
@@ -1017,67 +1066,66 @@ export class StayDemoStack extends Stack {
     // GitHub OIDC is intentionally project-scoped. The account uses GitHub's customized
     // subject template with immutable owner and repository IDs. Review the role and cdk diff
     // before deployment.
-    const githubProvider = pilot
-      ? iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
-          this,
-          'ExistingGitHubProvider',
-          `arn:${this.partition}:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
-        )
-      : new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
-          url: 'https://token.actions.githubusercontent.com',
-          clientIds: ['sts.amazonaws.com'],
-        });
-    const deploymentRole = new iam.Role(this, 'GitHubDeploymentRole', {
-      assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
-        StringEquals: {
-          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-          'token.actions.githubusercontent.com:sub':
-            'repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main',
-        },
-      }),
-      maxSessionDuration: Duration.hours(1),
-      description:
-        'GitHub Actions deployment role restricted to immutable AmirmLotfy/stay IDs on main.',
-    });
-    deploymentRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          'cloudformation:DescribeStacks',
-          'cloudformation:CreateChangeSet',
-          'cloudformation:DescribeChangeSet',
-          'cloudformation:ExecuteChangeSet',
-          'cloudformation:DeleteChangeSet',
-          's3:GetObject',
-          's3:PutObject',
-          's3:ListBucket',
-          'ecr:GetAuthorizationToken',
-        ],
-        resources: ['*'],
-      }),
-    );
-    deploymentRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['cloudformation:UpdateTerminationProtection'],
-        resources: [
-          this.formatArn({
-            service: 'cloudformation',
-            resource: 'stack',
-            resourceName: `${this.stackName}/*`,
-          }),
-        ],
-      }),
-    );
-    deploymentRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['sts:AssumeRole', 'sts:TagSession'],
-        resources: [
-          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-${this.region}`,
-          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-file-publishing-role-${this.account}-${this.region}`,
-          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-image-publishing-role-${this.account}-${this.region}`,
-          `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-lookup-role-${this.account}-${this.region}`,
-        ],
-      }),
-    );
+    const deploymentRole = pilot
+      ? undefined
+      : (() => {
+          const githubProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
+            url: 'https://token.actions.githubusercontent.com',
+            clientIds: ['sts.amazonaws.com'],
+          });
+          const role = new iam.Role(this, 'GitHubDeploymentRole', {
+            assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
+              StringEquals: {
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+                'token.actions.githubusercontent.com:sub':
+                  'repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main',
+              },
+            }),
+            maxSessionDuration: Duration.hours(1),
+            description:
+              'GitHub Actions deployment role restricted to immutable AmirmLotfy/stay IDs on main.',
+          });
+          role.addToPolicy(
+            new iam.PolicyStatement({
+              actions: [
+                'cloudformation:DescribeStacks',
+                'cloudformation:CreateChangeSet',
+                'cloudformation:DescribeChangeSet',
+                'cloudformation:ExecuteChangeSet',
+                'cloudformation:DeleteChangeSet',
+                's3:GetObject',
+                's3:PutObject',
+                's3:ListBucket',
+                'ecr:GetAuthorizationToken',
+              ],
+              resources: ['*'],
+            }),
+          );
+          role.addToPolicy(
+            new iam.PolicyStatement({
+              actions: ['cloudformation:UpdateTerminationProtection'],
+              resources: [
+                this.formatArn({
+                  service: 'cloudformation',
+                  resource: 'stack',
+                  resourceName: `${this.stackName}/*`,
+                }),
+              ],
+            }),
+          );
+          role.addToPolicy(
+            new iam.PolicyStatement({
+              actions: ['sts:AssumeRole', 'sts:TagSession'],
+              resources: [
+                `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-${this.region}`,
+                `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-file-publishing-role-${this.account}-${this.region}`,
+                `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-image-publishing-role-${this.account}-${this.region}`,
+                `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-lookup-role-${this.account}-${this.region}`,
+              ],
+            }),
+          );
+          return role;
+        })();
 
     if (!sesDomainIdentity && !pilot) {
       Validations.of(notificationFunction).acknowledge({
@@ -1125,11 +1173,24 @@ export class StayDemoStack extends Stack {
     const acknowledgedAccount = Token.isUnresolved(this.account)
       ? '<AWS::AccountId>'
       : this.account;
-    acknowledgeGranular(
-      deploymentRole,
-      `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/${this.stackName}/*]`,
-      'The GitHub deployment role may update termination protection only for versions of this one STAY stack; its OIDC trust remains repository, immutable-ID, and main-branch scoped.',
-    );
+    if (deploymentRole)
+      acknowledgeGranular(
+        deploymentRole,
+        `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/${this.stackName}/*]`,
+        'The GitHub deployment role may update termination protection only for versions of this one STAY stack; its OIDC trust remains repository, immutable-ID, and main-branch scoped.',
+      );
+    if (pilotOperatorPolicy) {
+      acknowledgeGranular(
+        pilotOperatorPolicy,
+        `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/${this.stackName}/*]`,
+        'The pilot operator reads outputs only from versions of the dedicated pilot stack so the provisioning command can bind itself to the deployed table and user pool.',
+      );
+      acknowledgeGranular(
+        pilotOperatorPolicy,
+        `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:ses:us-east-1:${acknowledgedAccount}:identity/*]`,
+        'The pilot operator only reads verification state for participant-supplied SES email identities; it cannot create, modify, or send from identities.',
+      );
+    }
     for (const suppression of [
       {
         id: 'AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]',
@@ -1272,11 +1333,17 @@ export class StayDemoStack extends Stack {
     new CfnOutput(this, 'ManagedLoginUrl', {
       value: `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`,
     });
+    new CfnOutput(this, 'CognitoIssuerUrl', { value: userPool.userPoolProviderUrl });
     new CfnOutput(this, 'AlexaCredentialsSecretArn', { value: alexaCredentials.secretArn });
-    new CfnOutput(this, 'GitHubDeploymentRoleArn', { value: deploymentRole.roleArn });
+    if (deploymentRole)
+      new CfnOutput(this, 'GitHubDeploymentRoleArn', { value: deploymentRole.roleArn });
     new CfnOutput(this, 'ProductTableName', { value: table.tableName });
     new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new CfnOutput(this, 'Stage', { value: stage });
+    if (pilotOperatorPolicy)
+      new CfnOutput(this, 'PilotOperatorPolicyArn', {
+        value: pilotOperatorPolicy.managedPolicyArn,
+      });
     new CfnOutput(this, 'BudgetNotice', {
       value: 'Alert only: this budget does not stop AWS spend.',
     });

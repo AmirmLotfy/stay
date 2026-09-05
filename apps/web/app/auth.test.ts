@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveRuntimeConfig, type StayRuntimeConfig } from './auth';
+import { resolveRuntimeConfig, validateIdToken, type StayRuntimeConfig } from './auth';
 
 const config: StayRuntimeConfig = {
   apiUrl: 'https://saystay.site',
@@ -35,5 +35,42 @@ describe('resolveRuntimeConfig', () => {
       ...config,
       fallbackUrl: 'not a URL',
     });
+  });
+});
+
+function idToken(claims: Record<string, unknown>): string {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${encode({ alg: 'RS256' })}.${encode(claims)}.signature`;
+}
+
+describe('validateIdToken', () => {
+  const expected = {
+    nonce: 'expected-nonce',
+    clientId: 'public-client',
+    issuer: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_pool',
+    nowSeconds: 1_800_000_000,
+  };
+  const claims = {
+    nonce: expected.nonce,
+    aud: expected.clientId,
+    iss: expected.issuer,
+    token_use: 'id',
+    exp: expected.nowSeconds + 300,
+  };
+
+  it('accepts the nonce-bound Cognito ID token claims', () => {
+    expect(() => validateIdToken(idToken(claims), expected)).not.toThrow();
+  });
+
+  it.each([
+    ['nonce', 'other'],
+    ['aud', 'other-client'],
+    ['iss', 'https://example.test'],
+    ['token_use', 'access'],
+    ['exp', expected.nowSeconds],
+  ])('rejects an unexpected %s claim', (name, value) => {
+    expect(() => validateIdToken(idToken({ ...claims, [name]: value }), expected)).toThrow(
+      'identity response',
+    );
   });
 });

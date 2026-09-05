@@ -4,6 +4,7 @@ export interface StayRuntimeConfig {
   fallbackUrl?: string;
   websocketUrl: string;
   cognitoBaseUrl: string;
+  cognitoIssuerUrl?: string;
   publicClientId: string;
   redirectUri: string;
   logoutUri: string;
@@ -47,6 +48,7 @@ const configKey = 'stay.runtime-config';
 const tokensKey = 'stay.oauth-tokens';
 const verifierKey = 'stay.pkce-verifier';
 const stateKey = 'stay.oauth-state';
+const nonceKey = 'stay.oauth-nonce';
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -81,8 +83,10 @@ export async function loadRuntimeConfig(): Promise<StayRuntimeConfig | null> {
 export async function beginSignIn(config: StayRuntimeConfig): Promise<void> {
   const verifier = randomValue(64);
   const state = randomValue();
+  const nonce = randomValue();
   sessionStorage.setItem(verifierKey, verifier);
   sessionStorage.setItem(stateKey, state);
+  sessionStorage.setItem(nonceKey, nonce);
   const url = new URL('/oauth2/authorize', config.cognitoBaseUrl);
   url.search = new URLSearchParams({
     response_type: 'code',
@@ -92,6 +96,7 @@ export async function beginSignIn(config: StayRuntimeConfig): Promise<void> {
     code_challenge_method: 'S256',
     code_challenge: await challenge(verifier),
     state,
+    nonce,
   }).toString();
   window.location.assign(url);
 }
@@ -103,9 +108,13 @@ export async function completeSignIn(config: StayRuntimeConfig): Promise<boolean
   if (!code) return Boolean(sessionStorage.getItem(tokensKey));
   const verifier = sessionStorage.getItem(verifierKey);
   const expectedState = sessionStorage.getItem(stateKey);
-  if (!verifier || !expectedState || returnedState !== expectedState) {
+  const expectedNonce = sessionStorage.getItem(nonceKey);
+  if (!verifier || !expectedState || !expectedNonce || returnedState !== expectedState) {
     throw new Error('The sign-in response could not be verified. Please start again.');
   }
+  sessionStorage.removeItem(verifierKey);
+  sessionStorage.removeItem(stateKey);
+  sessionStorage.removeItem(nonceKey);
   const response = await fetch(new URL('/oauth2/token', config.cognitoBaseUrl), {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -119,14 +128,43 @@ export async function completeSignIn(config: StayRuntimeConfig): Promise<boolean
   });
   if (!response.ok) throw new Error('Cognito did not complete sign-in.');
   const tokens = (await response.json()) as TokenResponse;
+  validateIdToken(tokens.id_token, {
+    nonce: expectedNonce,
+    clientId: config.publicClientId,
+    ...(config.cognitoIssuerUrl ? { issuer: config.cognitoIssuerUrl } : {}),
+    nowSeconds: Math.floor(Date.now() / 1000),
+  });
   sessionStorage.setItem(
     tokensKey,
     JSON.stringify({ ...tokens, expires_at: Date.now() + tokens.expires_in * 1000 }),
   );
-  sessionStorage.removeItem(verifierKey);
-  sessionStorage.removeItem(stateKey);
   window.history.replaceState({}, '', '/');
   return true;
+}
+
+export function validateIdToken(
+  token: string,
+  expected: { nonce: string; clientId: string; issuer?: string; nowSeconds: number },
+): void {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3 || !parts[1]) throw new Error('Malformed token.');
+    const encoded = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+    const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    const claims = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
+    if (
+      claims.nonce !== expected.nonce ||
+      claims.aud !== expected.clientId ||
+      claims.token_use !== 'id' ||
+      typeof claims.exp !== 'number' ||
+      claims.exp <= expected.nowSeconds ||
+      (expected.issuer && claims.iss !== expected.issuer)
+    )
+      throw new Error('Unexpected token claims.');
+  } catch {
+    throw new Error('The identity response could not be verified. Please sign in again.');
+  }
 }
 
 export async function signOut(config: StayRuntimeConfig): Promise<void> {
