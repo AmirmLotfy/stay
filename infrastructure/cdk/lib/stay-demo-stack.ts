@@ -613,6 +613,11 @@ export class StayDemoStack extends Stack {
           environment: { WEBSITE_BUCKET: websiteBucket.bucketName },
         });
     if (staticSiteFunction) websiteBucket.grantRead(staticSiteFunction);
+    staticSiteFunction?.addEnvironment('COGNITO_ORIGIN', cognitoBaseUrl);
+    staticSiteFunction?.addEnvironment(
+      'COGNITO_ISSUER_ORIGIN',
+      `https://cognito-idp.${this.region}.${this.urlSuffix}`,
+    );
 
     for (const functionItem of [
       apiFunction,

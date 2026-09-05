@@ -1,3 +1,5 @@
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+
 export interface StayRuntimeConfig {
   environment?: 'demo' | 'pilot';
   apiUrl: string;
@@ -49,6 +51,7 @@ const tokensKey = 'stay.oauth-tokens';
 const verifierKey = 'stay.pkce-verifier';
 const stateKey = 'stay.oauth-state';
 const nonceKey = 'stay.oauth-nonce';
+const issuerKeys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -128,10 +131,12 @@ export async function completeSignIn(config: StayRuntimeConfig): Promise<boolean
   });
   if (!response.ok) throw new Error('Cognito did not complete sign-in.');
   const tokens = (await response.json()) as TokenResponse;
-  validateIdToken(tokens.id_token, {
+  if (!config.cognitoIssuerUrl)
+    throw new Error('The identity response could not be verified. Please sign in again.');
+  await validateIdToken(tokens.id_token, {
     nonce: expectedNonce,
     clientId: config.publicClientId,
-    ...(config.cognitoIssuerUrl ? { issuer: config.cognitoIssuerUrl } : {}),
+    issuer: config.cognitoIssuerUrl,
     nowSeconds: Math.floor(Date.now() / 1000),
   });
   sessionStorage.setItem(
@@ -142,26 +147,43 @@ export async function completeSignIn(config: StayRuntimeConfig): Promise<boolean
   return true;
 }
 
-export function validateIdToken(
-  token: string,
-  expected: { nonce: string; clientId: string; issuer?: string; nowSeconds: number },
-): void {
+interface ExpectedIdentity {
+  nonce: string;
+  clientId: string;
+  issuer: string;
+  nowSeconds: number;
+}
+
+export function validateIdTokenClaims(claims: JWTPayload, expected: ExpectedIdentity): void {
+  if (
+    claims.nonce !== expected.nonce ||
+    claims.aud !== expected.clientId ||
+    claims.iss !== expected.issuer ||
+    claims.token_use !== 'id' ||
+    typeof claims.exp !== 'number' ||
+    claims.exp <= expected.nowSeconds
+  )
+    throw new Error('Unexpected token claims.');
+}
+
+export async function validateIdToken(token: string, expected: ExpectedIdentity): Promise<void> {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3 || !parts[1]) throw new Error('Malformed token.');
-    const encoded = parts[1].replaceAll('-', '+').replaceAll('_', '/');
-    const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '=');
-    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-    const claims = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
-    if (
-      claims.nonce !== expected.nonce ||
-      claims.aud !== expected.clientId ||
-      claims.token_use !== 'id' ||
-      typeof claims.exp !== 'number' ||
-      claims.exp <= expected.nowSeconds ||
-      (expected.issuer && claims.iss !== expected.issuer)
-    )
-      throw new Error('Unexpected token claims.');
+    const issuerUrl = new URL(expected.issuer);
+    if (issuerUrl.protocol !== 'https:') throw new Error('Unexpected issuer protocol.');
+    let keys = issuerKeys.get(expected.issuer);
+    if (!keys) {
+      keys = createRemoteJWKSet(
+        new URL(`${expected.issuer.replace(/\/$/, '')}/.well-known/jwks.json`),
+      );
+      issuerKeys.set(expected.issuer, keys);
+    }
+    const { payload } = await jwtVerify(token, keys, {
+      algorithms: ['RS256'],
+      issuer: expected.issuer,
+      audience: expected.clientId,
+      currentDate: new Date(expected.nowSeconds * 1000),
+    });
+    validateIdTokenClaims(payload, expected);
   } catch {
     throw new Error('The identity response could not be verified. Please sign in again.');
   }

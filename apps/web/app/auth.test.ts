@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { resolveRuntimeConfig, validateIdToken, type StayRuntimeConfig } from './auth';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  resolveRuntimeConfig,
+  validateIdToken,
+  validateIdTokenClaims,
+  type StayRuntimeConfig,
+} from './auth';
 
 const config: StayRuntimeConfig = {
   apiUrl: 'https://saystay.site',
@@ -38,12 +44,7 @@ describe('resolveRuntimeConfig', () => {
   });
 });
 
-function idToken(claims: Record<string, unknown>): string {
-  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-  return `${encode({ alg: 'RS256' })}.${encode(claims)}.signature`;
-}
-
-describe('validateIdToken', () => {
+describe('validateIdTokenClaims', () => {
   const expected = {
     nonce: 'expected-nonce',
     clientId: 'public-client',
@@ -59,7 +60,7 @@ describe('validateIdToken', () => {
   };
 
   it('accepts the nonce-bound Cognito ID token claims', () => {
-    expect(() => validateIdToken(idToken(claims), expected)).not.toThrow();
+    expect(() => validateIdTokenClaims(claims, expected)).not.toThrow();
   });
 
   it.each([
@@ -69,8 +70,36 @@ describe('validateIdToken', () => {
     ['token_use', 'access'],
     ['exp', expected.nowSeconds],
   ])('rejects an unexpected %s claim', (name, value) => {
-    expect(() => validateIdToken(idToken({ ...claims, [name]: value }), expected)).toThrow(
-      'identity response',
+    expect(() => validateIdTokenClaims({ ...claims, [name]: value }, expected)).toThrow(
+      'Unexpected token claims',
     );
+  });
+
+  it('verifies a Cognito-style RS256 signature against the issuer key set', async () => {
+    const { privateKey, publicKey } = await generateKeyPair('RS256');
+    const publicJwk = {
+      ...(await exportJWK(publicKey)),
+      alg: 'RS256',
+      kid: 'test-key',
+      use: 'sig',
+    };
+    const fetchKeys = vi.fn(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ keys: [publicJwk] }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchKeys);
+    const token = await new SignJWT(claims)
+      .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+      .sign(privateKey);
+
+    await expect(validateIdToken(token, expected)).resolves.toBeUndefined();
+    expect(fetchKeys).toHaveBeenCalledOnce();
+    const [header, payload, signature = ''] = token.split('.');
+    const tampered = `${header}.${payload}.${signature[0] === 'A' ? 'B' : 'A'}${signature.slice(1)}`;
+    await expect(validateIdToken(tampered, expected)).rejects.toThrow('identity response');
+    vi.unstubAllGlobals();
   });
 });

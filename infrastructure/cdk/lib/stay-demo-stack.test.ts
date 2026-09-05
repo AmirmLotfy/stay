@@ -68,6 +68,15 @@ describe('StayDemoStack', () => {
       Timeout: 60,
       ReservedConcurrentExecutions: 4,
     });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'stay-pilot-static-site',
+      Environment: {
+        Variables: Match.objectLike({
+          COGNITO_ORIGIN: Match.anyValue(),
+          COGNITO_ISSUER_ORIGIN: Match.anyValue(),
+        }),
+      },
+    });
     template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
       BatchSize: 1,
       ScalingConfig: { MaximumConcurrency: 2 },

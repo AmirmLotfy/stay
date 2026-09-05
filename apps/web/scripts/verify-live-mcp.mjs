@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import { URL, URLSearchParams } from 'node:url';
 import { chromium } from '@playwright/test';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 const fetch = globalThis.fetch;
 
@@ -99,8 +99,14 @@ try {
   ) {
     throw new Error(`Cognito token exchange failed with status ${tokenResponse.status}.`);
   }
-  const idClaims = JSON.parse(
-    Buffer.from(tokens.id_token.split('.')[1] ?? '', 'base64url').toString('utf8'),
+  const { payload: idClaims } = await jwtVerify(
+    tokens.id_token,
+    createRemoteJWKSet(new URL(`${cognitoIssuerUrl.replace(/\/$/, '')}/.well-known/jwks.json`)),
+    {
+      algorithms: ['RS256'],
+      issuer: cognitoIssuerUrl,
+      audience: clientId,
+    },
   );
   if (
     idClaims.nonce !== nonce ||
