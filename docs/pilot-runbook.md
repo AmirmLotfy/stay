@@ -72,3 +72,7 @@ Rollback: pause enrollment, record the incident and current data versions, deplo
 - Real VoiceOver/Safari and TalkBack/Chrome, keyboard, touch, 200% text, reduced motion and reconnect announcements on supported devices. Automated axe and viewport tests are supporting evidence only.
 - Measured backup/restore rehearsal, rollback rehearsal, owner alarm receipt, consent and operator support arrangement.
 - Onboard one household only after all gates pass. Expand to five after seven days without unresolved access, safety or delivery defects. Review after fourteen further days. Record dates and defects; calendar time cannot be replaced by synthetic tests.
+
+## Authenticated MCP verification
+
+The pilot requires MFA. Run `apps/web/scripts/verify-live-mcp.mjs` with `STAY_INTERACTIVE_LOGIN=true`, the pilot Cognito base URL/public client ID, registered redirect URI and pilot MCP URL in the existing `STAY_*` variables listed in that script. It opens a visible browser for the operator to complete sign-in and MFA, then validates OAuth state/PKCE and MCP initialize/list/read-only-call without printing tokens or household content. Noninteractive username/password mode is retained for suitable test identities, but does not bypass MFA. Local syntax checks do not prove this provider flow; record the authenticated result after deployment.

@@ -5,12 +5,12 @@ import { chromium } from '@playwright/test';
 
 const fetch = globalThis.fetch;
 
+const interactiveLogin = process.env.STAY_INTERACTIVE_LOGIN === 'true';
 const required = [
   'STAY_COGNITO_BASE_URL',
   'STAY_CLIENT_ID',
   'STAY_REDIRECT_URI',
-  'STAY_USERNAME',
-  'STAY_PASSWORD',
+  ...(interactiveLogin ? [] : ['STAY_USERNAME', 'STAY_PASSWORD']),
   'STAY_MCP_URL',
 ];
 for (const name of required) {
@@ -26,10 +26,12 @@ const mcpUrl = process.env.STAY_MCP_URL;
 const browserPath = process.env.STAY_BROWSER_PATH;
 
 const verifier = randomBytes(48).toString('base64url');
+const state = randomBytes(24).toString('base64url');
 const challenge = createHash('sha256').update(verifier).digest('base64url');
 const authorizeUrl = new URL('/oauth2/authorize', cognitoBaseUrl);
 authorizeUrl.search = new URLSearchParams({
   response_type: 'code',
+  state,
   client_id: clientId,
   redirect_uri: redirectUri,
   scope: 'openid email stay/mcp',
@@ -38,31 +40,39 @@ authorizeUrl.search = new URLSearchParams({
 }).toString();
 
 const browser = await chromium.launch({
-  headless: true,
+  headless: !interactiveLogin,
   ...(browserPath ? { executablePath: browserPath } : {}),
 });
 try {
   const page = await browser.newPage();
   await page.goto(authorizeUrl.toString(), { waitUntil: 'domcontentloaded' });
-  const usernameInput = page
-    .locator('input[name="username"], input#signInFormUsername, input[type="email"]')
-    .first();
-  const passwordInput = page
-    .locator('input[name="password"], input#signInFormPassword, input[type="password"]')
-    .first();
-  await usernameInput.fill(username);
-  await passwordInput.fill(password);
-  await page.locator('button[type="submit"], input[type="submit"]').first().click({
-    noWaitAfter: true,
-  });
+  if (interactiveLogin) {
+    process.stdout.write(
+      'Complete sign-in and required MFA in the opened browser. Credentials stay in the sign-in form.\n',
+    );
+  } else {
+    const usernameInput = page
+      .locator('input[name="username"], input#signInFormUsername, input[type="email"]')
+      .first();
+    const passwordInput = page
+      .locator('input[name="password"], input#signInFormPassword, input[type="password"]')
+      .first();
+    await usernameInput.fill(username);
+    await passwordInput.fill(password);
+    await page.locator('button[type="submit"], input[type="submit"]').first().click({
+      noWaitAfter: true,
+    });
+  }
   let callbackUrl;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < (interactiveLogin ? 360 : 60); attempt += 1) {
     if (page.url().startsWith(redirectUri)) {
       callbackUrl = page.url();
       break;
     }
     await page.waitForTimeout(500);
   }
+  if (callbackUrl && new URL(callbackUrl).searchParams.get('state') !== state)
+    throw new Error('OAuth state mismatch.');
   const code = callbackUrl ? new URL(callbackUrl).searchParams.get('code') : null;
   if (!code) throw new Error('Cognito did not return an authorization code.');
   const tokenResponse = await fetch(new URL('/oauth2/token', cognitoBaseUrl), {
