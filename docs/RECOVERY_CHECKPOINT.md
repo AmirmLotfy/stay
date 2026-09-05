@@ -48,7 +48,7 @@ Record each new result with revision, timestamp, command, environment and limita
 
 ## Implementation milestone
 
-Current worktree contains the recovery and pilot candidate (not deployed). Real households load independent empty state; stored membership checks protect REST/MCP/WebSocket delivery; private contact/profile preferences use versioned contracts and request-bound replay keys. Operator commands prepare provision/invite/revoke/export/offboard/purge and pause enrollment. Neutral SES delivery rechecks membership and preferences, suppresses demo/opt-out/bounce/complaint recipients, retries explicit throttling and holds ambiguous sends for review. Scheduled checks use household-scoped immutable names, recover out-of-order transitions and atomically persist incidents. Pilot infra imports existing DNS/SES/OIDC while isolating identity, data and processing. See `pilot-runbook.md`, `pilot-infrastructure-review.md` and `pilot-design-evidence.md`.
+Current worktree contains the recovery and pilot candidate (not deployed). Real households load independent empty state; stored membership checks protect REST/MCP/WebSocket delivery; private contact/profile preferences use versioned contracts and request-bound replay keys. Operator commands prepare provision/invite/revoke/export/offboard/purge and pause enrollment. Neutral SES delivery rechecks membership and preferences, suppresses demo/opt-out/bounce/complaint recipients, retries explicit throttling and holds ambiguous sends for review. Scheduled checks use household-scoped immutable names, recover out-of-order transitions and atomically persist incidents. Pilot infra imports existing DNS and SES resources, reuses the existing main-scoped GitHub deployment role, and isolates identity, data and processing. See `pilot-runbook.md`, `pilot-infrastructure-review.md` and `pilot-design-evidence.md`.
 
 Fresh evidence on 2026-09-05:
 
@@ -69,13 +69,16 @@ Candidate branch: `codex/stay-recovery-pilot`. Full `pnpm verify` passed before 
 
 - Pilot implementation: `69680b5b2e53c2c8301e2b509f50fb8a54f4228d`.
 - Final code revision, including interactive MFA verification: `b38cee99dec5e38b0625ac31d61eff2bc69ea5a9`.
+- Reviewed deployment and OAuth hardening revision: `4f87953922855535990c6e2cd3232092d577923e`.
 - [Draft PR #3](https://github.com/AmirmLotfy/stay/pull/3) is pushed on `codex/stay-recovery-pilot`; no merge or deployment occurred.
 - [CI 33991750541](https://github.com/AmirmLotfy/stay/actions/runs/33991750541) **passed** on the final code revision: generated contracts, format, lint, type checking, tests, coverage, media checks, build, strict demo and pilot synthesis, and **44 browser scenarios**.
+- [CI 33993550879](https://github.com/AmirmLotfy/stay/actions/runs/33993550879) **passed** on the deployment/OAuth revision with the same full pipeline and **44 browser scenarios**. Local `pnpm verify`, strict pilot synthesis, `actionlint`, the 8-check local media verifier and all 44 browser scenarios also passed.
+- The web and authenticated MCP verifier now bind OAuth responses to a nonce and validate Cognito issuer, audience, token use and expiry. The pilot template omits the legacy shared email destination and a duplicate OIDC/deployment role, and emits an unattached least-privilege operator policy. The manual workflow always generates an exact change-set diff and only deploys a confirmed 40-character `main` revision.
 - Final strict `pnpm verify:submission`: **15 passed, 0 pending, 0 failed**. This is packet/link verification, not a final Devpost submission or full human playback review.
 - Final independent fix review: sender lease held through variable-latency authorization/dispatch with fenced release and cooldown; 15 notification tests passed. Offboarding's post-closure incident recheck prevents falsely reporting completed handoff.
 - Local final functions: **85 passed**; type checking, lint, build, coverage and strict pilot synthesis passed. Read-only pilot diff creates one stack.
 - A documentation-only follow-up records these results; it does not change the tested implementation.
 
-Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 3`, `gh run view 33991750541`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
+Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 3`, `gh run view 33993550879`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
 
 Required user/provider inputs are pending: participant review/merge of draft PR #3, participant full video review and Devpost entry/submission, and actual pilot consent/verified identities. The only local AWS profile remains root-backed and must not be used for pilot operations. The candidate now supplies a pilot-only workflow that can perform the reviewed diff/deploy through the existing main-branch GitHub OIDC role after merge; the deploy action is still pending. After deployment, complete live authenticated isolation/MCP/WS, inbox/feedback/alert, restore/rollback and device accessibility checks before enrollment. The actual seven-day and fourteen-day observation gates remain unchanged.
