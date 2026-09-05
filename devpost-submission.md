@@ -299,6 +299,6 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 - **Participant assertions:** stored only in the ignored local handoff. The current values do not pass the official eligibility gate and must not be changed unless the user confirms they were mistakes and truthfully corrects them.
 - **Final action:** do not submit without the dedicated final confirmation.
 
-## Recovery form check — 2026-09-05
+## Recovery form check — 2026-09-06
 
-The authenticated STAY draft is still DRAFT (1/5 steps done). All 26 additional field IDs and meanings match this pack. Alexa+, AWS Builder and Open Source choices remain available. Manual captions now persist in Studio and render in the public player; complete human playback review and manual entry before submitting. Pilot changes are an undeployed candidate and must not be described as live household capability.
+The authenticated STAY draft was reverified under `amirmolotfy` and is still DRAFT (1/5 steps done). All 26 additional fields remain blank; their IDs and meanings match this pack. Alexa+, AWS Builder and Open Source choices remain available. Manual captions persist in Studio and render in the public player; complete human playback review and manual entry before submitting. Pilot changes are an undeployed candidate and must not be described as live household capability.

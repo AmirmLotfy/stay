@@ -1,6 +1,6 @@
 # Submission readiness audit
 
-Updated 2026-09-05 during recovery implementation. Source and submission media survived the lost session. The judge demo remains deployed; the new pilot work is a local candidate.
+Updated 2026-09-06 during recovery implementation. Source and submission media survived the lost session. The judge demo remains deployed; the new pilot work is an undeployed candidate.
 
 ## Decision
 
@@ -15,8 +15,8 @@ Updated 2026-09-05 during recovery implementation. Source and submission media s
 | Media                  | Strict verifier passes all 21 asset hashes, 170-second master/upload copy, 36 captions and live links                                                                        | 15/15 strict checks passed                        |
 | YouTube                | Approved 36-cue SRT persisted in Studio; public player displayed `[Soft felt-piano and marimba music]`; historical signed-out playback/embed and copyright inspection passed | Manual track available; full human review pending |
 | Private eligibility    | Participant confirmed both former negative answers were mistakes; ignored local handoff now records the confirmed answers                                                    | Corrected locally                                 |
-| Devpost ownership      | Authenticated project under `amirmolotfy` visibly reports **DRAFT, 1/5 steps done**; submission route ID `1166410-stay`, project slug `stay-ljbdk8`                          | Not submitted                                     |
-| Official form coverage | Fresh read-only inspection of overview, project details and all 26 additional fields `28285`–`28310`; IDs and meanings match root `devpost-submission.md`                    | Reconciled                                        |
+| Devpost ownership      | Reverified 2026-09-06 under `amirmolotfy`: **DRAFT, 1/5 steps done**; submission route ID `1166410-stay`, project slug `stay-ljbdk8`                                         | Not submitted                                     |
+| Official form coverage | Fresh read-only inspection confirms all 26 additional fields `28285`–`28310` remain blank; IDs and meanings match root `devpost-submission.md`                               | Reconciled                                        |
 | Prepared tracks        | Alexa+; AWS Builder and Open Source mini-challenges; all remain present in the official form                                                                                 | Preserved in packet                               |
 | New pilot code         | Separate identity/data/queues/domain, membership and private contacts, operator commands and empty household UI                                                              | Candidate; no deployment/enrollment               |
 | Provider               | AWS credentials now valid; SES sending enabled but sandbox (200/day, 1/sec); no current pilot inbox receipt test                                                             | Restricted                                        |
@@ -45,4 +45,4 @@ Current text fields show no HTML `maxlength`; server validation may still impose
 
 ## Recovery candidate — 2026-09-06
 
-The separate pilot/recovery candidate is saved in [draft PR #3](https://github.com/AmirmLotfy/stay/pull/3). [CI 33991750541](https://github.com/AmirmLotfy/stay/actions/runs/33991750541) passed on `b38cee9`, including all 44 local browser scenarios and strict demo/pilot synthesis. The public judge deployment remains `d569032`; passing candidate CI does not mean the pilot is deployed. Final strict submission verification again returned 15 passes with no pending exceptions. Complete live/manual gates in `RECOVERY_CHECKPOINT.md` remain open.
+The separate pilot/recovery candidate is saved in [draft PR #3](https://github.com/AmirmLotfy/stay/pull/3). [CI 33993550879](https://github.com/AmirmLotfy/stay/actions/runs/33993550879) passed on `4f87953`, including all 44 browser scenarios, coverage and strict demo/pilot synthesis. The public judge deployment remains `d569032`; passing candidate CI does not mean the pilot is deployed. Final strict submission verification again returned 15 passes with no pending exceptions. Complete live/manual gates in `RECOVERY_CHECKPOINT.md` remain open.

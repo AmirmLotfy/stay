@@ -40,7 +40,7 @@ Upload these screenshots in this order:
 
 All seven were captured from the deployed public demo after the responsive-accessibility release. Their checksums and provenance are recorded in `assets/submission/candidate-checksums.sha256` and `docs/media-production/VISUAL_PROVENANCE.csv`.
 
-The draft was freshly verified under `amirmolotfy`: **DRAFT, 1/5 steps done**. All 26 official additional-field IDs still match the copy pack. [Continue the verified draft](https://devpost.com/submit-to/30992-build-ship-shape-amazon-developer-hackathon/manage/submissions/1166410-stay/project-overview).
+The draft was freshly reverified under `amirmolotfy` on 2026-09-06: **DRAFT, 1/5 steps done**. All 26 official additional fields remain blank and their IDs still match the copy pack. [Continue the verified draft](https://devpost.com/submit-to/30992-build-ship-shape-amazon-developer-hackathon/manage/submissions/1166410-stay/project-overview).
 
 ## Final human gates
 
