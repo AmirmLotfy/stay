@@ -52,6 +52,10 @@ const verifierKey = 'stay.pkce-verifier';
 const stateKey = 'stay.oauth-state';
 const nonceKey = 'stay.oauth-nonce';
 const issuerKeys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+let refreshInFlight: {
+  key: string;
+  promise: Promise<AuthenticatedSessionRecord | null>;
+} | null = null;
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -246,26 +250,52 @@ export async function getAuthenticatedSession(
     sessionStorage.removeItem(tokensKey);
     return null;
   }
+  const refreshKey = `${config.cognitoBaseUrl}\u0000${config.publicClientId}\u0000${tokens.refresh_token}`;
+  if (refreshInFlight?.key === refreshKey) return refreshInFlight.promise;
+  const promise = refreshAuthenticatedSession(config, raw, tokens).finally(() => {
+    if (refreshInFlight?.promise === promise) refreshInFlight = null;
+  });
+  refreshInFlight = { key: refreshKey, promise };
+  return promise;
+}
+
+async function refreshAuthenticatedSession(
+  config: StayRuntimeConfig,
+  original: string,
+  tokens: TokenResponse & { expires_at?: number },
+): Promise<AuthenticatedSessionRecord | null> {
   const response = await fetch(new URL('/oauth2/token', config.cognitoBaseUrl), {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       client_id: config.publicClientId,
-      refresh_token: tokens.refresh_token,
+      refresh_token: tokens.refresh_token!,
     }),
   });
   if (!response.ok) {
-    sessionStorage.removeItem(tokensKey);
+    if (sessionStorage.getItem(tokensKey) === original) sessionStorage.removeItem(tokensKey);
     return null;
   }
-  const refreshed = (await response.json()) as TokenResponse;
+  const refreshed = (await response.json()) as Partial<TokenResponse>;
+  if (
+    typeof refreshed.access_token !== 'string' ||
+    !refreshed.access_token ||
+    refreshed.token_type !== 'Bearer' ||
+    typeof refreshed.expires_in !== 'number' ||
+    !Number.isFinite(refreshed.expires_in) ||
+    refreshed.expires_in <= 0
+  ) {
+    if (sessionStorage.getItem(tokensKey) === original) sessionStorage.removeItem(tokensKey);
+    return null;
+  }
   const next = {
     ...tokens,
     ...refreshed,
     refresh_token: refreshed.refresh_token ?? tokens.refresh_token,
     expires_at: Date.now() + refreshed.expires_in * 1000,
   };
+  if (sessionStorage.getItem(tokensKey) !== original) return getAuthenticatedSession(config);
   sessionStorage.setItem(tokensKey, JSON.stringify(next));
   return {
     mode: 'authenticated',

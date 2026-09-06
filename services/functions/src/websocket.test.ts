@@ -192,4 +192,32 @@ describe('WebSocket lifecycle and fan-out', () => {
       Key: { PK: 'CONNECTION#stored-gone', SK: 'META' },
     });
   });
+
+  it('removes a revoked authenticated connection before sending an event', async () => {
+    mocks.tableSend
+      .mockResolvedValueOnce({ Items: [{ connectionId: 'revoked-one' }] })
+      .mockResolvedValueOnce({
+        Item: {
+          householdId: 'demo-household-demo-1234567890abcdef1234',
+          subject: 'subject-revoked',
+          residentId: 'resident-revoked',
+          role: 'resident',
+          state: 'authenticated',
+          expiresAt: Math.floor(Date.now() / 1000) + 60,
+        },
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+    const event = domainEvent();
+    event.detail.connectionIds = [];
+
+    await expect(broadcastHandler(event)).resolves.toBeUndefined();
+
+    expect(mocks.managementSend).not.toHaveBeenCalled();
+    const cleanup = mocks.tableSend.mock.calls[4]![0] as { input: Record<string, unknown> };
+    expect(cleanup.input).toMatchObject({
+      Key: { PK: 'CONNECTION#revoked-one', SK: 'META' },
+    });
+  });
 });
