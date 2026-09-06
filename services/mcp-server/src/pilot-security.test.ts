@@ -99,6 +99,28 @@ describe('pilot MCP authorization', () => {
     expect(result.result.isError).toBe(true);
     expect(mocks.load).not.toHaveBeenCalled();
   });
+  it('does not load another household from signed MCP partition claims', async () => {
+    mocks.authorize.mockImplementation(async (actor: { householdId: string }) => {
+      if (actor.householdId !== profile.id) throw new Error('MEMBERSHIP_REVOKED');
+      return { profile, membership: { version: 1 } };
+    });
+    const result = await call(
+      'get_home_overview',
+      {},
+      {
+        ...auth,
+        extra: {
+          ...auth.extra,
+          householdId: 'house-other',
+        },
+      },
+    );
+    expect(result.result.isError).toBe(true);
+    expect(mocks.authorize).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'house-other', subject: 'subject-ava' }),
+    );
+    expect(mocks.load).not.toHaveBeenCalled();
+  });
   it('keeps an empty authenticated overview free of demo records and weather', async () => {
     const result = await call('get_home_overview', {});
     expect(result.result.isError).not.toBe(true);

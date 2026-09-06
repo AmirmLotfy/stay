@@ -220,4 +220,24 @@ describe('WebSocket lifecycle and fan-out', () => {
       Key: { PK: 'CONNECTION#revoked-one', SK: 'META' },
     });
   });
+
+  it('does not deliver an event to a connection from another household', async () => {
+    mocks.tableSend.mockResolvedValueOnce({ Items: [] }).mockResolvedValueOnce({
+      Item: {
+        householdId: 'house-other',
+        subject: 'subject-other',
+        residentId: 'resident-other',
+        role: 'resident',
+        state: 'authenticated',
+        expiresAt: Math.floor(Date.now() / 1000) + 60,
+      },
+    });
+    const event = domainEvent();
+    event.detail.connectionIds = ['other-household-connection'];
+
+    await expect(broadcastHandler(event)).resolves.toBeUndefined();
+
+    expect(mocks.managementSend).not.toHaveBeenCalled();
+    expect(mocks.tableSend).toHaveBeenCalledTimes(2);
+  });
 });
