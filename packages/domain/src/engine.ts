@@ -78,6 +78,14 @@ export class StayEngine {
     this.#state = structuredClone(initialState);
   }
 
+  #actorName(actor: ActorContext): string {
+    if (actor.role === 'resident') return this.#state.resident.firstName;
+    return (
+      this.#state.circle.find((member) => member.id === actor.circleMemberId)?.name ??
+      'Circle coordinator'
+    );
+  }
+
   public snapshot(): HomeState {
     return structuredClone(this.#state);
   }
@@ -111,7 +119,7 @@ export class StayEngine {
           attempt,
           window.checkAttempts === 1
             ? 'STAY will try once more after the grace period.'
-            : 'Sarah’s escalation plan is now active.',
+            : `${this.#state.resident.firstName}’s escalation plan is now active.`,
         ),
       );
       const event = this.#event(
@@ -237,11 +245,11 @@ export class StayEngine {
         this.#timeline(
           now,
           closeEarly ? 'window-closed-early' : 'resident-checked-in',
-          closeEarly ? 'Window closed early' : 'Sarah checked in',
+          closeEarly ? 'Window closed early' : `${this.#state.resident.firstName} checked in`,
           closeEarly
-            ? 'Sarah chose to close this window before the expected time.'
-            : 'Sarah confirmed that no Circle coordination is needed.',
-          'Sarah',
+            ? `${this.#state.resident.firstName} chose to close this window before the expected time.`
+            : `${this.#state.resident.firstName} confirmed that no Circle coordination is needed.`,
+          `${this.#state.resident.firstName}`,
         ),
       );
       const event = this.#event(
@@ -273,8 +281,8 @@ export class StayEngine {
           now,
           'window-cancelled',
           'Safety Window cancelled',
-          'Sarah cancelled this window. No Circle coordination will begin.',
-          'Sarah',
+          `${this.#state.resident.firstName} cancelled this window. No Circle coordination will begin.`,
+          `${this.#state.resident.firstName}`,
         ),
       );
       const event = this.#event(
@@ -313,7 +321,9 @@ export class StayEngine {
         id: `incident-${window.id}`,
         residentId: window.residentId,
         kind: 'missed-window',
-        title: 'Sarah missed her morning check-in',
+        title: this.#state.householdId.startsWith('demo-')
+          ? `${this.#state.resident.firstName} missed her morning check-in`
+          : `${this.#state.resident.firstName} missed ${window.title.toLowerCase()}`,
         state: 'coordinating',
         severity: 'attention',
         accessInstructionsAvailable: true,
@@ -324,7 +334,9 @@ export class StayEngine {
             now,
             'incident-activated',
             'Circle coordination started',
-            'Sarah’s plan asked Maya to coordinate. No emergency service was contacted.',
+            this.#state.householdId.startsWith('demo-')
+              ? `${this.#state.resident.firstName}’s plan asked Maya to coordinate. No emergency service was contacted.`
+              : 'The saved Circle plan is ready for coordination. No emergency service was contacted.',
           ),
         ],
       };
@@ -454,9 +466,9 @@ export class StayEngine {
         this.#timeline(
           now,
           'responder-asked',
-          `${meta.actor.subject === 'resident-sarah' ? 'Sarah' : 'Maya'} asked ${member.name.split(' ')[0]}`,
+          `${this.#actorName(meta.actor)} asked ${member.name.split(' ')[0]}`,
           `${member.name} received a minimal incident request.`,
-          meta.actor.subject === 'resident-sarah' ? 'Sarah' : 'Maya',
+          this.#actorName(meta.actor),
         ),
       );
       const event = this.#event(
@@ -480,6 +492,14 @@ export class StayEngine {
     meta: CommandMeta,
   ): CommandResult<Incident> {
     requirePermission(meta.actor, 'incident:coordinate');
+    if (
+      !this.#state.householdId.startsWith('demo-') &&
+      (!meta.actor.circleMemberId || meta.actor.circleMemberId !== memberId)
+    )
+      throw new StayDomainError(
+        'FORBIDDEN',
+        'Only the invited responder can accept their own assignment.',
+      );
     return this.#idempotent<Incident>(meta.idempotencyKey, () => {
       const incident = this.#incident(incidentId);
       this.#version(incident.version, meta.expectedVersion);
@@ -537,9 +557,9 @@ export class StayEngine {
         this.#timeline(
           now,
           'incident-resolved',
-          'Sarah is okay',
-          'Maya confirmed the response was complete.',
-          'Maya Bennett',
+          `${this.#state.resident.firstName} is okay`,
+          `${this.#actorName(meta.actor)} confirmed the response was complete.`,
+          this.#actorName(meta.actor),
         ),
       );
       const member = this.#state.circle.find(
@@ -913,7 +933,13 @@ export class StayEngine {
         createdAt: now,
         version: 1,
         timeline: [
-          this.#timeline(now, 'help-opened', 'Help request posted', request.detail, 'Sarah'),
+          this.#timeline(
+            now,
+            'help-opened',
+            'Help request posted',
+            request.detail,
+            `${this.#state.resident.firstName}`,
+          ),
         ],
       };
       this.#state.helpRequests.unshift(help);
@@ -932,6 +958,14 @@ export class StayEngine {
     meta: CommandMeta,
   ): CommandResult<HelpRequest> {
     requirePermission(meta.actor, 'help:respond');
+    if (
+      !this.#state.householdId.startsWith('demo-') &&
+      (!meta.actor.circleMemberId || meta.actor.circleMemberId !== memberId)
+    )
+      throw new StayDomainError(
+        'FORBIDDEN',
+        'Only the invited responder can accept their own assignment.',
+      );
     return this.#idempotent<HelpRequest>(meta.idempotencyKey, () => {
       const request = this.#helpRequest(helpRequestId);
       this.#version(request.version, meta.expectedVersion);
@@ -1030,8 +1064,8 @@ export class StayEngine {
           now,
           'help-completed',
           'Help request completed',
-          'Sarah’s Circle marked the ordinary help request complete.',
-          'Sarah',
+          `${this.#state.resident.firstName}’s Circle marked the ordinary help request complete.`,
+          `${this.#state.resident.firstName}`,
         ),
       );
       const event = this.#event(
@@ -1063,7 +1097,7 @@ export class StayEngine {
           now,
           'help-cancelled',
           'Help request cancelled',
-          'Sarah cancelled the request. Circle members can see that no action is needed.',
+          `${this.#state.resident.firstName} cancelled the request. Circle members can see that no action is needed.`,
           this.#state.resident.firstName,
         ),
       );

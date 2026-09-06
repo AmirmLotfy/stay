@@ -70,7 +70,14 @@ function bucketName(): string {
 
 function securityHeaders(contentType: string, cacheControl: string): Record<string, string> {
   const websocketOrigin = process.env.WEBSOCKET_ORIGIN;
-  const connectSources = ["'self'", ...(websocketOrigin ? [websocketOrigin] : [])].join(' ');
+  const cognitoOrigin = process.env.COGNITO_ORIGIN;
+  const cognitoIssuerOrigin = process.env.COGNITO_ISSUER_ORIGIN;
+  const connectSources = [
+    "'self'",
+    ...(websocketOrigin ? [websocketOrigin] : []),
+    ...(cognitoOrigin ? [cognitoOrigin] : []),
+    ...(cognitoIssuerOrigin ? [cognitoIssuerOrigin] : []),
+  ].join(' ');
   return {
     'content-type': contentType,
     'cache-control': cacheControl,

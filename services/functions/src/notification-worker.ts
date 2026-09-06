@@ -9,6 +9,7 @@ import {
 import type { SQSEvent } from 'aws-lambda';
 import { z } from 'zod';
 import { log } from './logging.js';
+import { applyPilotFeedback, deliverPilotEvent, pilotDeliveryIO } from './pilot-notifications.js';
 
 const DeliverySchema = z.object({
   id: z.string(),
@@ -92,6 +93,12 @@ export async function handler(
   const failures: Array<{ itemIdentifier: string }> = [];
   for (const record of event.Records) {
     try {
+      if (process.env.STAY_ENVIRONMENT === 'pilot') {
+        if (record.eventSourceARN === process.env.SES_FEEDBACK_QUEUE_ARN)
+          await applyPilotFeedback(record.body);
+        else await deliverPilotEvent(record.body, pilotDeliveryIO());
+        continue;
+      }
       if (isIsolatedDemoNotification(record.body)) {
         log('INFO', 'isolated demo email suppressed', { messageId: record.messageId });
         continue;
@@ -153,6 +160,11 @@ export async function handler(
         notificationType: delivery.message,
       });
     } catch (error) {
+      if (process.env.STAY_ENVIRONMENT === 'pilot') {
+        failures.push({ itemIdentifier: record.messageId });
+        log('ERROR', 'pilot notification requires review', { messageId: record.messageId });
+        continue;
+      }
       const parsed = (() => {
         try {
           return parseDelivery(record.body);

@@ -84,6 +84,9 @@ importers:
       '@stay/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      jose:
+        specifier: 6.2.10
+        version: 6.2.10
       lucide-react:
         specifier: 1.39.0
         version: 1.39.0(react@19.2.8)
@@ -233,6 +236,9 @@ importers:
       '@stay/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@stay/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       '@types/node':
         specifier: 26.4.1

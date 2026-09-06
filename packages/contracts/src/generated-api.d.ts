@@ -4,6 +4,415 @@
  */
 
 export interface paths {
+  '/v1/profile': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read the authenticated household profile */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                version: number;
+                /** @enum {string} */
+                status: 'active' | 'suspended' | 'closed';
+                residentId: string;
+                name: string;
+                firstName: string;
+                timezone: string;
+                consentVersion: string;
+                /** Format: date-time */
+                consentedAt: string;
+                /** Format: date-time */
+                createdAt: string;
+              };
+              provenance: {
+                /** @enum {string} */
+                mode: 'live' | 'simulated' | 'unavailable';
+                provider: string;
+                /** Format: date-time */
+                observedAt: string;
+                reason?: string;
+              };
+            };
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    put?: never;
+    /** Update the resident profile */
+    post: {
+      parameters: {
+        query?: never;
+        header: {
+          /** @description Unique command key retained for duplicate suppression. */
+          'Idempotency-Key': string;
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @constant */
+            action: 'update';
+            expectedVersion: number;
+            name: string;
+            firstName: string;
+            timezone: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CommandResult'];
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/notification-preferences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read own email preference without exposing contact addresses */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                version: number;
+                enabled: boolean;
+                /** @enum {string} */
+                suppression: 'none' | 'bounce' | 'complaint' | 'removed';
+              };
+              provenance: {
+                /** @enum {string} */
+                mode: 'live' | 'simulated' | 'unavailable';
+                provider: string;
+                /** Format: date-time */
+                observedAt: string;
+                reason?: string;
+              };
+            };
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    put?: never;
+    /** Update own email consent preference */
+    post: {
+      parameters: {
+        query?: never;
+        header: {
+          /** @description Unique command key retained for duplicate suppression. */
+          'Idempotency-Key': string;
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @constant */
+            action: 'update';
+            expectedVersion: number;
+            enabled: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['CommandResult'];
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read current active membership and permissions */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Successful response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                subject: string;
+                role: string;
+                circleMemberId?: string;
+                permissions: string[];
+              };
+              provenance: {
+                /** @enum {string} */
+                mode: 'live' | 'simulated' | 'unavailable';
+                provider: string;
+                /** Format: date-time */
+                observedAt: string;
+                reason?: string;
+              };
+            };
+          };
+        };
+        /** @description Invalid or missing command metadata */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Authentication required */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Permission denied */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+        /** @description Optimistic concurrency or state conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['ApiError'];
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/home': {
     parameters: {
       query?: never;
@@ -1902,25 +2311,6 @@ export interface components {
       visibleEntityIds: string[];
       locale: string;
     };
-    HomeDevice: {
-      id: string;
-      name: string;
-      /** @enum {string} */
-      kind: 'path-light' | 'entry-sensor' | 'utility-sensor';
-      /** @enum {string} */
-      state: 'on' | 'off' | 'ready' | 'closed' | 'normal' | 'unavailable';
-      version: number;
-      /** Format: date-time */
-      updatedAt: string;
-      provenance: {
-        /** @enum {string} */
-        mode: 'live' | 'simulated' | 'unavailable';
-        provider: string;
-        /** Format: date-time */
-        observedAt: string;
-        reason?: string;
-      };
-    };
     ApiError: {
       /** @enum {string} */
       code:
@@ -1957,6 +2347,25 @@ export interface components {
         };
       }[];
       confirmationRequired: string | null;
+      provenance: {
+        /** @enum {string} */
+        mode: 'live' | 'simulated' | 'unavailable';
+        provider: string;
+        /** Format: date-time */
+        observedAt: string;
+        reason?: string;
+      };
+    };
+    HomeDevice: {
+      id: string;
+      name: string;
+      /** @enum {string} */
+      kind: 'path-light' | 'entry-sensor' | 'utility-sensor';
+      /** @enum {string} */
+      state: 'on' | 'off' | 'ready' | 'closed' | 'normal' | 'unavailable';
+      version: number;
+      /** Format: date-time */
+      updatedAt: string;
       provenance: {
         /** @enum {string} */
         mode: 'live' | 'simulated' | 'unavailable';

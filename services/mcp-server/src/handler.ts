@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import type { AuthInfo } from '@modelcontextprotocol/server';
 import { RoleSchema } from '@stay/contracts';
 import { fetchMcp } from './server.js';
+import { DynamoStayRepository } from '@stay/persistence';
 
 function metadata(event: APIGatewayProxyEventV2): APIGatewayProxyResultV2 | null {
   if (!event.rawPath.startsWith('/.well-known/')) return null;
@@ -103,6 +104,25 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       },
       body: JSON.stringify({ error: 'invalid_token' }),
     };
+  }
+  if (process.env.TABLE_NAME) {
+    try {
+      await new DynamoStayRepository(process.env.TABLE_NAME).authorize({
+        subject: String(authInfo.extra?.subject),
+        householdId: String(authInfo.extra?.householdId),
+        residentId: String(authInfo.extra?.residentId),
+        role: RoleSchema.parse(authInfo.extra?.role),
+        ...(authInfo.extra?.circleMemberId
+          ? { circleMemberId: String(authInfo.extra.circleMemberId) }
+          : {}),
+      });
+    } catch {
+      return {
+        statusCode: 403,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ error: 'membership_inactive' }),
+      };
+    }
   }
   const url = new URL(
     event.rawPath + (event.rawQueryString ? `?${event.rawQueryString}` : ''),

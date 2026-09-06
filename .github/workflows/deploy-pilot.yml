@@ -1,0 +1,155 @@
+name: Review or deploy private pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Generate the pilot diff first; deploy only after that exact revision is reviewed
+        required: true
+        default: diff
+        type: choice
+        options:
+          - diff
+          - deploy
+      hosted_zone_id:
+        description: Existing saystay.site Route 53 hosted zone ID
+        required: true
+        type: string
+      reviewed_commit:
+        description: Exact 40-character main commit reviewed for deployment (required for deploy)
+        required: false
+        type: string
+      confirm_reviewed_diff:
+        description: Confirm the same commit's pilot diff and cost review were completed
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: stay-pilot-deployment
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NEXT_PUBLIC_APP_URL: https://pilot.saystay.site
+    steps:
+      - uses: actions/checkout@v7
+      - name: Confirm exact main-branch source
+        env:
+          OPERATION: ${{ inputs.operation }}
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          CONFIRM_REVIEWED_DIFF: ${{ inputs.confirm_reviewed_diff }}
+        run: |
+          test "$GITHUB_REF" = 'refs/heads/main'
+          if [ "$OPERATION" = 'deploy' ]; then
+            test "$CONFIRM_REVIEWED_DIFF" = 'true'
+            test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
+            printf '%s' "$REVIEWED_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
+          fi
+      - name: Confirm scoped GitHub OIDC claims
+        run: |
+          node <<'NODE'
+          const response = await fetch(
+            `${process.env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com`,
+            { headers: { authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` } },
+          );
+          if (!response.ok) throw new Error(`OIDC token request failed: ${response.status}`);
+          const { value } = await response.json();
+          const payload = JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString());
+          console.log(JSON.stringify({ iss: payload.iss, aud: payload.aud, sub: payload.sub }));
+          if (payload.aud !== 'sts.amazonaws.com') throw new Error('Unexpected OIDC audience');
+          if (payload.sub !== 'repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main')
+            throw new Error('Unexpected OIDC subject');
+          NODE
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.13.1
+      - name: Activate pinned pnpm
+        run: |
+          npm install --global pnpm@11.25.0 --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = '11.25.0'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - run: pnpm cdk:synth:pilot
+      - name: Record candidate template and source
+        run: |
+          template_sha="$(sha256sum infrastructure/cdk/cdk.out/StayPilotStack.template.json | cut -d ' ' -f 1)"
+          {
+            printf '### STAY pilot candidate\n\n'
+            printf -- "- Source: \`%s\`\n" "$GITHUB_SHA"
+            printf -- "- Template SHA-256: \`%s\`\n" "$template_sha"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Confirm non-root deployment identity
+        run: |
+          arn="$(aws sts get-caller-identity --query Arn --output text)"
+          test "${arn##*:}" != 'root'
+          printf 'Deploying through scoped role: %s\n' "$arn"
+      - name: Validate deployment parameters
+        env:
+          HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+        run: |
+          printf '%s' "$HOSTED_ZONE_ID" | grep -Eq '^Z[A-Z0-9]+$'
+          test -n "$ALERT_EMAIL"
+          test -n "$SES_FROM_EMAIL"
+      - name: Generate exact pilot change-set diff
+        env:
+          HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+        run: |
+          pnpm --filter @stay/infra exec cdk diff StayPilotStack \
+            --strict \
+            -c stage=pilot \
+            -c enableCloudFront=false \
+            -c enableCustomDomain=true \
+            -c enableDeletionProtection=true \
+            --parameters "StayPilotStack:ExistingHostedZoneId=$HOSTED_ZONE_ID" \
+            --parameters "StayPilotStack:AlertEmail=$ALERT_EMAIL" \
+            --parameters "StayPilotStack:SesFromEmail=$SES_FROM_EMAIL" \
+            --parameters "StayPilotStack:BedrockModelId=" \
+            --method change-set
+      - name: Deploy reviewed pilot revision
+        if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
+        env:
+          HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
+        run: |
+          pnpm --filter @stay/infra exec cdk deploy StayPilotStack \
+            -c stage=pilot \
+            -c enableCloudFront=false \
+            -c enableCustomDomain=true \
+            -c enableDeletionProtection=true \
+            --parameters "StayPilotStack:ExistingHostedZoneId=$HOSTED_ZONE_ID" \
+            --parameters "StayPilotStack:AlertEmail=$ALERT_EMAIL" \
+            --parameters "StayPilotStack:SesFromEmail=$SES_FROM_EMAIL" \
+            --parameters "StayPilotStack:BedrockModelId=" \
+            --require-approval never
+      - name: Verify stable protected pilot outputs
+        if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
+        run: |
+          status="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+            --query 'Stacks[0].StackStatus' --output text)"
+          protection="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+            --query 'Stacks[0].EnableTerminationProtection' --output text)"
+          test "$protection" = 'True'
+          test "$status" = 'CREATE_COMPLETE' -o "$status" = 'UPDATE_COMPLETE'
+          for key in Stage ApiUrl McpUrl WebSocketUrl UserPoolId ProductTableName CognitoIssuerUrl ManagedLoginUrl PilotOperatorPolicyArn; do
+            value="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+              --query "Stacks[0].Outputs[?OutputKey=='$key'].OutputValue | [0]" --output text)"
+            test -n "$value"
+            printf '%s=%s\n' "$key" "$value"
+          done

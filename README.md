@@ -1,5 +1,7 @@
 # STAY
 
+> Recovery update (2026-09-05): see [current checkpoint](docs/RECOVERY_CHECKPOINT.md). Private eligibility corrections now pass; approved manual YouTube captions render. The new household pilot is an undeployed candidate. Earlier release evidence below describes the judge deployment.
+
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
 [Try the public demo](https://saystay.site) · [Watch the 170-second demo](https://youtu.be/oCoXdCRVyMo) · [Main CI](https://github.com/AmirmLotfy/stay/actions/workflows/ci.yml?query=branch%3Amain) · [Architecture](docs/architecture.md) · [Safety boundaries](docs/safety-boundaries.md)

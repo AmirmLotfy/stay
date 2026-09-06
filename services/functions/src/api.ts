@@ -30,8 +30,10 @@ import {
 import { AgentUnavailableError, interpretIntent } from '@stay/agent';
 import { z } from 'zod';
 import { log } from './logging.js';
+import { householdApi } from './household-api.js';
 import {
   DynamoStayRepository,
+  commandFingerprint,
   type StoredConfirmation,
   type VersionedEntity,
 } from './repository.js';
@@ -160,6 +162,8 @@ async function commandEngine(
   action: string,
   id?: string,
 ): Promise<StayEngine> {
+  if (!actor.subject.startsWith('demo:'))
+    return new StayEngine(await store.loadHouseholdState(actor.householdId));
   const state = createDemoState();
   state.householdId = actor.householdId;
   state.resident.id = actor.residentId;
@@ -278,8 +282,49 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   const correlationId = event.requestContext.requestId || crypto.randomUUID();
   try {
     const demoRoute = event.rawPath.startsWith('/v1/demo/');
+    if (
+      process.env.STAY_ENVIRONMENT === 'pilot' &&
+      (demoRoute || event.rawPath === '/v1/demo-sessions')
+    )
+      throw new StayDomainError('FORBIDDEN', 'Public demo sessions are disabled on the pilot.');
     const path = event.rawPath.replace(/^\/v1\/(?:demo\/)?/, '');
     const [group, entityId] = path.split('/');
+    if (group === 'session') {
+      const store = repository();
+      if (demoRoute || !store || event.requestContext.http.method !== 'GET')
+        throw new StayDomainError('FORBIDDEN', 'An authenticated household is required.');
+      const actor = actorFrom(event, correlationId, false);
+      await store.authorize(actor);
+      return response(
+        200,
+        {
+          data: {
+            subject: actor.subject,
+            role: actor.role,
+            circleMemberId: actor.circleMemberId,
+            permissions: actor.permissions,
+          },
+        },
+        correlationId,
+      );
+    }
+    if (group === 'profile' || group === 'notification-preferences') {
+      const store = repository();
+      if (demoRoute || !store)
+        throw new StayDomainError('FORBIDDEN', 'An authenticated household is required.');
+      return response(
+        200,
+        await householdApi(
+          store,
+          actorFrom(event, correlationId, false),
+          group,
+          event.requestContext.http.method,
+          event.body,
+          event.headers['idempotency-key'],
+        ),
+        correlationId,
+      );
+    }
     if (group === 'intent') {
       if (event.requestContext.http.method !== 'POST') {
         return response(
@@ -299,6 +344,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       if (demoRoute && store && !(await store.demoSessionExists(demoSession as string))) {
         throw new StayDomainError('FORBIDDEN', 'The isolated demo session is invalid or expired.');
       }
+      if (store && !demoRoute) await store.authorize(intentActor);
       const context = MinimalIntentContextSchema.parse(event.body ? JSON.parse(event.body) : {});
       const deterministicEmergency = hasExplicitEmergencyLanguage(context.utterance);
       const intent = deterministicEmergency
@@ -365,6 +411,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
     const actor = actorFrom(event, correlationId, demoRoute);
     const store = repository();
+    const authorization = store && !demoRoute ? await store.authorize(actor) : null;
     const demoSession = demoRoute ? event.headers['x-stay-demo-session'] : undefined;
     if (demoRoute && store && !(await store.demoSessionExists(demoSession as string))) {
       throw new StayDomainError('FORBIDDEN', 'The isolated demo session is invalid or expired.');
@@ -372,7 +419,10 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     if (event.requestContext.http.method === 'GET') {
       const requiredPermission = readPermissions[group as (typeof RouteGroups)[number]];
       if (requiredPermission) requirePermission(actor, requiredPermission);
-      const state = localEngine.snapshot();
+      const state =
+        store && !demoRoute
+          ? await store.loadHouseholdState(actor.householdId)
+          : localEngine.snapshot();
       state.householdId = actor.householdId;
       state.resident.id = actor.residentId;
       state.access.id = `access-${actor.residentId}`;
@@ -400,6 +450,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       }
       const view: Record<string, unknown> = {
         home: {
+          householdId: actor.householdId,
           resident: state.resident,
           oneThing: state.oneThing,
           calendar: state.calendar,
@@ -431,9 +482,13 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
             ]
           : (stored ?? fallback);
       const data =
-        group === 'circle' && Array.isArray(mergedData)
-          ? mergedData.filter((member) => (member as CircleMember).active)
-          : mergedData;
+        group === 'house-memory' && Array.isArray(mergedData)
+          ? mergedData.filter(
+              (item) => (item as HomeState['houseMemory'][number]).sensitivity !== 'incident-only',
+            )
+          : group === 'circle' && Array.isArray(mergedData)
+            ? mergedData.filter((member) => (member as CircleMember).active)
+            : mergedData;
       return response(
         200,
         {
@@ -448,7 +503,19 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     if (!idempotencyKey)
       throw new StayDomainError('IDEMPOTENCY_REQUIRED', 'Idempotency-Key is required for writes.');
     const body = CommandBodySchema.parse(event.body ? JSON.parse(event.body) : {});
+    if (
+      store &&
+      !demoRoute &&
+      body.action === 'accept' &&
+      ['incidents', 'help-requests'].includes(group) &&
+      (!actor.circleMemberId || body.memberId !== actor.circleMemberId)
+    )
+      throw new StayDomainError(
+        'FORBIDDEN',
+        'Only the invited responder can accept their own assignment.',
+      );
     const id = body.entityId ?? entityId;
+    const operationKey = commandFingerprint(actor, group, { ...body, entityId: id });
     if (
       ['privacy', 'circle', 'incidents'].includes(group) &&
       body.action === 'request-confirmation'
@@ -494,6 +561,14 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     if (store) {
       const prior = await store.getIdempotency(actor.householdId, idempotencyKey);
       if (prior) {
+        if (
+          !demoRoute &&
+          (prior.actorSubject !== actor.subject ||
+            prior.operation !== operationKey ||
+            prior.aggregateType !== aggregateType(group) ||
+            ['notification-contact', 'membership', 'profile'].includes(prior.aggregateType))
+        )
+          throw new StayDomainError('CONFLICT', 'This command key belongs to another operation.');
         const entity = await store.get<VersionedEntity>(
           actor.householdId,
           prior.aggregateType,
@@ -846,7 +921,18 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         : undefined;
       await store.write({
         householdId: actor.householdId,
+        ...(authorization
+          ? {
+              authorization: {
+                subject: actor.subject,
+                membershipVersion: authorization.membership.version,
+                profileVersion: authorization.profile.version,
+                ...(authorization.circleMember ? { circleMember: authorization.circleMember } : {}),
+              },
+            }
+          : {}),
         aggregateType: aggregateType(group),
+        operation: operationKey,
         entity: result.entity,
         expectedVersion,
         idempotencyKey,
@@ -886,15 +972,27 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     return response(200, result, correlationId);
   } catch (error) {
+    if (error instanceof Error && error.message === 'MEMBERSHIP_REVOKED')
+      return response(
+        403,
+        {
+          code: 'FORBIDDEN',
+          message: 'This household membership is inactive. Please contact your operator.',
+          correlationId,
+        },
+        correlationId,
+      );
     const domain = error instanceof StayDomainError ? error : null;
     const agentUnavailable = error instanceof AgentUnavailableError;
     const code =
       domain?.code ??
-      (error instanceof z.ZodError
-        ? 'BAD_REQUEST'
-        : agentUnavailable
-          ? 'PROVIDER_UNAVAILABLE'
-          : 'INTERNAL_ERROR');
+      (error instanceof Error && error.name === 'TransactionCanceledException'
+        ? 'CONFLICT'
+        : error instanceof z.ZodError
+          ? 'BAD_REQUEST'
+          : agentUnavailable
+            ? 'PROVIDER_UNAVAILABLE'
+            : 'INTERNAL_ERROR');
     const status =
       code === 'FORBIDDEN'
         ? 403

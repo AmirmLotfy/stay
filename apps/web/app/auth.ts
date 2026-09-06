@@ -1,8 +1,12 @@
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+
 export interface StayRuntimeConfig {
+  environment?: 'demo' | 'pilot';
   apiUrl: string;
   fallbackUrl?: string;
   websocketUrl: string;
   cognitoBaseUrl: string;
+  cognitoIssuerUrl?: string;
   publicClientId: string;
   redirectUri: string;
   logoutUri: string;
@@ -46,6 +50,12 @@ const configKey = 'stay.runtime-config';
 const tokensKey = 'stay.oauth-tokens';
 const verifierKey = 'stay.pkce-verifier';
 const stateKey = 'stay.oauth-state';
+const nonceKey = 'stay.oauth-nonce';
+const issuerKeys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+let refreshInFlight: {
+  key: string;
+  promise: Promise<AuthenticatedSessionRecord | null>;
+} | null = null;
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -80,8 +90,10 @@ export async function loadRuntimeConfig(): Promise<StayRuntimeConfig | null> {
 export async function beginSignIn(config: StayRuntimeConfig): Promise<void> {
   const verifier = randomValue(64);
   const state = randomValue();
+  const nonce = randomValue();
   sessionStorage.setItem(verifierKey, verifier);
   sessionStorage.setItem(stateKey, state);
+  sessionStorage.setItem(nonceKey, nonce);
   const url = new URL('/oauth2/authorize', config.cognitoBaseUrl);
   url.search = new URLSearchParams({
     response_type: 'code',
@@ -91,6 +103,7 @@ export async function beginSignIn(config: StayRuntimeConfig): Promise<void> {
     code_challenge_method: 'S256',
     code_challenge: await challenge(verifier),
     state,
+    nonce,
   }).toString();
   window.location.assign(url);
 }
@@ -102,9 +115,13 @@ export async function completeSignIn(config: StayRuntimeConfig): Promise<boolean
   if (!code) return Boolean(sessionStorage.getItem(tokensKey));
   const verifier = sessionStorage.getItem(verifierKey);
   const expectedState = sessionStorage.getItem(stateKey);
-  if (!verifier || !expectedState || returnedState !== expectedState) {
+  const expectedNonce = sessionStorage.getItem(nonceKey);
+  if (!verifier || !expectedState || !expectedNonce || returnedState !== expectedState) {
     throw new Error('The sign-in response could not be verified. Please start again.');
   }
+  sessionStorage.removeItem(verifierKey);
+  sessionStorage.removeItem(stateKey);
+  sessionStorage.removeItem(nonceKey);
   const response = await fetch(new URL('/oauth2/token', config.cognitoBaseUrl), {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -118,14 +135,62 @@ export async function completeSignIn(config: StayRuntimeConfig): Promise<boolean
   });
   if (!response.ok) throw new Error('Cognito did not complete sign-in.');
   const tokens = (await response.json()) as TokenResponse;
+  if (!config.cognitoIssuerUrl)
+    throw new Error('The identity response could not be verified. Please sign in again.');
+  await validateIdToken(tokens.id_token, {
+    nonce: expectedNonce,
+    clientId: config.publicClientId,
+    issuer: config.cognitoIssuerUrl,
+    nowSeconds: Math.floor(Date.now() / 1000),
+  });
   sessionStorage.setItem(
     tokensKey,
     JSON.stringify({ ...tokens, expires_at: Date.now() + tokens.expires_in * 1000 }),
   );
-  sessionStorage.removeItem(verifierKey);
-  sessionStorage.removeItem(stateKey);
   window.history.replaceState({}, '', '/');
   return true;
+}
+
+interface ExpectedIdentity {
+  nonce: string;
+  clientId: string;
+  issuer: string;
+  nowSeconds: number;
+}
+
+export function validateIdTokenClaims(claims: JWTPayload, expected: ExpectedIdentity): void {
+  if (
+    claims.nonce !== expected.nonce ||
+    claims.aud !== expected.clientId ||
+    claims.iss !== expected.issuer ||
+    claims.token_use !== 'id' ||
+    typeof claims.exp !== 'number' ||
+    claims.exp <= expected.nowSeconds
+  )
+    throw new Error('Unexpected token claims.');
+}
+
+export async function validateIdToken(token: string, expected: ExpectedIdentity): Promise<void> {
+  try {
+    const issuerUrl = new URL(expected.issuer);
+    if (issuerUrl.protocol !== 'https:') throw new Error('Unexpected issuer protocol.');
+    let keys = issuerKeys.get(expected.issuer);
+    if (!keys) {
+      keys = createRemoteJWKSet(
+        new URL(`${expected.issuer.replace(/\/$/, '')}/.well-known/jwks.json`),
+      );
+      issuerKeys.set(expected.issuer, keys);
+    }
+    const { payload } = await jwtVerify(token, keys, {
+      algorithms: ['RS256'],
+      issuer: expected.issuer,
+      audience: expected.clientId,
+      currentDate: new Date(expected.nowSeconds * 1000),
+    });
+    validateIdTokenClaims(payload, expected);
+  } catch {
+    throw new Error('The identity response could not be verified. Please sign in again.');
+  }
 }
 
 export async function signOut(config: StayRuntimeConfig): Promise<void> {
@@ -150,6 +215,12 @@ export async function signOut(config: StayRuntimeConfig): Promise<void> {
     logout_uri: config.logoutUri,
   }).toString();
   window.location.assign(url);
+}
+
+export function hasAuthenticationIntent(): boolean {
+  return Boolean(
+    sessionStorage.getItem(tokensKey) || new URL(window.location.href).searchParams.get('code'),
+  );
 }
 
 export function hasAuthenticatedSession(): boolean {
@@ -179,26 +250,52 @@ export async function getAuthenticatedSession(
     sessionStorage.removeItem(tokensKey);
     return null;
   }
+  const refreshKey = `${config.cognitoBaseUrl}\u0000${config.publicClientId}\u0000${tokens.refresh_token}`;
+  if (refreshInFlight?.key === refreshKey) return refreshInFlight.promise;
+  const promise = refreshAuthenticatedSession(config, raw, tokens).finally(() => {
+    if (refreshInFlight?.promise === promise) refreshInFlight = null;
+  });
+  refreshInFlight = { key: refreshKey, promise };
+  return promise;
+}
+
+async function refreshAuthenticatedSession(
+  config: StayRuntimeConfig,
+  original: string,
+  tokens: TokenResponse & { expires_at?: number },
+): Promise<AuthenticatedSessionRecord | null> {
   const response = await fetch(new URL('/oauth2/token', config.cognitoBaseUrl), {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       client_id: config.publicClientId,
-      refresh_token: tokens.refresh_token,
+      refresh_token: tokens.refresh_token!,
     }),
   });
   if (!response.ok) {
-    sessionStorage.removeItem(tokensKey);
+    if (sessionStorage.getItem(tokensKey) === original) sessionStorage.removeItem(tokensKey);
     return null;
   }
-  const refreshed = (await response.json()) as TokenResponse;
+  const refreshed = (await response.json()) as Partial<TokenResponse>;
+  if (
+    typeof refreshed.access_token !== 'string' ||
+    !refreshed.access_token ||
+    refreshed.token_type !== 'Bearer' ||
+    typeof refreshed.expires_in !== 'number' ||
+    !Number.isFinite(refreshed.expires_in) ||
+    refreshed.expires_in <= 0
+  ) {
+    if (sessionStorage.getItem(tokensKey) === original) sessionStorage.removeItem(tokensKey);
+    return null;
+  }
   const next = {
     ...tokens,
     ...refreshed,
     refresh_token: refreshed.refresh_token ?? tokens.refresh_token,
     expires_at: Date.now() + refreshed.expires_in * 1000,
   };
+  if (sessionStorage.getItem(tokensKey) !== original) return getAuthenticatedSession(config);
   sessionStorage.setItem(tokensKey, JSON.stringify(next));
   return {
     mode: 'authenticated',

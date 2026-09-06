@@ -46,6 +46,8 @@ describe('static website handler', () => {
     sdk.send.mockReset();
     process.env.WEBSITE_BUCKET = 'private-stay-site';
     process.env.WEBSOCKET_ORIGIN = 'wss://updates.example.test/prod';
+    process.env.COGNITO_ORIGIN = 'https://stay.auth.us-east-1.amazoncognito.com';
+    process.env.COGNITO_ISSUER_ORIGIN = 'https://cognito-idp.us-east-1.amazonaws.com';
   });
 
   it('resolves root and safe SPA paths while rejecting traversal and double encoding', () => {
@@ -89,6 +91,12 @@ describe('static website handler', () => {
     expect(Buffer.from(String(result.body), 'base64').toString()).toBe('<!doctype html>STAY');
     expect(result.headers?.['content-security-policy']).toContain(
       'wss://updates.example.test/prod',
+    );
+    expect(result.headers?.['content-security-policy']).toContain(
+      'https://stay.auth.us-east-1.amazoncognito.com',
+    );
+    expect(result.headers?.['content-security-policy']).toContain(
+      'https://cognito-idp.us-east-1.amazonaws.com',
     );
   });
 

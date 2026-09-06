@@ -1,7 +1,6 @@
 import {
   CreateScheduleCommand,
   SchedulerClient,
-  UpdateScheduleCommand,
   type CreateScheduleCommandInput,
   type SchedulerClientConfig,
 } from '@aws-sdk/client-scheduler';
@@ -21,7 +20,7 @@ export interface SafetyWindowScheduleTarget {
 }
 
 interface ScheduleSender {
-  send(command: CreateScheduleCommand | UpdateScheduleCommand): Promise<unknown>;
+  send(command: CreateScheduleCommand): Promise<unknown>;
 }
 
 const clientConfig: SchedulerClientConfig = {
@@ -31,7 +30,12 @@ const clientConfig: SchedulerClientConfig = {
 };
 const schedulerClient = new SchedulerClient(clientConfig);
 
-function requiredEnvironment(): { groupName: string; targetArn: string; roleArn: string } {
+function requiredEnvironment(): {
+  groupName: string;
+  targetArn: string;
+  roleArn: string;
+  deadLetterArn?: string;
+} {
   const groupName = process.env.SAFETY_WINDOW_SCHEDULE_GROUP;
   const targetArn = process.env.SAFETY_WINDOW_SCHEDULER_TARGET_ARN;
   const roleArn = process.env.SAFETY_WINDOW_SCHEDULER_ROLE_ARN;
@@ -41,15 +45,24 @@ function requiredEnvironment(): { groupName: string; targetArn: string; roleArn:
       'Safety Window scheduling is temporarily unavailable.',
     );
   }
-  return { groupName, targetArn, roleArn };
+  const deadLetterArn = process.env.SAFETY_WINDOW_DLQ_ARN;
+  if (process.env.STAY_ENVIRONMENT === 'pilot' && !deadLetterArn)
+    throw new StayDomainError('PROVIDER_UNAVAILABLE', 'Pilot schedule recovery is not configured.');
+  return { groupName, targetArn, roleArn, ...(deadLetterArn ? { deadLetterArn } : {}) };
 }
 
 function token(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function scheduleName(windowId: string, transition: ScheduledTransition): string {
-  return `stay-${token(windowId).slice(0, 40)}-${transition}`;
+function scheduleName(
+  householdId: string,
+  windowId: string,
+  transition: ScheduledTransition,
+  scheduledAt: string,
+  version: number,
+): string {
+  return `stay-${token(JSON.stringify([householdId, windowId, scheduledAt, version])).slice(0, 40)}-${transition}`;
 }
 
 function atExpression(instant: string): string {
@@ -94,7 +107,7 @@ export function safetyWindowScheduleInputs(
       expectedVersion,
       scheduledAt,
     };
-    const name = scheduleName(window.id, transition);
+    const name = scheduleName(householdId, window.id, transition, scheduledAt, expectedVersion);
     return {
       Name: name,
       GroupName: environment.groupName,
@@ -108,6 +121,9 @@ export function safetyWindowScheduleInputs(
         Arn: environment.targetArn,
         RoleArn: environment.roleArn,
         Input: JSON.stringify(payload),
+        ...(environment.deadLetterArn
+          ? { DeadLetterConfig: { Arn: environment.deadLetterArn } }
+          : {}),
         RetryPolicy: { MaximumEventAgeInSeconds: 3_600, MaximumRetryAttempts: 3 },
       },
     } satisfies CreateScheduleCommandInput;
@@ -135,9 +151,7 @@ export async function createSafetyWindowSchedules(
         await sender.send(new CreateScheduleCommand(input));
       } catch (error) {
         if (!isConflict(error)) throw error;
-        const updateInput = { ...input };
-        delete updateInput.ClientToken;
-        await sender.send(new UpdateScheduleCommand(updateInput));
+        // Names bind the complete immutable schedule identity. A retry must never rewrite it.
       }
     }
   } catch (error) {

@@ -20,7 +20,8 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1124.0",
     "@aws-sdk/lib-dynamodb": "3.1124.0",
-    "@stay/contracts": "workspace:*"
+    "@stay/contracts": "workspace:*",
+    "@stay/domain": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.4.1",
