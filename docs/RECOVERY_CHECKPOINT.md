@@ -5,8 +5,8 @@ Updated: 2026-09-08. Resume here before making release claims.
 ## Baseline
 
 - Recovered source: `4a7aa49240ecd8a69afe7bb35443aaa32fadd5bd`.
-- Deployed implementation: `d569032`; deployment run `33886987014` succeeded.
-- Public CI: `33933798929` on `503b56b`; 40 browser scenarios passed historically.
+- Current source: `1adafd50519dba6d595832d3b136dfd7bb49d086` on `main`; CI `34164700108` passed the complete pipeline and 44 browser scenarios.
+- Public judge deployment remains `d569032`; deployment run `33886987014` succeeded.
 - Judge URL: https://saystay.site
 - Video: https://youtu.be/oCoXdCRVyMo
 - Repository: https://github.com/AmirmLotfy/stay
@@ -23,10 +23,10 @@ Updated: 2026-09-08. Resume here before making release claims.
 
 ## Evidence and remaining gates
 
-- Recovery audit: public site 200, unauthenticated MCP 401, OAuth metadata 200, YouTube embed 200, correct DNS; local media 8/8.
-- AWS read-only identity succeeds but is root; scoped non-root deployment/operator credentials are required; demo stack is UPDATE_COMPLETE. SES remains sandbox with sending enabled, 200/day and 1/sec. Pilot stack does not exist.
-- Approved YouTube captions are saved and visibly render in the public player. Full human audio/caption review remains pending. Devpost is DRAFT, 1/5 steps done under amirmolotfy; all 26 additional fields rechecked. Authenticated MCP and final participant entry/submission remain pending.
-- Pilot implementation and fresh validation are in progress. No pilot deployment or household enrollment has occurred.
+- Fresh 2026-09-08 recovery audit: strict submission verification **15/15**; public site 200, unauthenticated MCP 401, OAuth metadata 200, YouTube embed 200, correct DNS, 21 asset hashes, 170-second media and 36 caption cues.
+- Local AWS authentication is expired and the only local profile is root-backed; it must not be used for pilot operations. Scoped GitHub OIDC prepared the exact non-executed pilot change set. The last recorded SES state is sandbox with sending enabled, 200/day and 1/sec. Pilot stack does not exist.
+- Approved YouTube captions are saved and visibly render in the public player. Full human audio/caption review remains pending. Devpost was rechecked read-only on 2026-09-08: DRAFT, 1/5 steps done under amirmolotfy; only the title is saved and all 26 additional fields remain blank. Authenticated MCP and final participant entry/submission remain pending.
+- Pilot implementation and fresh validation are complete on `main`. The exact AWS change set is prepared but unexecuted. No pilot deployment or household enrollment has occurred.
 - Real-device accessibility, email inbox receipt, restore rehearsal, one-household seven-day observation and five-household fourteen-day observation remain release gates.
 
 ## Verification commands
@@ -73,7 +73,7 @@ Merged candidate: `474cdf102e66aa763cba90400a4a72b5b341522e` on `main`. Full `pn
 - Final browser OAuth boundary revision: `e6af603f7c5538bb27e3de4ce282374f2045734f`.
 - Final concurrent-session hardening revision: `d11f25ea76314e01479642cdcdb2dae90f9934d5`.
 - Final explicit transport-isolation evidence revision: `af3180e08ef803c8805304a27d8e72beb3670bca`.
-- [Draft PR #3](https://github.com/AmirmLotfy/stay/pull/3) is pushed on `codex/stay-recovery-pilot`; no merge or deployment occurred.
+- [PR #3](https://github.com/AmirmLotfy/stay/pull/3) was initially saved as a draft on `codex/stay-recovery-pilot`; its later merge is recorded in the 2026-09-08 milestone below. No deployment occurred at this milestone.
 - [CI 33991750541](https://github.com/AmirmLotfy/stay/actions/runs/33991750541) **passed** on the final code revision: generated contracts, format, lint, type checking, tests, coverage, media checks, build, strict demo and pilot synthesis, and **44 browser scenarios**.
 - [CI 33993550879](https://github.com/AmirmLotfy/stay/actions/runs/33993550879) **passed** on the deployment/OAuth revision with the same full pipeline and **44 browser scenarios**. Local `pnpm verify`, strict pilot synthesis, `actionlint`, the 8-check local media verifier and all 44 browser scenarios also passed.
 - [CI 33994247473](https://github.com/AmirmLotfy/stay/actions/runs/33994247473) **passed** on the final browser OAuth boundary revision: generated contracts, format, lint, type checking, tests, coverage, media checks, build, strict demo and pilot synthesis, and **44 browser scenarios**.
@@ -85,7 +85,7 @@ Merged candidate: `474cdf102e66aa763cba90400a4a72b5b341522e` on `main`. Full `pn
 - Local final functions: **85 passed**; type checking, lint, build, coverage and strict pilot synthesis passed. Read-only pilot diff creates one stack.
 - A documentation-only follow-up records these results; it does not change the tested implementation.
 
-Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 3`, `gh run view 34068187568`, `gh run view 34068703180`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
+Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 8`, `gh run view 34164700108`, `gh run view 34164714532`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
 
 Required user/provider inputs are pending: participant full video review and Devpost entry/submission, explicit pilot deployment authorization after a successful diff review, and actual pilot consent/verified identities. The only local AWS profile remains root-backed and must not be used for pilot operations. Pilot diff and deployment run through the existing main-branch GitHub OIDC role; no deployment is currently authorized. After deployment, complete live authenticated isolation/MCP/WS, inbox/feedback/alert, restore/rollback and device accessibility checks before enrollment. The actual seven-day and fourteen-day observation gates remain unchanged.
 

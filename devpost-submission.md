@@ -2,7 +2,7 @@
 
 > Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment and public video fields are final. Private participant assertions are stored locally in the ignored `devpost-private-answers.md` handoff.
 
-Official requirements were rechecked live through Devpost on 2026-09-03 Cairo time against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
+Official requirements and the authenticated submission form were rechecked live on 2026-09-08 Cairo time against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
 
 ## Project fields
 
@@ -30,7 +30,7 @@ https://saystay.site
 
 https://youtu.be/oCoXdCRVyMo
 
-Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out on 2026-09-04: playable, embeddable, 170 seconds, and 1080p available. The upload uses the approved Higgsfield voice/music and the verified public demo URL. Before submission, replace YouTube's current auto-caption transcript with the packaged 36-cue English SRT.
+Required format: public English YouTube or Vimeo video, under three minutes. The public page was verified signed out: playable, embeddable, 170 seconds, and 1080p available. The upload uses the approved Higgsfield voice/music and the verified public demo URL. The packaged 36-cue English SRT is published and its opening cue visibly renders; complete one start-to-finish human audio, caption, signed-out and mobile playback review before submission.
 
 ## Problem
 
@@ -123,7 +123,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-Public CI evidence for release commit `07e04b5`: https://github.com/AmirmLotfy/stay/actions/runs/33852275234 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, the 8/8 deterministic submission-media gate, production builds, strict CDK synthesis, and all 36 Playwright scenarios passed.
+Current public CI evidence for final `main` commit `1adafd50519dba6d595832d3b136dfd7bb49d086`: https://github.com/AmirmLotfy/stay/actions/runs/34164700108 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, deterministic submission-media checks, production builds, strict demo and pilot CDK synthesis, and all 44 Playwright scenarios passed. The public judge deployment remains the earlier `d569032` release; the pilot code on `main` is not deployed.
 
 ## Screenshot Shot List
 
@@ -167,7 +167,7 @@ We also learned that accessibility settings cannot be a cosmetic preference pane
 
 ## Official Form Fields — Copy Pack
 
-Official requirements revalidated live from the Devpost overview, resources, and rules on 2026-09-04 Cairo time. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
+Official requirements and all 26 additional form fields were revalidated live on 2026-09-08 Cairo time. Private participant assertions must be copied from the ignored local handoff and truthfully rechecked in the final form.
 
 ### 28285 — Submitter Type
 
@@ -283,22 +283,23 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 ## Submission Readiness Notes
 
-- **Live Devpost state:** authenticated and registered; project ID `1412726`, slug `stay-ljbdk8`, `state=submission_draft`, `published_at=null`, `submitted_at=null`, and project fields currently empty (verified 2026-09-03 Cairo time).
+- **Live Devpost state:** authenticated under `amirmolotfy`; submission route `1166410-stay`, slug `stay-ljbdk8`, and **DRAFT, 1/5 steps done**. Only the project title is saved. The elevator pitch, thumbnail, story, tags, try-it link, gallery, video and all 26 additional fields are blank (verified read-only on 2026-09-08 Cairo time).
 - **Official deadline:** 2026-10-23T19:00:00Z.
 - **Optional AWS credit deadline:** registered individuals may use the [official credit request form](https://forms.gle/5hyhr1u6x3fuV2aW7) to request the advertised $150 AWS promotional credit by 2026-10-21 at 12:00 PM Pacific Time while supplies last; this is not required for submission and has not been requested.
 - **Judging availability:** keep the public repository, public video, and free judge demo available without restriction through 2026-11-20T20:00:00Z.
 - **Official deliverables:** video required; website and zip not required; public GitHub repository required by the event description.
 - **Primary track:** Alexa+.
 - **Mini challenges:** AWS Builder and Open Source.
-- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo; release commit `07e04b5` has green CI with an 8/8 media gate and 36/36 Playwright scenarios.
+- **Repository:** public; Apache-2.0 detected by GitHub; About panel links the live demo. Final `main` commit `1adafd50519dba6d595832d3b136dfd7bb49d086` has green [CI 34164700108](https://github.com/AmirmLotfy/stay/actions/runs/34164700108) with the complete pipeline and 44/44 Playwright scenarios.
 - **Local product:** implemented and tested; provider edges are explicitly simulated.
 - **Media evidence:** seven tracked screenshots recaptured from the public AWS demo, including the functional mobile Updates panel; a tracked 170-second 1080p picture master with the verified demo URL, English SRT, and SHA-256 manifest are present under `assets/submission/`.
-- **AWS/public demo:** deployed and verified at `https://saystay.site`; both the custom domain and `https://s9y6tc7mfc.execute-api.us-east-1.amazonaws.com` passed 32/32 applicable live browser scenarios, and the hosting mode remains secure API Gateway/private-S3.
-- **Video:** the finished 170-second H.264/AAC master is public at `https://youtu.be/oCoXdCRVyMo`; signed-out checks confirmed playback, embedding, 1080p, and duration. The identical source copy, 36-cue English SRT, and real-product thumbnail remain packaged. The SRT includes the measured narration plus accessible opening/closing music cues. The copyright-claim gate passed, but the current YouTube auto-caption transcript must be replaced with the packaged SRT and reviewed during private playback.
+- **AWS/public demo:** deployed revision `d569032` remains available at `https://saystay.site`. Fresh 2026-09-08 checks returned HTTP 200 for the site and OAuth metadata and the expected 401 for unauthenticated `/mcp`; historical deployed browser evidence is 36 passed with four pilot-only cases skipped. The hosting mode remains secure API Gateway/private-S3.
+- **Video:** the finished 170-second H.264/AAC master is public at `https://youtu.be/oCoXdCRVyMo`; signed-out checks confirmed playback, embedding, 1080p, and duration. The identical source copy, published 36-cue English SRT, and real-product thumbnail remain packaged. The opening caption cue visibly renders and the copyright-claim gate passed. Complete a start-to-finish human audio, caption, signed-out and mobile playback review before submission.
 - **Higgsfield:** selected Recraft V4.1 logo, locked Faye Seed Audio narration, and Sonilo Music tonal bed were generated, reviewed, integrated, and provenance-locked. The recorded spend is 56.93 credits.
-- **Participant assertions:** stored only in the ignored local handoff. The current values do not pass the official eligibility gate and must not be changed unless the user confirms they were mistakes and truthfully corrects them.
+- **Participant assertions:** stored only in the ignored local handoff. The participant confirmed that the former negative age and eligible-jurisdiction answers were entry errors; the corrected handoff now passes strict verification. The participant must still enter and truthfully review the private answers in Devpost.
+- **Strict packet verification:** fresh `pnpm verify:submission` on 2026-09-08 returned **15 passed, 0 pending, 0 failed** across media hashes, duration, 36 caption cues, eligibility and public links.
 - **Final action:** do not submit without the dedicated final confirmation.
 
-## Recovery form check — 2026-09-06
+## Recovery form check — 2026-09-08
 
-The authenticated STAY draft was reverified under `amirmolotfy` and is still DRAFT (1/5 steps done). All 26 additional fields remain blank; their IDs and meanings match this pack. Alexa+, AWS Builder and Open Source choices remain available. Manual captions persist in Studio and render in the public player; complete human playback review and manual entry before submitting. Pilot changes are an undeployed candidate and must not be described as live household capability.
+The authenticated STAY draft was reverified read-only under `amirmolotfy` and is still DRAFT (1/5 steps done). Only the title is saved. The elevator pitch, thumbnail, complete project-details page and all 26 additional fields remain blank; their IDs and meanings match this pack. Alexa+, AWS Builder and Open Source choices remain available, the terms checkbox is unchecked and the final submit action was untouched. Manual captions persist in Studio and render in the public player; complete human playback review and manual entry before submitting. Pilot changes are merged implementation plus a reviewed, non-executed AWS change set and must not be described as live household capability.

@@ -1,6 +1,6 @@
 # Submission readiness audit
 
-Updated 2026-09-06 during recovery implementation. Source and submission media survived the lost session. The judge demo remains deployed; the new pilot work is an undeployed candidate.
+Updated 2026-09-08 after authenticated form, public-link, final-CI and pilot change-set revalidation. Source and submission media survived the lost session. The judge demo remains deployed; the pilot implementation is merged but undeployed.
 
 ## Decision
 
@@ -8,20 +8,20 @@ Updated 2026-09-06 during recovery implementation. Source and submission media s
 
 ## Current evidence
 
-| Gate                   | Evidence                                                                                                                                                                     | Status                                            |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Judge demo             | `https://saystay.site`; deployed stack freshly reports `UPDATE_COMPLETE`; public HTTP/OAuth/MCP boundary checked by strict verifier                                          | Available                                         |
-| Public release         | Baseline `4a7aa49240ecd8a69afe7bb35443aaa32fadd5bd`; latest historical CI `33933798929` on `503b56b`; deployment `33886987014` on `d569032`                                  | Preserved                                         |
-| Media                  | Strict verifier passes all 21 asset hashes, 170-second master/upload copy, 36 captions and live links                                                                        | 15/15 strict checks passed                        |
-| YouTube                | Approved 36-cue SRT persisted in Studio; public player displayed `[Soft felt-piano and marimba music]`; historical signed-out playback/embed and copyright inspection passed | Manual track available; full human review pending |
-| Private eligibility    | Participant confirmed both former negative answers were mistakes; ignored local handoff now records the confirmed answers                                                    | Corrected locally                                 |
-| Devpost ownership      | Reverified 2026-09-06 under `amirmolotfy`: **DRAFT, 1/5 steps done**; submission route ID `1166410-stay`, project slug `stay-ljbdk8`                                         | Not submitted                                     |
-| Official form coverage | Fresh read-only inspection confirms all 26 additional fields `28285`–`28310` remain blank; IDs and meanings match root `devpost-submission.md`                               | Reconciled                                        |
-| Prepared tracks        | Alexa+; AWS Builder and Open Source mini-challenges; all remain present in the official form                                                                                 | Preserved in packet                               |
-| New pilot code         | Separate identity/data/queues/domain, membership and private contacts, operator commands and empty household UI                                                              | Candidate; no deployment/enrollment               |
-| Provider               | AWS credentials now valid; SES sending enabled but sandbox (200/day, 1/sec); no current pilot inbox receipt test                                                             | Restricted                                        |
+| Gate                   | Evidence                                                                                                                                                                                                                                          | Status                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Judge demo             | `https://saystay.site`; fresh public HTTP/OAuth/MCP boundary checks passed and the last recorded stack state is `UPDATE_COMPLETE`                                                                                                                 | Available                                         |
+| Public release         | Final `main` `1adafd50519dba6d595832d3b136dfd7bb49d086`; [CI 34164700108](https://github.com/AmirmLotfy/stay/actions/runs/34164700108) passed the complete pipeline and 44 browser scenarios; judge deployment remains `33886987014` on `d569032` | Preserved; pilot code not deployed                |
+| Media                  | Strict verifier passes all 21 asset hashes, 170-second master/upload copy, 36 captions and live links                                                                                                                                             | 15/15 strict checks passed                        |
+| YouTube                | Approved 36-cue SRT persisted in Studio; public player displayed `[Soft felt-piano and marimba music]`; historical signed-out playback/embed and copyright inspection passed                                                                      | Manual track available; full human review pending |
+| Private eligibility    | Participant confirmed both former negative answers were mistakes; ignored local handoff now records the confirmed answers                                                                                                                         | Corrected locally                                 |
+| Devpost ownership      | Reverified read-only 2026-09-08 under `amirmolotfy`: **DRAFT, 1/5 steps done**; submission route `1166410-stay`, project slug `stay-ljbdk8`                                                                                                       | Not submitted                                     |
+| Official form coverage | Fresh read-only inspection confirms all 26 additional fields `28285`–`28310` remain blank; IDs and meanings match root `devpost-submission.md`                                                                                                    | Reconciled                                        |
+| Prepared tracks        | Alexa+; AWS Builder and Open Source mini-challenges; all remain present in the official form                                                                                                                                                      | Preserved in packet                               |
+| New pilot code         | Separate identity/data/queues/domain, membership and private contacts, operator commands and empty household UI; merged to `main` with an exact non-executed 150-addition change set                                                              | Prepared; no deployment/enrollment                |
+| Provider               | Local AWS authentication is expired and the only local profile is root-backed. Scoped GitHub OIDC prepared the pilot change set. Last recorded SES state is sandbox, 200/day and 1/sec; no current pilot inbox receipt test                       | Restricted and partly historical                  |
 
-The live draft still has only its title saved. Pitch, narrative, tags, links, video, screenshots and additional answers await participant entry. No form field or final-submission action was changed in this recovery pass. Do not mistake a prepared answer for a saved Devpost answer.
+The live draft still has only its title saved. Pitch, thumbnail, narrative, tags, links, video, screenshots and additional answers await participant entry. The terms checkbox remains unchecked. No form field, save action or final-submission action was changed in this recovery pass. Do not mistake a prepared answer for a saved Devpost answer.
 
 ## Form reconciliation
 
@@ -37,12 +37,14 @@ Current text fields show no HTML `maxlength`; server validation may still impose
 
 ## Completion gates
 
-1. Reconcile fresh deployed browser and authenticated MCP evidence in `RECOVERY_CHECKPOINT.md`.
+1. Reconcile fresh deployed browser and authenticated MCP evidence in `RECOVERY_CHECKPOINT.md`; public boundary checks are current, but authenticated initialize/list/call remains open.
 2. Participant watches the complete video with sound and approved captions, including signed-out/mobile playback.
 3. Participant enters root `devpost-submission.md`, ignored private answers, thumbnail, seven gallery images, judge links and video into the verified draft.
 4. Participant reviews Devpost validation, legal assertions and final confirmation; record submitted URL and confirmation only after completion.
 5. Pilot deployment, delivery, restore, device and observation gates remain separate; see `pilot-runbook.md`.
 
-## Recovery candidate — 2026-09-06
+## Recovery and pilot evidence — 2026-09-08
 
-The separate pilot/recovery candidate is saved in [draft PR #3](https://github.com/AmirmLotfy/stay/pull/3). [CI 33994247473](https://github.com/AmirmLotfy/stay/actions/runs/33994247473) passed on `e6af603`, including all 44 browser scenarios, coverage and strict demo/pilot synthesis. The public judge deployment remains `d569032`; passing candidate CI does not mean the pilot is deployed. Final strict submission verification again returned 15 passes with no pending exceptions. Complete live/manual gates in `RECOVERY_CHECKPOINT.md` remain open.
+[PR #3](https://github.com/AmirmLotfy/stay/pull/3) was merged. After two workflow-only corrections, final `main` is `1adafd50519dba6d595832d3b136dfd7bb49d086` and [CI 34164700108](https://github.com/AmirmLotfy/stay/actions/runs/34164700108) passed the complete pipeline with coverage, strict demo/pilot synthesis and all 44 browser scenarios. The approved diff-only [pilot workflow 34164714532](https://github.com/AmirmLotfy/stay/actions/runs/34164714532) prepared `stay-pilot-review-1adafd50519dba6d595832d3b136dfd7bb49d086` in `CREATE_COMPLETE` / `AVAILABLE` state with 150 additions, zero modifications and zero removals. It did not execute the change set. The public judge deployment remains `d569032`.
+
+Fresh `pnpm verify:submission` returned **15 passed, 0 pending, 0 failed**. Fresh public checks returned 200 for the site and OAuth metadata and the expected 401 for unauthenticated MCP. These checks do not replace a fresh authenticated MCP initialize/list/call test or complete human video review. Complete live/manual gates in `RECOVERY_CHECKPOINT.md` remain open.
