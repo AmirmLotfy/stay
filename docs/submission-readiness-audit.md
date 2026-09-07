@@ -25,8 +25,8 @@ The live draft still has only its title saved. Pitch, thumbnail, narrative, tags
 
 ## Form reconciliation
 
-- Overview: title and elevator pitch; thumbnail JPG/PNG/GIF, max 5 MB, recommended 3:2 ratio.
-- Details: Markdown story, up to 25 build tags, try-it links, video link, gallery up to 15 images at max 5 MB each. The seven prepared screenshots fit the gallery count; keep their approved order.
+- Overview: title and elevator pitch; project-thumbnail candidate is `assets/submission/video/STAY_YouTube_Thumbnail.png`, a reviewed 1920×1080 PNG at 212,239 bytes. Devpost recommends 3:2, so inspect the crop preview before saving.
+- Details: Markdown story, up to 25 build tags, try-it links, video link, gallery up to 15 images at max 5 MB each. All seven prepared screenshots are valid PNGs below 233 KB; keep the exact upload order in `devpost-submission.md`.
 - Fields `28285`–`28288`: submitter, organization, country, Canadian province; private participant handoff supplies personal answers.
 - `28289`–`28292`: Alexa+ track, public repository, project timing and any existing-project explanation.
 - `28293`–`28299`: AWS Builder and Open Source entries with integration and contribution evidence.

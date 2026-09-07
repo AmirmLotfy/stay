@@ -125,6 +125,24 @@ pnpm cdk:synth
 
 Current public CI evidence for final `main` commit `1adafd50519dba6d595832d3b136dfd7bb49d086`: https://github.com/AmirmLotfy/stay/actions/runs/34164700108 — generated-contract drift, format, lint, strict typecheck, unit/contract tests, monorepo coverage, deterministic submission-media checks, production builds, strict demo and pilot CDK synthesis, and all 44 Playwright scenarios passed. The public judge deployment remains the earlier `d569032` release; the pilot code on `main` is not deployed.
 
+## Devpost Upload Manifest
+
+Use `assets/submission/video/STAY_YouTube_Thumbnail.png` as the project thumbnail candidate. It is a reviewed 1920×1080 PNG (212,239 bytes) showing the protected “Tom is on the way” moment. Devpost recommends a 3:2 thumbnail while accepting PNG uploads up to 5 MB; inspect its crop preview before saving and do not accept a crop that removes the STAY brand, primary headline, or response-ownership card.
+
+Upload the seven screenshots in this exact gallery order. Every file is a valid PNG below 233 KB, comfortably under the 5 MB per-image limit.
+
+| Order | File                                                              | Dimensions |   Bytes |
+| ----: | ----------------------------------------------------------------- | ---------: | ------: |
+|     1 | `assets/submission/screenshots/04-tom-on-the-way-desktop.png`     |  1920×1080 | 219,888 |
+|     2 | `assets/submission/screenshots/01-home-desktop.png`               |  1920×1080 | 212,746 |
+|     3 | `assets/submission/screenshots/02-access-desktop.png`             |  1920×1080 | 188,177 |
+|     4 | `assets/submission/screenshots/03-privacy-desktop.png`            |  1920×1080 | 182,163 |
+|     5 | `assets/submission/screenshots/07-mobile-updates.png`             |    390×844 |  66,293 |
+|     6 | `assets/submission/screenshots/05-emergency-boundary-desktop.png` |  1920×1080 | 232,170 |
+|     7 | `assets/submission/screenshots/06-home-mobile.png`                |   390×2683 | 157,069 |
+
+Use the public YouTube URL for the video field; do not upload the local MP4 to Devpost. Review every generated thumbnail/gallery crop, caption and ordering preview before saving the draft.
+
 ## Screenshot Shot List
 
 1. `assets/submission/screenshots/01-home-desktop.png` — Today, One Thing, home status, calendar, and simulator.
