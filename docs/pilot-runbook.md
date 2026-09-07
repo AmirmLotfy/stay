@@ -10,6 +10,12 @@ Store private inputs, exports and the deletion ledger in an encrypted operator-c
 
 `pnpm pilot:operator <operation> --input /absolute/private/input.json` validates without calling AWS. Add `--apply` only for the reviewed operation. Input requires `stack: "StayPilotStack"` and a non-demo `householdId`. Supported operations:
 
+`docs/examples/pilot-provision.example.json` is a synthetic, schema-valid provisioning example. Copy it to the ignored private operator location, replace every example identity and timestamp with the participant-reviewed values, then run the command without `--apply` first. The example addresses use the reserved `.test` domain and must never be treated as verified recipients or applied to AWS.
+
+```sh
+pnpm pilot:operator provision --input "$PWD/docs/examples/pilot-provision.example.json"
+```
+
 The pilot stack outputs `PilotOperatorPolicyArn` but does not attach it to any identity. An AWS administrator must attach that exact managed policy to a dedicated non-root operator role/user, configure the corresponding local profile, and verify `aws sts get-caller-identity --profile PROFILE` before any `--apply` command. The command itself rejects the root ARN and verifies the stable pilot stack outputs. The policy permits only this stack description, household-table operations, pilot-pool user lifecycle calls and read-only SES identity verification; it cannot deploy infrastructure or send arbitrary email.
 
 | Operation          | Input and effect                                                                                                                                                                                                                                   |

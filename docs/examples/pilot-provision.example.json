@@ -1,0 +1,35 @@
+{
+  "stack": "StayPilotStack",
+  "householdId": "house-example-one",
+  "profile": {
+    "id": "house-example-one",
+    "version": 1,
+    "status": "active",
+    "residentId": "resident-example-one",
+    "name": "Ava Example's home",
+    "firstName": "Ava",
+    "timezone": "Europe/London",
+    "consentVersion": "pilot-v1",
+    "consentedAt": "2026-09-05T12:00:00Z",
+    "createdAt": "2026-09-05T12:00:00Z"
+  },
+  "people": [
+    {
+      "email": "resident@example.test",
+      "name": "Ava Example",
+      "role": "resident",
+      "consentedAt": "2026-09-05T12:00:00Z",
+      "consentVersion": "pilot-v1",
+      "priority": 1
+    },
+    {
+      "email": "coordinator@example.test",
+      "name": "Sam Example",
+      "role": "coordinator",
+      "memberId": "member-example-sam",
+      "consentedAt": "2026-09-05T12:00:00Z",
+      "consentVersion": "pilot-v1",
+      "priority": 1
+    }
+  ]
+}
