@@ -144,15 +144,13 @@ jobs:
           aws cloudformation describe-change-set \
             --stack-name StayPilotStack \
             --change-set-name "$PILOT_CHANGE_SET_NAME" \
-            --query '{ChangeSetName:ChangeSetName,StackName:StackName,ChangeSetType:ChangeSetType,Status:Status,ExecutionStatus:ExecutionStatus,CreationTime:CreationTime,Changes:Changes}' \
+            --query '{ChangeSetName:ChangeSetName,StackId:StackId,StackName:StackName,Status:Status,ExecutionStatus:ExecutionStatus,CreationTime:CreationTime,Changes:Changes}' \
             --output json > "$change_set_file"
           CHANGE_SET_FILE="$change_set_file" node <<'NODE'
           const fs = require('node:fs');
           const changeSet = JSON.parse(fs.readFileSync(process.env.CHANGE_SET_FILE, 'utf8'));
           if (changeSet.Status !== 'CREATE_COMPLETE') throw new Error('Pilot change set is not complete');
           if (changeSet.ExecutionStatus !== 'AVAILABLE') throw new Error('Pilot change set is not available');
-          if (!['CREATE', 'UPDATE'].includes(changeSet.ChangeSetType))
-            throw new Error('Unexpected pilot change-set type');
           const counts = {};
           for (const change of changeSet.Changes ?? []) {
             const action = change.ResourceChange?.Action ?? 'Unknown';
@@ -160,8 +158,7 @@ jobs:
           }
           fs.appendFileSync(
             process.env.GITHUB_STEP_SUMMARY,
-            `- Change-set type: \`${changeSet.ChangeSetType}\`\n` +
-              `- Execution status: \`${changeSet.ExecutionStatus}\`\n` +
+            `- Execution status: \`${changeSet.ExecutionStatus}\`\n` +
               `- Resource changes: \`${JSON.stringify(counts)}\`\n`,
           );
           NODE
