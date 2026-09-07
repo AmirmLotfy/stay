@@ -16,7 +16,7 @@
     "deploy": "pnpm build && cdk deploy --require-approval broadening"
   },
   "dependencies": {
-    "aws-cdk-lib": "2.267.0",
+    "aws-cdk-lib": "2.268.0",
     "cdk-nag": "3.0.2",
     "constructs": "10.8.1",
     "source-map-support": "0.5.21"
