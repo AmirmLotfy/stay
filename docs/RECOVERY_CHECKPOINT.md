@@ -1,6 +1,6 @@
 # STAY recovery checkpoint
 
-Updated: 2026-09-07. Resume here before making release claims.
+Updated: 2026-09-08. Resume here before making release claims.
 
 ## Baseline
 
@@ -63,7 +63,7 @@ Fresh evidence on 2026-09-05:
 
 External gates still open: full human video review; participant Devpost entry/final submission; approved pilot deployment/cost; controlled inbox/feedback/alert tests; restore and rollback rehearsal; real-device accessibility; actual participant consent/identities; seven-day then fourteen-day observations. Do not mark the whole completion plan achieved from this checkpoint.
 
-Candidate branch: `codex/stay-recovery-pilot`. Full `pnpm verify` passed before the final independent review. Review found and fixed SES sandbox pacing and an offboarding race. Pilot notification admission holds a fenced shared lease through authorization and send, then starts a cooldown; detail remains in logs while one pilot metric limits recurring cost. CI now includes strict pilot synthesis. Current cost calculations and identity limitations are recorded in `pilot-infrastructure-review.md`. The independent reviewer reproduced the original latency gap, then verified its fix with 15 notification tests (18 paced sends across two households with variable authorization latency). Cognito provisioning now uses the verified email for the email-only pool. No deployment, final Devpost submission, or household enrollment has occurred.
+Merged candidate: `474cdf102e66aa763cba90400a4a72b5b341522e` on `main`. Full `pnpm verify` passed before the final independent review. Review found and fixed SES sandbox pacing and an offboarding race. Pilot notification admission holds a fenced shared lease through authorization and send, then starts a cooldown; detail remains in logs while one pilot metric limits recurring cost. CI includes strict pilot synthesis. Current cost calculations and identity limitations are recorded in `pilot-infrastructure-review.md`. The independent reviewer reproduced the original latency gap, then verified its fix with 15 notification tests (18 paced sends across two households with variable authorization latency). Cognito provisioning uses the verified email for the email-only pool. No deployment, final Devpost submission, or household enrollment has occurred.
 
 ## Saved candidate and CI milestone — 2026-09-06
 
@@ -85,6 +85,13 @@ Candidate branch: `codex/stay-recovery-pilot`. Full `pnpm verify` passed before 
 - Local final functions: **85 passed**; type checking, lint, build, coverage and strict pilot synthesis passed. Read-only pilot diff creates one stack.
 - A documentation-only follow-up records these results; it does not change the tested implementation.
 
-Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 3`, `gh run view 34067605433`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
+Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 3`, `gh run view 34068187568`, `gh run view 34068703180`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
 
-Required user/provider inputs are pending: participant review/merge of draft PR #3, participant full video review and Devpost entry/submission, and actual pilot consent/verified identities. The only local AWS profile remains root-backed and must not be used for pilot operations. The candidate now supplies a pilot-only workflow that can perform the reviewed diff/deploy through the existing main-branch GitHub OIDC role after merge; the deploy action is still pending. After deployment, complete live authenticated isolation/MCP/WS, inbox/feedback/alert, restore/rollback and device accessibility checks before enrollment. The actual seven-day and fourteen-day observation gates remain unchanged.
+Required user/provider inputs are pending: participant full video review and Devpost entry/submission, explicit pilot deployment authorization after a successful diff review, and actual pilot consent/verified identities. The only local AWS profile remains root-backed and must not be used for pilot operations. Pilot diff and deployment run through the existing main-branch GitHub OIDC role; no deployment is currently authorized. After deployment, complete live authenticated isolation/MCP/WS, inbox/feedback/alert, restore/rollback and device accessibility checks before enrollment. The actual seven-day and fourteen-day observation gates remain unchanged.
+
+## Merge and pilot diff milestone — 2026-09-08
+
+- [PR #3](https://github.com/AmirmLotfy/stay/pull/3) was approved and merged as `474cdf102e66aa763cba90400a4a72b5b341522e`. [Main CI 34068187568](https://github.com/AmirmLotfy/stay/actions/runs/34068187568) passed the full pipeline and all 44 browser scenarios.
+- The approved diff-only [pilot workflow 34068703180](https://github.com/AmirmLotfy/stay/actions/runs/34068703180) verified the exact main source and immutable GitHub OIDC claims, passed full verification and strict pilot synthesis, assumed the scoped non-root deployment role, and validated the private parameters. It did not deploy the pilot stack.
+- That run failed before change-set creation because the pinned CDK CLI does not accept `--parameters` on `cdk diff`; it ignored them and CloudFormation reported missing `AlertEmail`, `SesFromEmail` and `ExistingHostedZoneId`. This matches the limitation already recorded in `deployment-runbook.md` and `friction-log.md`.
+- The workflow correction prints a parameter-independent template diff, prepares a non-executed CloudFormation change set with `cdk deploy --method prepare-change-set`, binds its name to the full main SHA, and records only safe resource changes. A future deploy run must recheck and execute that stored change set. No pilot resources or household data have been created.
