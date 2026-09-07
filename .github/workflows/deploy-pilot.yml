@@ -81,11 +81,14 @@ jobs:
       - name: Record candidate template and source
         run: |
           template_sha="$(sha256sum infrastructure/cdk/cdk.out/StayPilotStack.template.json | cut -d ' ' -f 1)"
+          change_set_name="stay-pilot-review-$GITHUB_SHA"
           {
             printf '### STAY pilot candidate\n\n'
             printf -- "- Source: \`%s\`\n" "$GITHUB_SHA"
             printf -- "- Template SHA-256: \`%s\`\n" "$template_sha"
+            printf -- "- Change set: \`%s\`\n" "$change_set_name"
           } >> "$GITHUB_STEP_SUMMARY"
+          printf 'PILOT_CHANGE_SET_NAME=%s\n' "$change_set_name" >> "$GITHUB_ENV"
       - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -104,13 +107,24 @@ jobs:
           printf '%s' "$HOSTED_ZONE_ID" | grep -Eq '^Z[A-Z0-9]+$'
           test -n "$ALERT_EMAIL"
           test -n "$SES_FROM_EMAIL"
-      - name: Generate exact pilot change-set diff
+      - name: Generate pilot template diff
+        if: inputs.operation == 'diff'
+        run: |
+          pnpm --filter @stay/infra exec cdk diff StayPilotStack \
+            --strict \
+            -c stage=pilot \
+            -c enableCloudFront=false \
+            -c enableCustomDomain=true \
+            -c enableDeletionProtection=true \
+            --method template
+      - name: Prepare exact non-executed pilot change set
+        if: inputs.operation == 'diff'
         env:
           HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
         run: |
-          pnpm --filter @stay/infra exec cdk diff StayPilotStack \
+          pnpm --filter @stay/infra exec cdk deploy StayPilotStack \
             --strict \
             -c stage=pilot \
             -c enableCloudFront=false \
@@ -120,23 +134,78 @@ jobs:
             --parameters "StayPilotStack:AlertEmail=$ALERT_EMAIL" \
             --parameters "StayPilotStack:SesFromEmail=$SES_FROM_EMAIL" \
             --parameters "StayPilotStack:BedrockModelId=" \
-            --method change-set
-      - name: Deploy reviewed pilot revision
+            --method prepare-change-set \
+            --change-set-name "$PILOT_CHANGE_SET_NAME" \
+            --require-approval never
+      - name: Record exact pilot change set
+        if: inputs.operation == 'diff'
+        run: |
+          change_set_file="$RUNNER_TEMP/pilot-change-set.json"
+          aws cloudformation describe-change-set \
+            --stack-name StayPilotStack \
+            --change-set-name "$PILOT_CHANGE_SET_NAME" \
+            --query '{ChangeSetName:ChangeSetName,StackName:StackName,ChangeSetType:ChangeSetType,Status:Status,ExecutionStatus:ExecutionStatus,CreationTime:CreationTime,Changes:Changes}' \
+            --output json > "$change_set_file"
+          CHANGE_SET_FILE="$change_set_file" node <<'NODE'
+          const fs = require('node:fs');
+          const changeSet = JSON.parse(fs.readFileSync(process.env.CHANGE_SET_FILE, 'utf8'));
+          if (changeSet.Status !== 'CREATE_COMPLETE') throw new Error('Pilot change set is not complete');
+          if (changeSet.ExecutionStatus !== 'AVAILABLE') throw new Error('Pilot change set is not available');
+          if (!['CREATE', 'UPDATE'].includes(changeSet.ChangeSetType))
+            throw new Error('Unexpected pilot change-set type');
+          const counts = {};
+          for (const change of changeSet.Changes ?? []) {
+            const action = change.ResourceChange?.Action ?? 'Unknown';
+            counts[action] = (counts[action] ?? 0) + 1;
+          }
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `- Change-set type: \`${changeSet.ChangeSetType}\`\n` +
+              `- Execution status: \`${changeSet.ExecutionStatus}\`\n` +
+              `- Resource changes: \`${JSON.stringify(counts)}\`\n`,
+          );
+          NODE
+          cat "$change_set_file"
+      - name: Verify exact reviewed pilot change set
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
         env:
           HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
         run: |
+          change_set_file="$RUNNER_TEMP/pilot-change-set-for-deploy.json"
+          aws cloudformation describe-change-set \
+            --stack-name StayPilotStack \
+            --change-set-name "$PILOT_CHANGE_SET_NAME" \
+            --output json > "$change_set_file"
+          CHANGE_SET_FILE="$change_set_file" node <<'NODE'
+          const fs = require('node:fs');
+          const changeSet = JSON.parse(fs.readFileSync(process.env.CHANGE_SET_FILE, 'utf8'));
+          if (changeSet.Status !== 'CREATE_COMPLETE') throw new Error('Reviewed pilot change set is not complete');
+          if (changeSet.ExecutionStatus !== 'AVAILABLE') throw new Error('Reviewed pilot change set is not available');
+          const parameters = Object.fromEntries(
+            (changeSet.Parameters ?? []).map(({ ParameterKey, ParameterValue }) => [ParameterKey, ParameterValue]),
+          );
+          const expected = {
+            ExistingHostedZoneId: process.env.HOSTED_ZONE_ID,
+            AlertEmail: process.env.ALERT_EMAIL,
+            SesFromEmail: process.env.SES_FROM_EMAIL,
+            BedrockModelId: '',
+          };
+          for (const [key, value] of Object.entries(expected)) {
+            if (parameters[key] !== value) throw new Error(`Reviewed pilot parameter mismatch: ${key}`);
+          }
+          NODE
+      - name: Deploy reviewed pilot revision
+        if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
+        run: |
           pnpm --filter @stay/infra exec cdk deploy StayPilotStack \
             -c stage=pilot \
             -c enableCloudFront=false \
             -c enableCustomDomain=true \
             -c enableDeletionProtection=true \
-            --parameters "StayPilotStack:ExistingHostedZoneId=$HOSTED_ZONE_ID" \
-            --parameters "StayPilotStack:AlertEmail=$ALERT_EMAIL" \
-            --parameters "StayPilotStack:SesFromEmail=$SES_FROM_EMAIL" \
-            --parameters "StayPilotStack:BedrockModelId=" \
+            --method execute-change-set \
+            --change-set-name "$PILOT_CHANGE_SET_NAME" \
             --require-approval never
       - name: Verify stable protected pilot outputs
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
