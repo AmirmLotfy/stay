@@ -1,6 +1,6 @@
 # STAY
 
-> Recovery update (2026-09-05): see [current checkpoint](docs/RECOVERY_CHECKPOINT.md). Private eligibility corrections now pass; approved manual YouTube captions render. The new household pilot is an undeployed candidate. Earlier release evidence below describes the judge deployment.
+> Recovery update (2026-09-08): see [current checkpoint](docs/RECOVERY_CHECKPOINT.md). Strict submission verification passes, approved manual YouTube captions render through a complete public playback, and the new household pilot remains an undeployed candidate. Earlier release evidence below describes the judge deployment.
 
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
@@ -16,17 +16,17 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 ## Current evidence
 
-| Capability                                                        | Status                | Evidence boundary                                                                                                            |
-| ----------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Deployed              | [Public isolated demo](https://saystay.site); direct deployed desktop/mobile captures                                        |
-| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog               |
-| Streamable HTTP MCP server and ten tools                          | Deployed and verified | OAuth authorization code + PKCE and authenticated MCP `2025-11-25` initialize passed live                                    |
-| Strands + Amazon Bedrock intent layer                             | Provider-limited      | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off           |
-| AWS topology                                                      | Deployed              | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; stack termination and stateful-resource deletion protection are enabled |
-| SES delivery                                                      | Verified, sandboxed   | SES accepted an authenticated test from `STAY <updates@saystay.site>`; inbox confirmation is still required                  |
-| Real Alexa+ device/add-on                                         | Unavailable           | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                                 |
-| Simulated edge providers                                          | Implemented           | Every observation includes mode, provider, timestamp, and reason                                                             |
-| Payments                                                          | Not implemented       | Monetization is documentation-only                                                                                           |
+| Capability                                                        | Status                        | Evidence boundary                                                                                                                                        |
+| ----------------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resident/Circle PWA and Alexa-style simulator                     | Deployed                      | [Public isolated demo](https://saystay.site); direct deployed desktop/mobile captures                                                                    |
+| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified         | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog                                           |
+| Streamable HTTP MCP server and ten tools                          | Deployed; auth retest pending | Public OAuth/MCP boundaries pass current checks; authenticated `2025-11-25` initialize/list/call passed the prior release and needs a fresh recovery run |
+| Strands + Amazon Bedrock intent layer                             | Provider-limited              | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off                                       |
+| AWS topology                                                      | Deployed                      | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; stack termination and stateful-resource deletion protection are enabled                             |
+| SES delivery                                                      | Verified, sandboxed           | SES accepted an authenticated test from `STAY <updates@saystay.site>`; inbox confirmation is still required                                              |
+| Real Alexa+ device/add-on                                         | Unavailable                   | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                                                             |
+| Simulated edge providers                                          | Implemented                   | Every observation includes mode, provider, timestamp, and reason                                                                                         |
+| Payments                                                          | Not implemented               | Monetization is documentation-only                                                                                                                       |
 
 See [release evidence](docs/release-evidence.md) for the checklist that prevents local or simulator results from being reported as cloud or device proof.
 
@@ -115,7 +115,7 @@ pnpm test:e2e
 pnpm cdk:synth
 ```
 
-The coverage gate directly exercises aggregate/outbox/idempotency transactions, bounded EventBridge publishing, minimal SES delivery and deduplication, WebSocket session scoping/fan-out/stale cleanup, deterministic state machines, MCP boundaries, and infrastructure synthesis. Playwright covers 40 desktop, mobile, simulated Echo Show 8/15 scenarios: keyboard and skip navigation, touch-only protected flow, emergency copy, automated WCAG checks, 48 × 48 touch targets, adaptive Access preferences, system-aware persistent themes, RTL shell readiness, routine Help Board requests, resident Safety Window creation/check-in, versioned simulated Path Lighting, Circle membership, full playbook controls, responsive header and notification-panel behavior, and the deployed TTL-isolated API-session client. Additional manual screen-reader and real-device evidence remains a release gate.
+The coverage gate directly exercises aggregate/outbox/idempotency transactions, bounded EventBridge publishing, minimal SES delivery and deduplication, WebSocket session scoping/fan-out/stale cleanup, deterministic state machines, MCP boundaries, and infrastructure synthesis. Playwright covers 44 desktop, mobile, simulated Echo Show 8/15 and pilot-viewport scenarios: keyboard and skip navigation, touch-only protected flow, emergency copy, automated WCAG checks, 48 × 48 touch targets, adaptive Access preferences, system-aware persistent themes, RTL shell readiness, routine Help Board requests, resident Safety Window creation/check-in, versioned simulated Path Lighting, Circle membership, full playbook controls, responsive header and notification-panel behavior, the deployed TTL-isolated API-session client, and authenticated pilot empty/preference/revocation states. The fresh deployed judge matrix passed all 36 applicable scenarios; four pilot-only and four route-mocked cases skip outside their intended runtime. Additional manual screen-reader and real-device evidence remains a release gate.
 
 ## Public AWS demo
 

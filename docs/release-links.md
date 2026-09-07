@@ -2,17 +2,17 @@
 
 This is the single copy source for judge-facing links.
 
-| Purpose                           | Link                                                              | Evidence required before use                                                    |
-| --------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Try STAY                          | https://saystay.site                                              | Fresh signed-out browser completes the isolated protected flow over HTTPS       |
-| Demo video                        | https://youtu.be/oCoXdCRVyMo                                      | Public, embeddable, English, 1080p, 170 seconds; replace auto-captions with SRT |
-| Public source                     | https://github.com/AmirmLotfy/stay                                | Public repository and Apache-2.0 detection                                      |
-| Setup instructions                | https://github.com/AmirmLotfy/stay#run-locally                    | Clean clone follows the documented path                                         |
-| Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/33933798929       | Commit `503b56b`; 21 assets, 8/8 gate, coverage, and 40/40 scenarios passed     |
-| Friction log                      | https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md | Publicly readable                                                               |
-| Devpost project                   | https://devpost.com/software/stay-ljbdk8                          | Remains a draft until the separate final submission confirmation                |
-| MCP endpoint                      | https://saystay.site/mcp                                          | Protocol, origin, bearer scope, initialize/list/call, and error tests pass live |
-| OAuth protected-resource metadata | https://saystay.site/.well-known/oauth-protected-resource/mcp     | Public metadata resolves and names the deployed MCP resource                    |
+| Purpose                           | Link                                                              | Evidence required before use                                                                                                                       |
+| --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Try STAY                          | https://saystay.site                                              | Fresh signed-out browser completes the isolated protected flow over HTTPS                                                                          |
+| Demo video                        | https://youtu.be/oCoXdCRVyMo                                      | Public, embeddable, English, 1080p, 170 seconds; approved manual SRT active and public continuity passed; participant sound/content review pending |
+| Public source                     | https://github.com/AmirmLotfy/stay                                | Public repository and Apache-2.0 detection                                                                                                         |
+| Setup instructions                | https://github.com/AmirmLotfy/stay#run-locally                    | Clean clone follows the documented path                                                                                                            |
+| Public CI                         | https://github.com/AmirmLotfy/stay/actions/runs/34164700108       | Final `main` `1adafd5`; full pipeline, media, coverage, both stack syntheses, and 44 browser scenarios passed                                      |
+| Friction log                      | https://github.com/AmirmLotfy/stay/blob/main/docs/friction-log.md | Publicly readable                                                                                                                                  |
+| Devpost project                   | https://devpost.com/software/stay-ljbdk8                          | Remains a draft until the separate final submission confirmation                                                                                   |
+| MCP endpoint                      | https://saystay.site/mcp                                          | Current public boundary returns the expected 401; prior authenticated initialize/list/call proof needs a fresh recovery run                        |
+| OAuth protected-resource metadata | https://saystay.site/.well-known/oauth-protected-resource/mcp     | Public metadata resolves and names the deployed MCP resource                                                                                       |
 
 ## Devpost copy
 
