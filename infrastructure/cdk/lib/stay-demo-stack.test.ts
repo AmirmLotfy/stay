@@ -48,12 +48,28 @@ describe('StayDemoStack', () => {
     expect(template.findParameters('SesRecipientEmail')).toEqual({});
     template.hasOutput('CognitoIssuerUrl', { Value: Match.anyValue() });
     template.hasOutput('PilotOperatorPolicyArn', { Value: Match.anyValue() });
+    const operatorPolicies = template.findResources('AWS::IAM::ManagedPolicy', {
+      Properties: {
+        ManagedPolicyName: 'stay-pilot-household-operator',
+      },
+    });
+    expect(Object.keys(operatorPolicies)).toHaveLength(1);
+    expect(JSON.stringify(Object.values(operatorPolicies)[0])).not.toContain(
+      'dynamodb:TransactWriteItems',
+    );
     template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
       ManagedPolicyName: 'stay-pilot-household-operator',
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith(['dynamodb:TransactWriteItems']),
+            Action: Match.arrayWith([
+              'dynamodb:GetItem',
+              'dynamodb:Query',
+              'dynamodb:ConditionCheckItem',
+              'dynamodb:PutItem',
+              'dynamodb:UpdateItem',
+              'dynamodb:DeleteItem',
+            ]),
           }),
           Match.objectLike({
             Action: Match.arrayWith(['cognito-idp:AdminDisableUser']),
