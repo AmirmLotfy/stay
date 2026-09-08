@@ -217,7 +217,14 @@ export function runPilotOperator(
     const rows = query('DELIVERY#');
     process.stdout.write(
       JSON.stringify(
-        rows.map(({ SK, state, createdAt, updatedAt }) => ({ SK, state, createdAt, updatedAt })),
+        rows.map(({ SK, state, createdAt, updatedAt, providerCode, providerHttpStatus }) => ({
+          SK,
+          state,
+          createdAt,
+          updatedAt,
+          providerCode,
+          providerHttpStatus,
+        })),
       ) + '\n',
     );
   } else if (operation === 'send-invitations') {

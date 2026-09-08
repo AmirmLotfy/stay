@@ -86,7 +86,7 @@ describe('pilot email boundary', () => {
     vi.mocked(io.admit).mockRejectedValue(new Error('rate store unavailable'));
     await expect(deliverPilotEvent(body(), io)).rejects.toThrow('REQUIRES_REVIEW');
     expect(io.send).not.toHaveBeenCalled();
-    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry');
+    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry', {});
   });
   it('never sends isolated demo events', async () => {
     const io = setup();
@@ -134,7 +134,7 @@ describe('pilot email boundary', () => {
     vi.mocked(io.send).mockRejectedValue(new Error('socket closed'));
     await expect(deliverPilotEvent(body(), io)).rejects.toThrow('REQUIRES_REVIEW');
     expect(io.send).toHaveBeenCalledTimes(1);
-    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'unknown');
+    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'unknown', {});
   });
   it('retries explicit SES throttling without classifying it as an accepted send', async () => {
     const io = setup();
@@ -142,7 +142,9 @@ describe('pilot email boundary', () => {
       Object.assign(new Error('throttled'), { name: 'TooManyRequestsException' }),
     );
     await expect(deliverPilotEvent(body(), io)).rejects.toThrow('REQUIRES_REVIEW');
-    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry');
+    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry', {
+      providerCode: 'TooManyRequestsException',
+    });
   });
   it('retries a definitive provider rejection without classifying it as network uncertainty', async () => {
     const io = setup();
@@ -153,7 +155,10 @@ describe('pilot email boundary', () => {
       }),
     );
     await expect(deliverPilotEvent(body(), io)).rejects.toThrow('REQUIRES_REVIEW');
-    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry');
+    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry', {
+      providerCode: 'AccessDeniedException',
+      providerHttpStatus: 403,
+    });
   });
   it('suppresses membership revoked between claim and send', async () => {
     const io = setup();
