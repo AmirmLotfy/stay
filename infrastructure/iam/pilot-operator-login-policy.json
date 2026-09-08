@@ -1,0 +1,82 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowReadPasswordPolicy",
+      "Effect": "Allow",
+      "Action": "iam:GetAccountPasswordPolicy",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowChangeOwnPassword",
+      "Effect": "Allow",
+      "Action": "iam:ChangePassword",
+      "Resource": "arn:aws:iam::828547077857:user/${aws:username}"
+    },
+    {
+      "Sid": "AllowViewVirtualMfaDevices",
+      "Effect": "Allow",
+      "Action": "iam:ListVirtualMFADevices",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowCreateVirtualMfaDevice",
+      "Effect": "Allow",
+      "Action": "iam:CreateVirtualMFADevice",
+      "Resource": "arn:aws:iam::828547077857:mfa/*"
+    },
+    {
+      "Sid": "AllowManageOwnMfa",
+      "Effect": "Allow",
+      "Action": [
+        "iam:EnableMFADevice",
+        "iam:GetMFADevice",
+        "iam:GetUser",
+        "iam:ListMFADevices",
+        "iam:ResyncMFADevice"
+      ],
+      "Resource": "arn:aws:iam::828547077857:user/${aws:username}"
+    },
+    {
+      "Sid": "AllowDeactivateOwnMfaOnlyWithMfa",
+      "Effect": "Allow",
+      "Action": "iam:DeactivateMFADevice",
+      "Resource": "arn:aws:iam::828547077857:user/${aws:username}",
+      "Condition": {
+        "Bool": {
+          "aws:MultiFactorAuthPresent": "true"
+        }
+      }
+    },
+    {
+      "Sid": "AllowAssumeOnlyPilotOperatorRole",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::828547077857:role/stay-pilot-household-operator-role"
+    },
+    {
+      "Sid": "DenyEverythingExceptBootstrapWithoutMfa",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:ChangePassword",
+        "iam:CreateVirtualMFADevice",
+        "iam:EnableMFADevice",
+        "iam:GetAccountPasswordPolicy",
+        "iam:GetMFADevice",
+        "iam:GetUser",
+        "iam:ListMFADevices",
+        "iam:ListVirtualMFADevices",
+        "iam:ResyncMFADevice",
+        "signin:AuthorizeOAuth2Access",
+        "signin:CreateOAuth2Token",
+        "sts:GetSessionToken"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "BoolIfExists": {
+          "aws:MultiFactorAuthPresent": "false"
+        }
+      }
+    }
+  ]
+}
