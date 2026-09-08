@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import { URL, URLSearchParams } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -25,8 +26,26 @@ const clientId = process.env.STAY_CLIENT_ID;
 const redirectUri = process.env.STAY_REDIRECT_URI;
 const username = process.env.STAY_USERNAME;
 const password = process.env.STAY_PASSWORD;
+const totpSecret = process.env.STAY_TOTP_SECRET;
 const mcpUrl = process.env.STAY_MCP_URL;
 const browserPath = process.env.STAY_BROWSER_PATH;
+
+function currentTotp(secret) {
+  const normalized = secret.replace(/\s+/g, '').toUpperCase();
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const character of normalized) {
+    const value = alphabet.indexOf(character);
+    if (value < 0) throw new Error('STAY_TOTP_SECRET is not valid base32.');
+    bits += value.toString(2).padStart(5, '0');
+  }
+  const key = Buffer.from(bits.match(/.{8}/g)?.map((byte) => Number.parseInt(byte, 2)) ?? []);
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+  const digest = createHmac('sha1', key).update(counter).digest();
+  const offset = digest.at(-1) & 0x0f;
+  return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
 
 const verifier = randomBytes(48).toString('base64url');
 const state = randomBytes(24).toString('base64url');
@@ -69,10 +88,19 @@ try {
     });
   }
   let callbackUrl;
+  let submittedMfa = false;
   for (let attempt = 0; attempt < (interactiveLogin ? 360 : 60); attempt += 1) {
     if (page.url().startsWith(redirectUri)) {
       callbackUrl = page.url();
       break;
+    }
+    if (!interactiveLogin && !submittedMfa && page.url().includes('/mfa/totp')) {
+      if (!totpSecret) throw new Error('STAY_TOTP_SECRET is required when Cognito requests MFA.');
+      await page.locator('input:not([type="hidden"])').last().fill(currentTotp(totpSecret));
+      await page.locator('button[type="submit"], input[type="submit"]').first().click({
+        noWaitAfter: true,
+      });
+      submittedMfa = true;
     }
     await page.waitForTimeout(500);
   }

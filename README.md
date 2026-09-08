@@ -1,6 +1,6 @@
 # STAY
 
-> Recovery update (2026-09-08): see [current checkpoint](docs/RECOVERY_CHECKPOINT.md). Strict submission verification passes, approved manual YouTube captions render through a complete public playback, and the new household pilot remains an undeployed candidate. Earlier release evidence below describes the judge deployment.
+> Recovery update (2026-09-08): see [current checkpoint](docs/RECOVERY_CHECKPOINT.md). Strict submission verification passes, approved manual YouTube captions render through complete public playback, and the isolated pilot is deployed with two MFA-backed synthetic households undergoing live release checks. Earlier release evidence below describes the judge deployment.
 
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
@@ -16,17 +16,17 @@ STAY never claims to contact emergency services, diagnose a condition, detect a 
 
 ## Current evidence
 
-| Capability                                                        | Status                        | Evidence boundary                                                                                                                                        |
-| ----------------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Resident/Circle PWA and Alexa-style simulator                     | Deployed                      | [Public isolated demo](https://saystay.site); direct deployed desktop/mobile captures                                                                    |
-| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified         | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog                                           |
-| Streamable HTTP MCP server and ten tools                          | Deployed; auth retest pending | Public OAuth/MCP boundaries pass current checks; authenticated `2025-11-25` initialize/list/call passed the prior release and needs a fresh recovery run |
-| Strands + Amazon Bedrock intent layer                             | Provider-limited              | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off                                       |
-| AWS topology                                                      | Deployed                      | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; stack termination and stateful-resource deletion protection are enabled                             |
-| SES delivery                                                      | Verified, sandboxed           | SES accepted an authenticated test from `STAY <updates@saystay.site>`; inbox confirmation is still required                                              |
-| Real Alexa+ device/add-on                                         | Unavailable                   | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                                                             |
-| Simulated edge providers                                          | Implemented                   | Every observation includes mode, provider, timestamp, and reason                                                                                         |
-| Payments                                                          | Not implemented               | Monetization is documentation-only                                                                                                                       |
+| Capability                                                        | Status                     | Evidence boundary                                                                                                                                            |
+| ----------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Resident/Circle PWA and Alexa-style simulator                     | Deployed                   | [Public isolated demo](https://saystay.site); direct deployed desktop/mobile captures                                                                        |
+| Deterministic Safety Window, help, incident, and playbook engines | Deployed and verified      | Versioned API writes, outbox/EventBridge, WebSocket event, email delivery, metric marker, and zero DLQ backlog                                               |
+| Streamable HTTP MCP server and ten tools                          | Deployed and auth verified | Two separate MFA-backed pilot identities pass current OAuth/PKCE and authenticated `2025-11-25` initialize/list/read-only-call checks                        |
+| Strands + Amazon Bedrock intent layer                             | Provider-limited           | Code is implemented; Nova Micro is available but this account is `NOT_AUTHORIZED`, so the live AI gate remains off                                           |
+| AWS topology                                                      | Deployed                   | `StayDemoStack` is `UPDATE_COMPLETE` in `us-east-1`; stack termination and stateful-resource deletion protection are enabled                                 |
+| SES delivery                                                      | Sandbox fix pending        | Sender and two pilot recipients are verified; the first pilot attempt was held `unknown`, and a single-resource configuration-set IAM correction is prepared |
+| Real Alexa+ device/add-on                                         | Unavailable                | Partner access is not assumed; the compliant web simulator is the guaranteed submission path                                                                 |
+| Simulated edge providers                                          | Implemented                | Every observation includes mode, provider, timestamp, and reason                                                                                             |
+| Payments                                                          | Not implemented            | Monetization is documentation-only                                                                                                                           |
 
 See [release evidence](docs/release-evidence.md) for the checklist that prevents local or simulator results from being reported as cloud or device proof.
 

@@ -41,6 +41,13 @@ const Envelope = z.object({
   }),
 });
 type DeliveryState = 'processing' | 'sent' | 'unknown' | 'suppressed' | 'retry';
+
+function isExplicitProviderRejection(error: unknown): boolean {
+  const status = (error as { $metadata?: { httpStatusCode?: unknown } } | null)?.$metadata
+    ?.httpStatusCode;
+  return typeof status === 'number' && Number.isInteger(status);
+}
+
 export interface PilotDeliveryIO {
   admit(): Promise<() => Promise<void>>;
   contacts(householdId: string): Promise<NotificationContact[]>;
@@ -108,6 +115,7 @@ export async function deliverPilotEvent(body: string, io: PilotDeliveryIO): Prom
       }
       if (
         !dispatched ||
+        isExplicitProviderRejection(error) ||
         (error instanceof Error &&
           ['TooManyRequestsException', 'ThrottlingException', 'LimitExceededException'].includes(
             error.name,
