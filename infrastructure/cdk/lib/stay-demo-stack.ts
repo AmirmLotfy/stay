@@ -1176,6 +1176,18 @@ export class StayDemoStack extends Stack {
           );
           role.addToPolicy(
             new iam.PolicyStatement({
+              actions: ['ses:CreateEmailIdentity', 'ses:GetEmailIdentity'],
+              resources: [
+                this.formatArn({
+                  service: 'ses',
+                  resource: 'identity',
+                  resourceName: '*+stay-pilot-*@*',
+                }),
+              ],
+            }),
+          );
+          role.addToPolicy(
+            new iam.PolicyStatement({
               actions: ['sts:AssumeRole', 'sts:TagSession'],
               resources: [
                 `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-${this.region}`,
@@ -1234,12 +1246,18 @@ export class StayDemoStack extends Stack {
     const acknowledgedAccount = Token.isUnresolved(this.account)
       ? '<AWS::AccountId>'
       : this.account;
-    if (deploymentRole)
+    if (deploymentRole) {
       acknowledgeGranular(
         deploymentRole,
         `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:cloudformation:us-east-1:${acknowledgedAccount}:stack/${this.stackName}/*]`,
         'The GitHub deployment role may update termination protection only for versions of this one STAY stack; its OIDC trust remains repository, immutable-ID, and main-branch scoped.',
       );
+      acknowledgeGranular(
+        deploymentRole,
+        `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:ses:us-east-1:${acknowledgedAccount}:identity/*+stay-pilot-*@*]`,
+        'SES sandbox verification is limited to dedicated plus-addressed STAY pilot identities. The immutable repository/main OIDC role cannot send mail, delete identities or change their configuration.',
+      );
+    }
     if (pilotOperatorPolicy) {
       acknowledgeGranular(
         pilotOperatorPolicy,
