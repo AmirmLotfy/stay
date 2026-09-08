@@ -111,7 +111,7 @@ jobs:
           test "${arn##*:}" != 'root'
           printf 'Deploying through scoped role: %s\n' "$arn"
       - name: Assume bootstrap deployment role for controlled provider action
-        if: (inputs.operation == 'recover-failed-create' || inputs.operation == 'restore-rehearsal' || inputs.operation == 'alarm-rehearsal') && inputs.confirm_reviewed_diff == true
+        if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::828547077857:role/cdk-hnb659fds-deploy-role-828547077857-us-east-1

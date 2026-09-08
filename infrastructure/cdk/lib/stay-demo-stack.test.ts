@@ -39,6 +39,42 @@ describe('StayDemoStack', () => {
       AlarmActions: Match.anyValue(),
       OKActions: Match.anyValue(),
     });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyName: 'stay-pilot-recovery-rehearsal',
+      Roles: ['StayDemoStack-GitHubDeploymentRoleD4E2A70A-rZkQiFbwXt6s'],
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'dynamodb:DescribeContinuousBackups',
+              'dynamodb:RestoreTableToPointInTime',
+            ]),
+            Resource: { 'Fn::GetAtt': [Match.stringLikeRegexp('^ProductTable'), 'Arn'] },
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'dynamodb:DeleteTable',
+              'dynamodb:PutItem',
+              'dynamodb:UpdateTable',
+            ]),
+            Resource: {
+              'Fn::Join': [
+                '',
+                [
+                  'arn:',
+                  { Ref: 'AWS::Partition' },
+                  ':dynamodb:us-east-1:111111111111:table/stay-pilot-restore-rehearsal-*',
+                ],
+              ],
+            },
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith(['cloudwatch:DescribeAlarms', 'cloudwatch:SetAlarmState']),
+            Resource: { 'Fn::GetAtt': [Match.stringLikeRegexp('^ApiErrorAlarm'), 'Arn'] },
+          }),
+        ]),
+      },
+    });
     template.resourceCountIs('AWS::SES::ConfigurationSetEventDestination', 1);
     template.hasResourceProperties('AWS::Lambda::EventInvokeConfig', {
       MaximumRetryAttempts: 2,
