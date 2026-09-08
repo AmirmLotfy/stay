@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { HouseholdProfileSchema, ScopedIdSchema, type HouseholdMembership } from '@stay/contracts';
@@ -34,23 +36,31 @@ type PilotInput = z.infer<typeof PilotInputSchema>;
 type Item = Record<string, unknown>;
 
 function aws(service: string, operation: string, input: Item = {}): Item {
-  // JSON travels through stdin, not shell interpolation or the process argument list.
-  const value = execFileSync(
-    'aws',
-    [
-      service,
-      operation,
-      '--region',
-      'us-east-1',
-      '--no-cli-pager',
-      '--output',
-      'json',
-      '--cli-input-json',
-      'file:///dev/stdin',
-    ],
-    { input: JSON.stringify(input), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-  );
-  return value.trim() ? (JSON.parse(value) as Item) : {};
+  // Keep private request JSON out of shell interpolation, process arguments and logs.
+  // The AWS CLI does not reliably accept /dev/stdin as a parameter file on macOS.
+  const requestDirectory = mkdtempSync(join(tmpdir(), 'stay-pilot-operator-'));
+  const requestPath = join(requestDirectory, 'request.json');
+  try {
+    writeFileSync(requestPath, JSON.stringify(input), { mode: 0o600, flag: 'wx' });
+    const value = execFileSync(
+      'aws',
+      [
+        service,
+        operation,
+        '--region',
+        'us-east-1',
+        '--no-cli-pager',
+        '--output',
+        'json',
+        '--cli-input-json',
+        pathToFileURL(requestPath).href,
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    return value.trim() ? (JSON.parse(value) as Item) : {};
+  } finally {
+    rmSync(requestDirectory, { recursive: true, force: true });
+  }
 }
 
 function putItem(householdId: string, type: string, entity: { id: string; version: number }): Item {

@@ -144,6 +144,17 @@ describe('pilot email boundary', () => {
     await expect(deliverPilotEvent(body(), io)).rejects.toThrow('REQUIRES_REVIEW');
     expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry');
   });
+  it('retries a definitive provider rejection without classifying it as network uncertainty', async () => {
+    const io = setup();
+    vi.mocked(io.send).mockRejectedValue(
+      Object.assign(new Error('configuration set is not authorized'), {
+        name: 'AccessDeniedException',
+        $metadata: { httpStatusCode: 403 },
+      }),
+    );
+    await expect(deliverPilotEvent(body(), io)).rejects.toThrow('REQUIRES_REVIEW');
+    expect(io.finish).toHaveBeenCalledWith('house-one', 'event-one', contact.id, 'retry');
+  });
   it('suppresses membership revoked between claim and send', async () => {
     const io = setup();
     vi.mocked(io.authorize)

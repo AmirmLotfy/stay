@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "test:e2e": "playwright test",
     "verify:live:mcp": "node scripts/verify-live-mcp.mjs",
+    "verify:live:pilot": "node scripts/verify-live-pilot.mjs",
     "verify:submission": "node scripts/verify-submission-package.mjs",
     "verify:submission:local": "node scripts/verify-submission-package.mjs --local-only",
     "capture:submission": "node scripts/capture-submission.mjs",

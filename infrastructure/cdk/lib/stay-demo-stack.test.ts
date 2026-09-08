@@ -154,6 +154,14 @@ describe('StayDemoStack', () => {
       expect(destination).not.toContain('Fn::GetAtt');
     }
     expect(serialized).toContain(':log-group:StayPilotStack-*');
+    const notificationPolicy = Object.entries(template.findResources('AWS::IAM::Policy')).find(
+      ([logicalId]) => logicalId.startsWith('NotificationFunctionServiceRoleDefaultPolicy'),
+    )?.[1];
+    expect(notificationPolicy).toBeDefined();
+    const notificationPolicyJson = JSON.stringify(notificationPolicy);
+    expect(notificationPolicyJson).toContain('ses:SendEmail');
+    expect(notificationPolicyJson).toContain(':identity/saystay.site');
+    expect(notificationPolicyJson).toContain(':configuration-set/');
     expect(serialized.replaceAll('x-stay-demo-session', '')).not.toContain('stay-demo-');
     expect(serialized).not.toContain('SES_RECIPIENT_EMAIL');
     expect(serialized).not.toContain('token.actions.githubusercontent.com');

@@ -1026,6 +1026,18 @@ export class StayDemoStack extends Stack {
       const configurationSet = new ses.ConfigurationSet(this, 'PilotEmailConfiguration', {
         suppressionReasons: ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS,
       });
+      notificationFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['ses:SendEmail'],
+          resources: [
+            this.formatArn({
+              service: 'ses',
+              resource: 'configuration-set',
+              resourceName: configurationSet.configurationSetName,
+            }),
+          ],
+        }),
+      );
       configurationSet.addEventDestination('FeedbackDestination', {
         destination: ses.EventDestination.snsTopic(feedbackTopic),
         events: [ses.EmailSendingEvent.BOUNCE, ses.EmailSendingEvent.COMPLAINT],
