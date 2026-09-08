@@ -42,6 +42,23 @@ const Envelope = z.object({
 });
 type DeliveryState = 'processing' | 'sent' | 'unknown' | 'suppressed' | 'retry';
 
+interface ProviderFailure {
+  providerCode?: string;
+  providerHttpStatus?: number;
+}
+
+function providerFailure(error: unknown): ProviderFailure {
+  const name = error instanceof Error ? error.name : undefined;
+  const status = (error as { $metadata?: { httpStatusCode?: unknown } } | null)?.$metadata
+    ?.httpStatusCode;
+  return {
+    ...(name && name !== 'Error' ? { providerCode: name.slice(0, 100) } : {}),
+    ...(typeof status === 'number' && Number.isInteger(status)
+      ? { providerHttpStatus: status }
+      : {}),
+  };
+}
+
 function isExplicitProviderRejection(error: unknown): boolean {
   const status = (error as { $metadata?: { httpStatusCode?: unknown } } | null)?.$metadata
     ?.httpStatusCode;
@@ -58,7 +75,13 @@ export interface PilotDeliveryIO {
     id: string,
     subject: string,
   ): Promise<'claimed' | 'done' | 'busy' | 'unknown'>;
-  finish(householdId: string, id: string, subject: string, state: DeliveryState): Promise<void>;
+  finish(
+    householdId: string,
+    id: string,
+    subject: string,
+    state: DeliveryState,
+    failure?: ProviderFailure,
+  ): Promise<void>;
   send(householdId: string, id: string, contact: NotificationContact): Promise<void>;
 }
 
@@ -121,16 +144,25 @@ export async function deliverPilotEvent(body: string, io: PilotDeliveryIO): Prom
             error.name,
           ))
       ) {
-        await io.finish(householdId, id, contact.id, 'retry');
+        const failure = providerFailure(error);
+        await io.finish(householdId, id, contact.id, 'retry', failure);
+        log('ERROR', 'notification provider rejected delivery', {
+          householdId,
+          deliveryId: id,
+          subject: contact.id,
+          ...failure,
+        });
         failed = true;
         continue;
       }
       // Preserve uncertainty rather than automatically sending a second copy.
-      await io.finish(householdId, id, contact.id, 'unknown');
+      const failure = providerFailure(error);
+      await io.finish(householdId, id, contact.id, 'unknown', failure);
       log('ERROR', 'notification delivery requires operator review', {
         householdId,
         deliveryId: id,
         subject: contact.id,
+        ...failure,
       });
       failed = true;
     } finally {
@@ -279,14 +311,20 @@ export function pilotDeliveryIO(): PilotDeliveryIO {
           : 'unknown';
       }
     },
-    finish: async (householdId, id, subject, state) => {
+    finish: async (householdId, id, subject, state, failure = {}) => {
       await db.send(
         new UpdateCommand({
           TableName,
           Key: deliveryKey(householdId, id, subject),
-          UpdateExpression: 'SET #state = :state, updatedAt = :now',
+          UpdateExpression:
+            'SET #state = :state, updatedAt = :now, providerCode = :providerCode, providerHttpStatus = :providerHttpStatus',
           ExpressionAttributeNames: { '#state': 'state' },
-          ExpressionAttributeValues: { ':state': state, ':now': new Date().toISOString() },
+          ExpressionAttributeValues: {
+            ':state': state,
+            ':now': new Date().toISOString(),
+            ':providerCode': failure.providerCode ?? null,
+            ':providerHttpStatus': failure.providerHttpStatus ?? null,
+          },
         }),
       );
     },
