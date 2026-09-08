@@ -1,6 +1,6 @@
 # STAY five-household pilot runbook
 
-Status: implementation candidate; no pilot deployment or enrollment has occurred. Read `RECOVERY_CHECKPOINT.md` for current verification. The judge demo stays on its deployed revision until a separately reviewed release. Do not migrate its synthetic authenticated identities into a real pilot.
+Status: the isolated pilot is deployed, empty and enrollment-paused; no household enrollment has occurred. Read `RECOVERY_CHECKPOINT.md` for current verification. The judge demo stays on its deployed revision until a separately reviewed release. Do not migrate its synthetic authenticated identities into a real pilot.
 
 ## Enrollment and consent
 
