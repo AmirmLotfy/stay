@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import {
+  ArnFormat,
   CfnCondition,
   CfnOutput,
   CfnParameter,
@@ -320,6 +321,18 @@ export class StayDemoStack extends Stack {
         format: apiAccessLogFormat,
       },
     });
+    if (pilot) {
+      const cfnHttpStage = httpStage.node.defaultChild as apigwv2.CfnStage;
+      cfnHttpStage.addOverride(
+        'Properties.AccessLogSettings.DestinationArn',
+        this.formatArn({
+          service: 'logs',
+          resource: 'log-group',
+          resourceName: httpAccessLogs.logGroupName,
+          arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+        }),
+      );
+    }
     if (enableCustomDomain && customDomainCertificate && !distribution) {
       const apiDomain = new apigwv2.DomainName(this, 'ApiCustomDomain', {
         domainName: customDomainName,
@@ -821,6 +834,18 @@ export class StayDemoStack extends Stack {
         format: apiAccessLogFormat,
       },
     });
+    if (pilot) {
+      const cfnWebSocketStage = webSocketStage.node.defaultChild as apigwv2.CfnStage;
+      cfnWebSocketStage.addOverride(
+        'Properties.AccessLogSettings.DestinationArn',
+        this.formatArn({
+          service: 'logs',
+          resource: 'log-group',
+          resourceName: webSocketAccessLogs.logGroupName,
+          arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+        }),
+      );
+    }
     const callbackUrl = `https://${webSocketApi.apiId}.execute-api.${this.region}.${this.urlSuffix}/${webSocketStage.stageName}`;
     websocketFunction.addEnvironment('WEBSOCKET_CALLBACK_URL', callbackUrl);
     staticSiteFunction?.addEnvironment('WEBSOCKET_ORIGIN', webSocketStage.url);

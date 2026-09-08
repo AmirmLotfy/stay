@@ -16,3 +16,4 @@
 - [ ] Watch the published video from start to finish with the replacement English captions enabled.
 - [x] Confirm no YouTube copyright claim appears after processing — YouTube Studio Claim overview reported no claims and no copyrighted content found on 2026-09-04.
 - [x] Record the verified public YouTube URL in the README, Devpost draft, and final link manifest.
+- [x] Replace the public YouTube thumbnail and submitted Devpost 3:2 cover with the approved v2 artwork. YouTube's public `maxresdefault.jpg` serves the 1280×720 replacement; Devpost's authenticated project editor shows the saved 1500×1000 replacement.

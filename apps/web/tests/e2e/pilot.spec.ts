@@ -1,5 +1,44 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import process from 'node:process';
+
+test('keeps the deployed pilot private before sign-in', async ({ page, request }) => {
+  test.skip(
+    !process.env.STAY_E2E_BASE_URL,
+    'The signed-out deployment boundary is verified only against the live pilot.',
+  );
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Welcome home' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByText('Public signup is closed.')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Sarah');
+  await expect(page.locator('body')).not.toContainText('Tom');
+
+  const configResponse = await request.get('/config.json');
+  expect(configResponse.status()).toBe(200);
+  const config = await configResponse.json();
+  expect(config).toMatchObject({
+    environment: 'pilot',
+    apiUrl: process.env.STAY_E2E_BASE_URL,
+  });
+  expect(config.publicClientId).toBeTruthy();
+  expect(config.cognitoIssuerUrl).toContain('cognito-idp.us-east-1.amazonaws.com/');
+
+  const demoSessionResponse = await request.post('/v1/demo-sessions');
+  expect(demoSessionResponse.status()).toBe(403);
+  await expect(demoSessionResponse.json()).resolves.toMatchObject({ code: 'FORBIDDEN' });
+
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(
+    accessibility.violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? '')),
+  ).toEqual([]);
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%';
+  });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});
 
 test('keeps pilot onboarding empty, saves preferences, and removes revoked household data', async ({
   page,

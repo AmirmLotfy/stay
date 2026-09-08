@@ -96,6 +96,11 @@ describe('StayDemoStack', () => {
     const serialized = JSON.stringify(template.toJSON());
     for (const logGroup of Object.values(template.findResources('AWS::Logs::LogGroup')))
       expect(logGroup.Properties.LogGroupName).toBeUndefined();
+    for (const stage of Object.values(template.findResources('AWS::ApiGatewayV2::Stage'))) {
+      const destination = JSON.stringify(stage.Properties.AccessLogSettings.DestinationArn);
+      expect(destination).toContain(':log-group:');
+      expect(destination).not.toContain('Fn::GetAtt');
+    }
     expect(serialized).toContain(':log-group:StayPilotStack-*');
     expect(serialized.replaceAll('x-stay-demo-session', '')).not.toContain('stay-demo-');
     expect(serialized).not.toContain('SES_RECIPIENT_EMAIL');
