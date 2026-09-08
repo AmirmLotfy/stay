@@ -38,4 +38,4 @@ Rate sources rechecked 2026-09-08: [CloudWatch](https://aws.amazon.com/cloudwatc
 
 ## Outstanding release evidence
 
-Confirmed SNS owner subscription and alert receipt; dedicated non-root operator identity; reviewed pilot identities and authenticated REST/MCP/WebSocket isolation; verified inbox/SES feedback tests; restore/rollback rehearsal; real-device accessibility and observation periods. See `pilot-runbook.md`.
+Confirmed SNS owner subscription and alert receipt; operator temporary-profile verification; reviewed pilot identities and authenticated REST/MCP/WebSocket isolation; verified inbox/SES feedback tests; restore/rollback rehearsal; real-device accessibility and observation periods. See `pilot-runbook.md`.
