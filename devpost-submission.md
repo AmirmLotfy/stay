@@ -1,6 +1,6 @@
 # STAY — Devpost submission copy pack
 
-> Draft only. Nothing has been sent to Devpost. Live project `stay-ljbdk8` remains a draft. The deployment and public video fields are final. Private participant assertions are stored locally in the ignored `devpost-private-answers.md` handoff.
+> Submitted on 2026-09-08. Live project `stay-ljbdk8` is public and Devpost reports **Submitted, 5/5 steps done**. Private participant assertions remain only in the ignored `devpost-private-answers.md` handoff.
 
 Official requirements and the authenticated submission form were rechecked live on 2026-09-08 Cairo time against the [hackathon overview](https://amazonappdev2026.devpost.com/), [resources](https://amazonappdev2026.devpost.com/resources), and [official rules](https://amazonappdev2026.devpost.com/rules). The deadline is October 23, 2026 at 12:00 PM Pacific Time / 19:00 UTC / 22:00 Cairo. Keep the repository, video, and free judge demo available through the judging period ending November 20, 2026 at 12:00 PM Pacific Time.
 
@@ -127,7 +127,7 @@ Current public CI evidence for final `main` commit `1adafd50519dba6d595832d3b136
 
 ## Devpost Upload Manifest
 
-Use `assets/submission/video/STAY_YouTube_Thumbnail.png` as the project thumbnail candidate. It is a reviewed 1920×1080 PNG (212,239 bytes) showing the protected “Tom is on the way” moment. Devpost recommends a 3:2 thumbnail while accepting PNG uploads up to 5 MB; inspect its crop preview before saving and do not accept a crop that removes the STAY brand, primary headline, or response-ownership card.
+The submitted project initially used `assets/submission/video/STAY_YouTube_Thumbnail.png`. The approved replacement is `assets/submission/STAY_Devpost_Cover_v2.jpg`, a purpose-designed 1500×1000 3:2 cover at 413,309 bytes. Its generated architectural background contains no interface or text; the exact STAY mark and copy are applied through the repository-native overlay recorded in `docs/media-production/COVER_GENERATION_v2.md`.
 
 Upload the seven screenshots in this exact gallery order. Every file is a valid PNG below 233 KB, comfortably under the 5 MB per-image limit.
 
@@ -141,7 +141,7 @@ Upload the seven screenshots in this exact gallery order. Every file is a valid 
 |     6 | `assets/submission/screenshots/05-emergency-boundary-desktop.png` |  1920×1080 | 232,170 |
 |     7 | `assets/submission/screenshots/06-home-mobile.png`                |   390×2683 | 157,069 |
 
-Use the public YouTube URL for the video field; do not upload the local MP4 to Devpost. Review every generated thumbnail/gallery crop, caption and ordering preview before saving the draft.
+The public YouTube URL is saved in the video field; the local MP4 was not uploaded to Devpost. The seven gallery crops, captions, and final ordering were reviewed before submission.
 
 ## Screenshot Shot List
 
@@ -301,7 +301,7 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 ## Submission Readiness Notes
 
-- **Live Devpost state:** authenticated under `amirmolotfy`; submission route `1166410-stay`, slug `stay-ljbdk8`, and **DRAFT, 1/5 steps done**. Only the project title is saved. The elevator pitch, thumbnail, story, tags, try-it link, gallery, video and all 26 additional fields are blank (verified read-only on 2026-09-08 Cairo time).
+- **Live Devpost state:** authenticated under `amirmolotfy`; submission route `1166410-stay`, slug `stay-ljbdk8`, and **Submitted, 5/5 steps done**. Devpost displayed its successful submission confirmation on 2026-09-08. The elevator pitch, cover, story, 25 tags, try-it link, seven-image gallery, video, and all 26 additional fields are saved.
 - **Official deadline:** 2026-10-23T19:00:00Z.
 - **Optional AWS credit deadline:** registered individuals may use the [official credit request form](https://forms.gle/5hyhr1u6x3fuV2aW7) to request the advertised $150 AWS promotional credit by 2026-10-21 at 12:00 PM Pacific Time while supplies last; this is not required for submission and has not been requested.
 - **Judging availability:** keep the public repository, public video, and free judge demo available without restriction through 2026-11-20T20:00:00Z.
@@ -320,4 +320,4 @@ Yes. MCP is a strong boundary for accessible, goal-level Alexa+ capabilities, an
 
 ## Recovery form check — 2026-09-08
 
-The authenticated STAY draft was reverified read-only under `amirmolotfy` and is still DRAFT (1/5 steps done). Only the title is saved. The elevator pitch, thumbnail, complete project-details page and all 26 additional fields remain blank; their IDs and meanings match this pack. Alexa+, AWS Builder and Open Source choices remain available, the terms checkbox is unchecked and the final submit action was untouched. Manual captions persist in Studio and render in the public player; complete human playback review and manual entry before submitting. Pilot changes are merged implementation plus a reviewed, non-executed AWS change set and must not be described as live household capability.
+The authenticated STAY entry was completed under `amirmolotfy` and Devpost now reports Submitted (5/5 steps done). The elevator pitch, complete project story, 25 tags, demo URL, video, seven ordered gallery images and all 26 additional fields are saved. Alexa+ is the primary track; AWS Builder and Open Source are selected mini-challenges. The terms checkbox was accepted and final submission returned the successful confirmation. Manual captions persist in Studio and render in the public player. Pilot capability remains separate from this hackathon submission and must be described from its own deployment evidence.

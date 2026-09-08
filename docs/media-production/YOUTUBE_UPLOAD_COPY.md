@@ -44,7 +44,7 @@ Built for the Alexa+ primary track and the AWS Builder and Open Source mini-chal
 - Language: English.
 - Video file: upload `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`.
 - Captions: upload `assets/submission/video/STAY_DEMO.en.srt`, then manually compare every cue with the mixed master.
-- Thumbnail: upload `assets/submission/video/STAY_YouTube_Thumbnail.png`. It is the real deployed “Tom is on the way.” product frame and contains no generated interface, fake text, Alexa device imagery, or emergency-service claim.
+- Thumbnail: the approved replacement is `assets/submission/video/STAY_YouTube_Thumbnail_v2.jpg`, a 1280×720 editorial cover at 212 KB. Its built-in image-generation background contains no interface, logo, text, device or emergency claim; the exact STAY mark and copy are applied through the deterministic repository-native overlay in `docs/media-production/COVER_GENERATION_v2.md`.
 - Embedding: enabled so Devpost judges can watch in place.
 - License: Standard YouTube License unless the entrant deliberately chooses otherwise.
 
