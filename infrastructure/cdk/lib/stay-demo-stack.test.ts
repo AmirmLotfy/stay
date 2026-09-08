@@ -76,6 +76,22 @@ describe('StayDemoStack', () => {
             },
           }),
           Match.objectLike({
+            Action: 'kms:CreateGrant',
+            Condition: {
+              Bool: {
+                'kms:GrantIsForAWSResource': 'true',
+              },
+              StringEquals: {
+                'kms:ViaService': {
+                  'Fn::Join': ['', ['dynamodb.us-east-1.', { Ref: 'AWS::URLSuffix' }]],
+                },
+              },
+            },
+            Resource: {
+              'Fn::GetAtt': [Match.stringLikeRegexp('^DataKey'), 'Arn'],
+            },
+          }),
+          Match.objectLike({
             Action: Match.arrayWith(['cloudwatch:DescribeAlarms', 'cloudwatch:SetAlarmState']),
             Resource: { 'Fn::GetAtt': [Match.stringLikeRegexp('^ApiErrorAlarm'), 'Arn'] },
           }),
