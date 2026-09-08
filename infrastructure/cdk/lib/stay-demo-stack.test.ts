@@ -94,6 +94,9 @@ describe('StayDemoStack', () => {
         Type: type,
       });
     const serialized = JSON.stringify(template.toJSON());
+    for (const logGroup of Object.values(template.findResources('AWS::Logs::LogGroup')))
+      expect(logGroup.Properties.LogGroupName).toBeUndefined();
+    expect(serialized).toContain(':log-group:StayPilotStack-*');
     expect(serialized.replaceAll('x-stay-demo-session', '')).not.toContain('stay-demo-');
     expect(serialized).not.toContain('SES_RECIPIENT_EMAIL');
     expect(serialized).not.toContain('token.actions.githubusercontent.com');
