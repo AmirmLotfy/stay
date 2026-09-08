@@ -16,7 +16,7 @@ on:
           - restore-rehearsal
           - alarm-rehearsal
       hosted_zone_id:
-        description: Existing saystay.site Route 53 hosted zone ID
+        description: Existing saystay.site Route 53 hosted zone ID, or CURRENT for an existing-stack update
         required: true
         type: string
       reviewed_commit:
@@ -110,6 +110,19 @@ jobs:
           arn="$(aws sts get-caller-identity --query Arn --output text)"
           test "${arn##*:}" != 'root'
           printf 'Deploying through scoped role: %s\n' "$arn"
+      - name: Resolve existing pilot deployment parameters
+        if: inputs.operation == 'diff' || inputs.operation == 'deploy'
+        env:
+          REQUESTED_HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
+        run: |
+          hosted_zone_id="$REQUESTED_HOSTED_ZONE_ID"
+          if [ "$hosted_zone_id" = 'CURRENT' ]; then
+            hosted_zone_id="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+              --query "Stacks[0].Parameters[?ParameterKey=='ExistingHostedZoneId'].ParameterValue | [0]" \
+              --output text)"
+          fi
+          printf '%s' "$hosted_zone_id" | grep -Eq '^Z[A-Z0-9]+$'
+          printf 'HOSTED_ZONE_ID=%s\n' "$hosted_zone_id" >> "$GITHUB_ENV"
       - name: Assume bootstrap deployment role for controlled provider action
         if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
         uses: aws-actions/configure-aws-credentials@v6
@@ -421,7 +434,6 @@ jobs:
       - name: Validate deployment parameters
         if: inputs.operation == 'diff' || inputs.operation == 'deploy'
         env:
-          HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
         run: |
@@ -441,7 +453,6 @@ jobs:
       - name: Prepare exact non-executed pilot change set
         if: inputs.operation == 'diff'
         env:
-          HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
         run: |
@@ -487,7 +498,6 @@ jobs:
       - name: Verify exact reviewed pilot change set
         if: inputs.operation == 'deploy' && inputs.confirm_reviewed_diff == true
         env:
-          HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
           SES_FROM_EMAIL: ${{ secrets.SES_FROM_EMAIL }}
         run: |
