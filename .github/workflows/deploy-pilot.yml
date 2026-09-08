@@ -13,6 +13,8 @@ on:
           - deploy
           - recover-failed-create
           - request-recipient-verification
+          - restore-rehearsal
+          - alarm-rehearsal
       hosted_zone_id:
         description: Existing saystay.site Route 53 hosted zone ID
         required: true
@@ -109,7 +111,7 @@ jobs:
           test "${arn##*:}" != 'root'
           printf 'Deploying through scoped role: %s\n' "$arn"
       - name: Assume bootstrap deployment role for controlled provider action
-        if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
+        if: (inputs.operation == 'recover-failed-create' || inputs.operation == 'restore-rehearsal' || inputs.operation == 'alarm-rehearsal') && inputs.confirm_reviewed_diff == true
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::828547077857:role/cdk-hnb659fds-deploy-role-828547077857-us-east-1
@@ -236,6 +238,185 @@ jobs:
             printf -- "- Removed failed stack: \`StayPilotStack\`\n"
             printf -- "- Retained empty user pool for controlled cleanup: \`%s\`\n" "$user_pool_id"
             printf -- "- Retained generated website bucket for controlled cleanup: \`%s\`\n" "$bucket_id"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Rehearse isolated point-in-time recovery
+        if: inputs.operation == 'restore-rehearsal' && inputs.confirm_reviewed_diff == true
+        run: |
+          set -euo pipefail
+          source_table="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+            --query "Stacks[0].Outputs[?OutputKey=='ProductTableName'].OutputValue | [0]" --output text)"
+          test -n "$source_table"
+          test "$source_table" != 'None'
+          recovery_state="$(aws dynamodb describe-continuous-backups --table-name "$source_table" \
+            --query 'ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus' \
+            --output text)"
+          test "$recovery_state" = 'ENABLED'
+          aws dynamodb update-item --table-name "$source_table" \
+            --key '{"PK":{"S":"CONTROL#PILOT"},"SK":{"S":"ENROLLMENT"}}' \
+            --update-expression 'SET paused = :paused' \
+            --expression-attribute-values '{":paused":{"BOOL":true}}' >/dev/null
+          paused="$(aws dynamodb get-item --table-name "$source_table" \
+            --key '{"PK":{"S":"CONTROL#PILOT"},"SK":{"S":"ENROLLMENT"}}' \
+            --consistent-read --projection-expression paused --query 'Item.paused.BOOL' --output text)"
+          test "$paused" = 'True'
+
+          target_table="stay-pilot-restore-rehearsal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          case "$target_table" in
+            stay-pilot-restore-rehearsal-*) ;;
+            *) printf 'Unsafe restore target.\n' >&2; exit 1 ;;
+          esac
+          started_at="$(date +%s)"
+          cleanup_restore() {
+            set +e
+            case "$target_table" in
+              stay-pilot-restore-rehearsal-*) ;;
+              *) return ;;
+            esac
+            if aws dynamodb describe-table --table-name "$target_table" >/dev/null 2>&1; then
+              protected="$(aws dynamodb describe-table --table-name "$target_table" \
+                --query 'Table.DeletionProtectionEnabled' --output text 2>/dev/null)"
+              if [ "$protected" = 'True' ]; then
+                aws dynamodb update-table --table-name "$target_table" \
+                  --no-deletion-protection-enabled >/dev/null
+                aws dynamodb wait table-exists --table-name "$target_table"
+              fi
+              aws dynamodb delete-table --table-name "$target_table" >/dev/null
+              aws dynamodb wait table-not-exists --table-name "$target_table"
+            fi
+          }
+          trap cleanup_restore EXIT
+
+          aws dynamodb restore-table-to-point-in-time \
+            --source-table-name "$source_table" \
+            --target-table-name "$target_table" \
+            --use-latest-restorable-time \
+            --billing-mode-override PAY_PER_REQUEST >/dev/null
+          aws dynamodb wait table-exists --table-name "$target_table"
+          while [ "$(aws dynamodb describe-table --table-name "$target_table" --query 'Table.TableStatus' --output text)" != 'ACTIVE' ]; do
+            sleep 10
+          done
+
+          stream_arn="$(aws dynamodb describe-table --table-name "$target_table" \
+            --query 'Table.LatestStreamArn' --output text)"
+          test "$stream_arn" = 'None'
+          stack_table_count="$(aws cloudformation describe-stack-resources --stack-name StayPilotStack \
+            --query "length(StackResources[?PhysicalResourceId=='$source_table'])" --output text)"
+          test "$stack_table_count" = '1'
+          target_stack_count="$(aws cloudformation describe-stack-resources --stack-name StayPilotStack \
+            --query "length(StackResources[?PhysicalResourceId=='$target_table'])" --output text)"
+          test "$target_stack_count" = '0'
+
+          source_file="$RUNNER_TEMP/pilot-source-scan.json"
+          restored_file="$RUNNER_TEMP/pilot-restored-scan.json"
+          reconciled_file="$RUNNER_TEMP/pilot-reconciled-scan.json"
+          aws dynamodb scan --table-name "$source_table" --consistent-read --output json > "$source_file"
+          aws dynamodb scan --table-name "$target_table" --consistent-read --output json > "$restored_file"
+
+          SOURCE_FILE="$source_file" RESTORED_FILE="$restored_file" TARGET_TABLE="$target_table" node <<'NODE'
+          const fs = require('node:fs');
+          const { spawnSync } = require('node:child_process');
+          const source = JSON.parse(fs.readFileSync(process.env.SOURCE_FILE, 'utf8')).Items ?? [];
+          const restored = JSON.parse(fs.readFileSync(process.env.RESTORED_FILE, 'utf8')).Items ?? [];
+          const scalar = (value) => value?.S ?? value?.N ?? value?.BOOL;
+          const key = (item) => `${scalar(item.PK)}\u0000${scalar(item.SK)}`;
+          const restoredKeys = new Set(restored.map(key));
+          const securityState = source.filter((item) => {
+            const sk = String(scalar(item.SK) ?? '');
+            return (
+              (sk.startsWith('MEMBERSHIP#') && scalar(item.active) === false) ||
+              (sk.startsWith('NOTIFICATION_CONTACT#') && scalar(item.enabled) === false) ||
+              (sk.startsWith('PROFILE#') && scalar(item.status) === 'closed') ||
+              sk.startsWith('TOMBSTONE#')
+            );
+          });
+          for (const item of securityState) {
+            const request = JSON.stringify({ TableName: process.env.TARGET_TABLE, Item: item });
+            const result = spawnSync('aws', ['dynamodb', 'put-item', '--cli-input-json', request], {
+              encoding: 'utf8',
+            });
+            if (result.status !== 0) throw new Error('Failed to reapply a private revocation/deletion state.');
+            restoredKeys.add(key(item));
+          }
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `- Restored records before reconciliation: \`${restored.length}\`\n` +
+              `- Current source records: \`${source.length}\`\n` +
+              `- Revocation/deletion states reapplied: \`${securityState.length}\`\n`,
+          );
+          NODE
+
+          aws dynamodb scan --table-name "$target_table" --consistent-read --output json > "$reconciled_file"
+          SOURCE_FILE="$source_file" RESTORED_FILE="$reconciled_file" node <<'NODE'
+          const fs = require('node:fs');
+          const source = JSON.parse(fs.readFileSync(process.env.SOURCE_FILE, 'utf8')).Items ?? [];
+          const restored = JSON.parse(fs.readFileSync(process.env.RESTORED_FILE, 'utf8')).Items ?? [];
+          const scalar = (value) => value?.S ?? value?.N ?? value?.BOOL;
+          const key = (item) => `${scalar(item.PK)}\u0000${scalar(item.SK)}`;
+          const restoredByKey = new Map(restored.map((item) => [key(item), item]));
+          const canonical = (value) => {
+            if (Array.isArray(value)) return value.map(canonical);
+            if (value && typeof value === 'object')
+              return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+            return value;
+          };
+          const exactPrefixes = ['ACCESS#', 'MEMBERSHIP#', 'NOTIFICATION_CONTACT#', 'PRIVACY#', 'PROFILE#'];
+          const relevant = source.filter((item) => exactPrefixes.some((prefix) =>
+            String(scalar(item.SK) ?? '').startsWith(prefix),
+          ));
+          for (const item of relevant) {
+            const restoredItem = restoredByKey.get(key(item));
+            if (!restoredItem || JSON.stringify(canonical(restoredItem)) !== JSON.stringify(canonical(item)))
+              throw new Error('Restored access, privacy, profile, or membership state differs from current state.');
+          }
+          const sent = restored.filter((item) =>
+            String(scalar(item.SK) ?? '').startsWith('DELIVERY#') && scalar(item.status) === 'sent',
+          ).length;
+          const revokedMemberships = restored.filter((item) =>
+            String(scalar(item.SK) ?? '').startsWith('MEMBERSHIP#') && scalar(item.active) === false,
+          ).length;
+          if (revokedMemberships < 1) throw new Error('Expected synthetic revoked membership is missing.');
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `- Exact access/profile/privacy/membership records verified: \`${relevant.length}\`\n` +
+              `- Revoked memberships retained: \`${revokedMemberships}\`\n` +
+              `- Sent delivery markers retained with no stream attached: \`${sent}\`\n`,
+          );
+          NODE
+
+          completed_at="$(date +%s)"
+          elapsed_seconds="$((completed_at - started_at))"
+          {
+            printf '### Isolated DynamoDB recovery rehearsal\n\n'
+            printf -- '- PITR status: `ENABLED`\n'
+            printf -- '- Restored table remained outside CloudFormation and had no stream.\n'
+            printf -- '- RTO measured through validation: `%s seconds`\n' "$elapsed_seconds"
+            printf -- '- Temporary restored table cleanup: scheduled by guarded exit trap.\n'
+            printf -- '- Enrollment control left paused: `true`\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Exercise owner alarm subscription
+        if: inputs.operation == 'alarm-rehearsal' && inputs.confirm_reviewed_diff == true
+        run: |
+          set -euo pipefail
+          alarm_name="$(aws cloudformation describe-stack-resource --stack-name StayPilotStack \
+            --logical-resource-id ApiErrorAlarmD3E841A2 \
+            --query 'StackResourceDetail.PhysicalResourceId' --output text)"
+          test -n "$alarm_name"
+          prior_state="$(aws cloudwatch describe-alarms --alarm-names "$alarm_name" \
+            --query 'MetricAlarms[0].StateValue' --output text)"
+          case "$prior_state" in
+            OK|INSUFFICIENT_DATA) ;;
+            *) printf 'Pilot API alarm is already in ALARM; refusing to mask it.\n' >&2; exit 1 ;;
+          esac
+          aws cloudwatch set-alarm-state --alarm-name "$alarm_name" --state-value ALARM \
+            --state-reason "STAY pilot owner subscription rehearsal ${GITHUB_RUN_ID}"
+          sleep 15
+          aws cloudwatch set-alarm-state --alarm-name "$alarm_name" --state-value "$prior_state" \
+            --state-reason "STAY pilot owner subscription rehearsal complete ${GITHUB_RUN_ID}"
+          {
+            printf '### Owner alarm subscription rehearsal\n\n'
+            printf -- '- Exercised the deployed pilot API alarm through `ALARM` and restored its prior state.\n'
+            printf -- '- Rehearsal run: `%s`\n' "$GITHUB_RUN_ID"
+            printf -- '- Owner inbox receipt remains a separate human-visible check.\n'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate deployment parameters
         if: inputs.operation == 'diff' || inputs.operation == 'deploy'
