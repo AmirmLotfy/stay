@@ -12,6 +12,7 @@ on:
           - diff
           - deploy
           - recover-failed-create
+          - request-recipient-verification
       hosted_zone_id:
         description: Existing saystay.site Route 53 hosted zone ID
         required: true
@@ -25,6 +26,14 @@ on:
         required: true
         default: false
         type: boolean
+      recipient_slot:
+        description: Private repository-secret slot used for an SES sandbox verification request
+        required: false
+        default: a
+        type: choice
+        options:
+          - a
+          - b
 
 permissions:
   contents: read
@@ -99,13 +108,57 @@ jobs:
           arn="$(aws sts get-caller-identity --query Arn --output text)"
           test "${arn##*:}" != 'root'
           printf 'Deploying through scoped role: %s\n' "$arn"
-      - name: Assume bootstrap deployment role for failed-create recovery
-        if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
+      - name: Assume bootstrap deployment role for controlled provider action
+        if: (inputs.operation == 'recover-failed-create' || inputs.operation == 'request-recipient-verification') && inputs.confirm_reviewed_diff == true
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::828547077857:role/cdk-hnb659fds-deploy-role-828547077857-us-east-1
           aws-region: us-east-1
           role-chaining: true
+      - name: Request private SES recipient verification
+        if: inputs.operation == 'request-recipient-verification' && inputs.confirm_reviewed_diff == true
+        env:
+          RECIPIENT_SLOT: ${{ inputs.recipient_slot }}
+          RECIPIENT_A: ${{ secrets.STAY_PILOT_RECIPIENT_A }}
+          RECIPIENT_B: ${{ secrets.STAY_PILOT_RECIPIENT_B }}
+        run: |
+          case "$RECIPIENT_SLOT" in
+            a) recipient="$RECIPIENT_A" ;;
+            b) recipient="$RECIPIENT_B" ;;
+            *) printf 'Unknown private recipient slot.\n' >&2; exit 1 ;;
+          esac
+          test -n "$recipient"
+          RECIPIENT="$recipient" node <<'NODE'
+          const email = process.env.RECIPIENT ?? '';
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+            throw new Error('Private recipient secret is not an email address.');
+          if (!email.toLowerCase().includes('+stay-pilot-'))
+            throw new Error('Private recipient must use a dedicated STAY pilot alias.');
+          NODE
+
+          identity_file="$RUNNER_TEMP/ses-recipient-identity.json"
+          error_file="$RUNNER_TEMP/ses-recipient-error.txt"
+          if aws sesv2 get-email-identity --email-identity "$recipient" > "$identity_file" 2> "$error_file"; then
+            verified="$(node -p "String(require(process.argv[1]).VerifiedForSendingStatus === true)" "$identity_file")"
+            state="$([ "$verified" = 'true' ] && printf verified || printf pending)"
+          elif grep -Fq 'NotFoundException' "$error_file"; then
+            if ! aws sesv2 create-email-identity --email-identity "$recipient" > "$identity_file" 2> /dev/null; then
+              printf 'SES verification request failed for private slot %s.\n' "$RECIPIENT_SLOT" >&2
+              exit 1
+            fi
+            state=requested
+          else
+            printf 'SES identity lookup failed for private slot %s.\n' "$RECIPIENT_SLOT" >&2
+            exit 1
+          fi
+          identity_hash="$(printf '%s' "$recipient" | sha256sum | cut -d ' ' -f 1)"
+          {
+            printf '### SES pilot recipient verification\n\n'
+            printf -- '- Private slot: %s\n' "$RECIPIENT_SLOT"
+            printf -- '- Identity SHA-256: %s\n' "$identity_hash"
+            printf -- '- State: %s\n' "$state"
+            printf -- '- No address or application email was printed or sent.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Recover failed pilot create
         if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
         run: |
@@ -185,7 +238,7 @@ jobs:
             printf -- "- Retained generated website bucket for controlled cleanup: \`%s\`\n" "$bucket_id"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate deployment parameters
-        if: inputs.operation != 'recover-failed-create'
+        if: inputs.operation == 'diff' || inputs.operation == 'deploy'
         env:
           HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
