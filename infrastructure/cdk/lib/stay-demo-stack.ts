@@ -491,6 +491,33 @@ export class StayDemoStack extends Stack {
             }),
             new iam.PolicyStatement({
               actions: [
+                'kms:Decrypt',
+                'kms:DescribeKey',
+                'kms:Encrypt',
+                'kms:ReEncrypt*',
+                'kms:GenerateDataKey*',
+              ],
+              resources: [dataKey.keyArn],
+              conditions: {
+                StringEquals: {
+                  'kms:ViaService': `dynamodb.${this.region}.${this.urlSuffix}`,
+                },
+              },
+            }),
+            new iam.PolicyStatement({
+              actions: ['kms:CreateGrant'],
+              resources: [dataKey.keyArn],
+              conditions: {
+                StringEquals: {
+                  'kms:ViaService': `dynamodb.${this.region}.${this.urlSuffix}`,
+                },
+                Bool: {
+                  'kms:GrantIsForAWSResource': 'true',
+                },
+              },
+            }),
+            new iam.PolicyStatement({
+              actions: [
                 'cognito-idp:AdminCreateUser',
                 'cognito-idp:AdminGetUser',
                 'cognito-idp:AdminDisableUser',
