@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1000" viewBox="0 0 1500 1000">
+  <g transform="translate(86 70)">
+    <rect width="68" height="68" rx="16" fill="#245248"/>
+    <g transform="translate(9.5 9.5) scale(.024)">
+      <path fill="#f3f0e8" d="M1326.56 1499.77c-.85-39.03-.02-81.99.02-120.3l.06-238.96c-.05-20.44.92-64.05-2.26-81.35-6.81-38.48-36.82-69.1-74.41-77.95-10.6-2.48-20.85-2.19-31.66-3.4-25.65-3.07-49.53-14.61-67.88-32.79-15.49-15.32-26.18-34.81-30.78-56.1-3.66-17.14-2.81-38.4-2.77-56.26l-.06-345c.07-43.01-.32-70.15 32.12-102.88 35.3-35.62 70.59-31.85 116.01-31.82l436.47.11-.05 1150.17-371.56.17-3.43-3.14zM346.74 353.14l473.65-.04c50.56-.81 97.95 37.83 106.87 87.67 3.58 20 2.46 43.8 2.45 64.32l-.14 356.07c.03 54.7-31.94 98.92-85.16 113.54-12.05 3.43-24.47 3.34-36.86 4.73-42.66 4.77-76.17 37.78-83.39 79.81-3.03 17.63-1.97 36.99-1.94 54.93l-.11 385.04-3.71 3.55-371.92-.05.26-1149.57z"/>
+      <path fill="#cf664b" d="M918.77 1075.28l210.45-.23c1.37 38.26 4.66 75.44 12.64 112.98 24.89 117.12 91.44 225.01 178.57 306.25 82.1 72.34 191.43 130.53 293 169.31 18.47 6.67 37.11 12.89 55.89 18.64 9.75 2.95 29.2 7.93 38.32 12.03-30.22 1.43-1362.36 1.35-1362.85-.8 10.73-5.33 28.14-10.12 40.99-14.13 116.14-35.05 238.91-93.53 332.62-176.57 1.6-1.29 3.02-2.16 3.76-3.55 109.25-99.4 182.72-267.88 196.61-423.93z"/>
+    </g>
+    <text x="91" y="48" fill="#245248" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="5">STAY</text>
+  </g>
+  <text x="88" y="235" fill="#245248" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="1.3">INDEPENDENT LIVING  ·  TRUSTED CIRCLE</text>
+  <text x="82" y="366" fill="#183b34" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="800">STAY AT HOME.</text>
+  <text x="82" y="449" fill="#183b34" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="800">CONNECTED.</text>
+  <text x="82" y="532" fill="#a9503a" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="800">IN CONTROL.</text>
+  <path d="M88 584h164" stroke="#a9503a" stroke-width="10" stroke-linecap="round"/>
+  <text x="88" y="651" fill="#314842" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="600">Adaptive routines, privacy-aware help,</text>
+  <text x="88" y="692" fill="#314842" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="600">and resident-defined Safety Windows.</text>
+  <g transform="translate(86 765)">
+    <rect width="556" height="68" rx="34" fill="#245248"/>
+    <text x="36" y="43" fill="#f3f0e8" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.3">ALEXA+  ·  AWS  ·  OPEN SOURCE</text>
+  </g>
+</svg>

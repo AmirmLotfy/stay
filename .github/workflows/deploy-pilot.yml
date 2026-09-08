@@ -109,8 +109,21 @@ jobs:
       - name: Recover failed pilot create
         if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
         run: |
-          status="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
-            --query 'Stacks[0].StackStatus' --output text)"
+          set +e
+          describe_output="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+            --query 'Stacks[0].StackStatus' --output text 2>&1)"
+          describe_code=$?
+          set -e
+          if [ "$describe_code" -ne 0 ]; then
+            printf '%s' "$describe_output" | grep -Fq 'does not exist'
+            {
+              printf '### Failed pilot create already recovered\n\n'
+              printf -- "- No CloudFormation stack named \`StayPilotStack\` remains.\n"
+              printf -- '- The recovery operation is idempotently complete; retained-resource cleanup is handled separately.\n'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          status="$describe_output"
           test "$status" = 'ROLLBACK_FAILED'
 
           bucket_status="$(aws cloudformation describe-stack-resource \
@@ -142,8 +155,15 @@ jobs:
           # retain only the two resources already proven unable to roll back.
           aws cloudformation delete-stack --stack-name StayPilotStack
           if aws cloudformation wait stack-delete-complete --stack-name StayPilotStack; then
-            echo 'Expected the protected user pool and populated bucket to stop the first delete.' >&2
-            exit 1
+            aws cognito-idp describe-user-pool --user-pool-id "$user_pool_id" >/dev/null
+            aws s3api head-bucket --bucket "$bucket_id"
+            {
+              printf '### Failed pilot create recovered\n\n'
+              printf -- "- Removed failed stack: \`StayPilotStack\`\n"
+              printf -- "- Retained empty user pool through its template policy: \`%s\`\n" "$user_pool_id"
+              printf -- "- Retained generated website bucket through its template policy: \`%s\`\n" "$bucket_id"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           delete_status="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
             --query 'Stacks[0].StackStatus' --output text)"

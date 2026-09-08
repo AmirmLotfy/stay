@@ -3,7 +3,8 @@
 This directory contains judge-facing media generated from a verified STAY build.
 
 - `screenshots/`: deterministic Playwright captures. Keep the numbered filenames in presentation order.
-- `video/`: real browser capture, deterministic cards, final audible master, upload-ready MP4, measured English captions, and YouTube thumbnail.
+- `video/`: real browser capture, deterministic cards, final audible master, upload-ready MP4, measured English captions, and YouTube thumbnails.
+- `covers/`: approved built-in image-generation backgrounds plus deterministic SVG overlays for the v2 YouTube and Devpost covers. The final 3:2 Devpost cover is `STAY_Devpost_Cover_v2.jpg`.
 - `audio/`: approved Higgsfield Faye voice-over, approved Higgsfield Sonilo tonal bed, and locked voice identity.
 - `stay-open-threshold-logo.svg` and `stay-open-threshold-logo-2048.png`: approved Higgsfield Recraft V4.1 identity exports.
 

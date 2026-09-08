@@ -1,6 +1,6 @@
 # STAY final submission handoff
 
-Everything in this file is prepared for the participant's manual Devpost entry. Nothing has been submitted to Devpost.
+STAY was submitted to Devpost on 2026-09-08 under `amirmolotfy`. This file preserves the submitted packet, public links, media sources, and later cover-refresh candidate.
 
 ## Public video and source kit
 
@@ -9,7 +9,9 @@ Everything in this file is prepared for the participant's manual Devpost entry. 
 - Uploaded-video source copy: `assets/submission/video/STAY_Devpost_Demo_UPLOAD_v01.mp4`
 - English captions: `assets/submission/video/STAY_DEMO.en.srt`
 - Caption replacement procedure: `docs/media-production/YOUTUBE_UPLOAD_COPY.md#replace-the-automatic-captions`
-- Thumbnail: `assets/submission/video/STAY_YouTube_Thumbnail.png`
+- Current thumbnail source: `assets/submission/video/STAY_YouTube_Thumbnail.png`
+- Approved replacement thumbnail: `assets/submission/video/STAY_YouTube_Thumbnail_v2.jpg`
+- Approved 3:2 Devpost cover replacement: `assets/submission/STAY_Devpost_Cover_v2.jpg`
 - Ready-to-copy title, description, chapters, tags, and pinned comment: `docs/media-production/YOUTUBE_UPLOAD_COPY.md`
 - Archival master: `assets/submission/video/STAY_Devpost_Demo_MASTER_v01.mp4`
 
@@ -40,14 +42,14 @@ Upload these screenshots in this order:
 
 All seven were captured from the deployed public demo after the responsive-accessibility release. Their checksums and provenance are recorded in `assets/submission/candidate-checksums.sha256` and `docs/media-production/VISUAL_PROVENANCE.csv`.
 
-The draft was freshly reverified under `amirmolotfy` on 2026-09-06: **DRAFT, 1/5 steps done**. All 26 official additional fields remain blank and their IDs still match the copy pack. [Continue the verified draft](https://devpost.com/submit-to/30992-build-ship-shape-amazon-developer-hackathon/manage/submissions/1166410-stay/project-overview).
+The authenticated submission is **Submitted, 5/5 steps done** under `amirmolotfy`. Devpost confirmed: “Project submitted! Continue to edit your project until the hackathon deadline.” The public project is [STAY on Devpost](https://devpost.com/software/stay-ljbdk8). All 26 additional fields, the Alexa+ primary track, AWS Builder and Open Source mini-challenges, story, 25 tags, demo link, video, and seven ordered screenshots were saved before submission.
 
-## Final human gates
+## Completed submission gates
 
-1. The participant confirmed on 2026-09-05 that both negative eligibility answers were entry errors. The ignored private handoff records Yes; copy the confirmed answers into the official form.
-2. The approved manual English captions are available. Complete a private start-to-finish video, audio, and caption review plus signed-out/mobile playback. The copyright-claim gate has passed.
-3. Paste the prepared Devpost answers and gallery in the order above.
-4. Recheck the public demo, repository, video embedding, track, mini-challenges, and official form.
-5. Use Devpost's final confirmation only when every gate passes.
+1. The participant-confirmed eligibility corrections were entered from the ignored private handoff.
+2. The approved 36-cue manual English caption track is public; signed-out playback and embedding passed.
+3. The prepared answers and seven gallery images were saved in the required order.
+4. Public demo, repository, video embedding, primary track, and mini-challenges were rechecked.
+5. Devpost final confirmation succeeded on 2026-09-08. The later cover refresh does not alter the submitted answers or eligibility declarations.
 
 AWS Support cases `178838582000594` (SES production access) and `178838741100092` (account verification for CloudFront and Bedrock) remain provider-controlled. The deployed deterministic demo does not depend on either pending capability.
