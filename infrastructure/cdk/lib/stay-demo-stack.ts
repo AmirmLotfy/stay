@@ -1176,6 +1176,18 @@ export class StayDemoStack extends Stack {
           );
           role.addToPolicy(
             new iam.PolicyStatement({
+              actions: ['ses:CreateEmailIdentity', 'ses:GetEmailIdentity'],
+              resources: [
+                this.formatArn({
+                  service: 'ses',
+                  resource: 'identity',
+                  resourceName: '*+stay-pilot-*@*',
+                }),
+              ],
+            }),
+          );
+          role.addToPolicy(
+            new iam.PolicyStatement({
               actions: ['sts:AssumeRole', 'sts:TagSession'],
               resources: [
                 `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-${this.region}`,

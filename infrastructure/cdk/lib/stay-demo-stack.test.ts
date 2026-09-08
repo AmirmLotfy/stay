@@ -336,6 +336,9 @@ describe('StayDemoStack', () => {
     expect(synthesized).toContain('cdk-hnb659fds-file-publishing-role-');
     expect(synthesized).toContain('cdk-hnb659fds-image-publishing-role-');
     expect(synthesized).toContain('cdk-hnb659fds-lookup-role-');
+    expect(synthesized).toContain('ses:CreateEmailIdentity');
+    expect(synthesized).toContain('ses:GetEmailIdentity');
+    expect(synthesized).toContain(':ses:us-east-1:111111111111:identity/*+stay-pilot-*@*');
     expect(synthesized).toContain('BedrockEnabled');
     expect(synthesized).toContain('kms:EncryptionContext:aws:logs:arn');
     expect(synthesized).toContain('logs.us-east-1.');
