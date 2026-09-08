@@ -131,10 +131,14 @@ export class StayDemoStack extends Stack {
         resources: ['*'],
         conditions: {
           ArnLike: {
-            'kms:EncryptionContext:aws:logs:arn': [
-              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/lambda/stay-${stage}-*`,
-              `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/apigateway/stay-${stage}-*`,
-            ],
+            'kms:EncryptionContext:aws:logs:arn': pilot
+              ? [
+                  `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:${this.stackName}-*`,
+                ]
+              : [
+                  `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/lambda/stay-${stage}-*`,
+                  `arn:${this.partition}:logs:${this.region}:${this.account}:log-group:/aws/apigateway/stay-${stage}-*`,
+                ],
           },
         },
       }),
@@ -271,7 +275,7 @@ export class StayDemoStack extends Stack {
     const customDomainOrigin = `https://${customDomainName}`;
     const corsOrigins = distribution ? [] : enableCustomDomain ? [customDomainOrigin] : [];
     const httpAccessLogs = new logs.LogGroup(this, 'HttpAccessLogs', {
-      logGroupName: `/aws/apigateway/stay-${stage}-http`,
+      ...(pilot ? {} : { logGroupName: `/aws/apigateway/stay-${stage}-http` }),
       retention: logs.RetentionDays.ONE_MONTH,
       encryptionKey: dataKey,
       removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
@@ -553,7 +557,7 @@ export class StayDemoStack extends Stack {
         .replace(/([a-z])([A-Z])/g, '$1-$2')
         .toLowerCase()}`;
       const logGroup = new logs.LogGroup(this, `${name}Logs`, {
-        logGroupName: `/aws/lambda/${functionName}`,
+        ...(pilot ? {} : { logGroupName: `/aws/lambda/${functionName}` }),
         retention: logs.RetentionDays.ONE_MONTH,
         encryptionKey: dataKey,
         removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
@@ -710,7 +714,7 @@ export class StayDemoStack extends Stack {
       },
     );
     const webSocketAccessLogs = new logs.LogGroup(this, 'WebSocketAccessLogs', {
-      logGroupName: `/aws/apigateway/stay-${stage}-websocket`,
+      ...(pilot ? {} : { logGroupName: `/aws/apigateway/stay-${stage}-websocket` }),
       retention: logs.RetentionDays.ONE_MONTH,
       encryptionKey: dataKey,
       removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
