@@ -331,7 +331,7 @@ export function pilotDeliveryIO(): PilotDeliveryIO {
     send: async (householdId, id, contact) => {
       await sesClient.send(
         new SendEmailCommand({
-          FromEmailAddress: `STAY <${sender}>`,
+          FromEmailAddress: sender,
           ConfigurationSetName: configurationSet,
           Destination: { ToAddresses: [contact.email] },
           Content: {
