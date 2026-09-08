@@ -160,8 +160,9 @@ describe('StayDemoStack', () => {
     expect(notificationPolicy).toBeDefined();
     const notificationPolicyJson = JSON.stringify(notificationPolicy);
     expect(notificationPolicyJson).toContain('ses:SendEmail');
-    expect(notificationPolicyJson).toContain(':identity/saystay.site');
-    expect(notificationPolicyJson).toContain(':configuration-set/');
+    expect(notificationPolicyJson).toContain('ses:FromAddress');
+    expect(notificationPolicyJson).toContain('SesFromEmail');
+    expect(notificationPolicyJson).not.toContain('ses:SendRawEmail');
     expect(serialized.replaceAll('x-stay-demo-session', '')).not.toContain('stay-demo-');
     expect(serialized).not.toContain('SES_RECIPIENT_EMAIL');
     expect(serialized).not.toContain('token.actions.githubusercontent.com');
