@@ -179,10 +179,10 @@ export function runPilotOperator(
     do {
       const page = aws('dynamodb', 'query', {
         TableName,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        KeyConditionExpression: prefix ? 'PK = :pk AND begins_with(SK, :prefix)' : 'PK = :pk',
         ExpressionAttributeValues: marshall({
           ':pk': `HOUSEHOLD#${input.householdId}`,
-          ':prefix': prefix,
+          ...(prefix ? { ':prefix': prefix } : {}),
         }),
         ConsistentRead: true,
         ...(cursor ? { ExclusiveStartKey: cursor } : {}),

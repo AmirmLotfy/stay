@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { PilotInputSchema, validateOperation, runPilotOperator } from './pilot-operator.js';
 
@@ -71,6 +75,50 @@ describe('pilot operator provider boundary', () => {
     const aws = vi.fn().mockReturnValue({ Arn: 'arn:aws:iam::111111111111:root' });
     expect(() => runPilotOperator('provision', input(), true, aws)).toThrow('not root');
     expect(aws).toHaveBeenCalledTimes(1);
+  });
+  it('exports an entire household without an invalid empty sort-key prefix', () => {
+    const output = join(tmpdir(), `stay-pilot-export-${randomUUID()}.json`);
+    const aws = vi.fn(
+      (service: string, operation: string, request: Record<string, unknown> = {}) => {
+        if (service === 'sts') return { Arn: 'arn:aws:iam::111111111111:role/operator' };
+        if (service === 'cloudformation')
+          return {
+            Stacks: [
+              {
+                StackStatus: 'UPDATE_COMPLETE',
+                Outputs: [
+                  { OutputKey: 'Stage', OutputValue: 'pilot' },
+                  { OutputKey: 'ProductTableName', OutputValue: 'pilot-table' },
+                  { OutputKey: 'UserPoolId', OutputValue: 'pilot-pool' },
+                ],
+              },
+            ],
+          };
+        if (operation === 'query') {
+          expect(request.KeyConditionExpression).toBe('PK = :pk');
+          expect(
+            unmarshall(request.ExpressionAttributeValues as Parameters<typeof unmarshall>[0]),
+          ).toEqual({ ':pk': 'HOUSEHOLD#house-ava' });
+          return { Items: [marshall({ PK: 'HOUSEHOLD#house-ava', SK: 'PROFILE#house-ava' })] };
+        }
+        throw new Error(`Unexpected provider action: ${operation}`);
+      },
+    );
+    try {
+      runPilotOperator(
+        'export',
+        PilotInputSchema.parse({
+          stack: 'StayPilotStack',
+          householdId: 'house-ava',
+          output,
+        }),
+        true,
+        aws,
+      );
+      expect(JSON.parse(readFileSync(output, 'utf8')).records).toHaveLength(1);
+    } finally {
+      rmSync(output, { force: true });
+    }
   });
   it('provisions the email-only pool with suppressed invitations and private contact records', () => {
     const aws = vi.fn(
