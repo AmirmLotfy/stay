@@ -11,6 +11,7 @@ on:
         options:
           - diff
           - deploy
+          - recover-failed-create
       hosted_zone_id:
         description: Existing saystay.site Route 53 hosted zone ID
         required: true
@@ -48,7 +49,7 @@ jobs:
           CONFIRM_REVIEWED_DIFF: ${{ inputs.confirm_reviewed_diff }}
         run: |
           test "$GITHUB_REF" = 'refs/heads/main'
-          if [ "$OPERATION" = 'deploy' ]; then
+          if [ "$OPERATION" != 'diff' ]; then
             test "$CONFIRM_REVIEWED_DIFF" = 'true'
             test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
             printf '%s' "$REVIEWED_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
@@ -98,7 +99,56 @@ jobs:
           arn="$(aws sts get-caller-identity --query Arn --output text)"
           test "${arn##*:}" != 'root'
           printf 'Deploying through scoped role: %s\n' "$arn"
+      - name: Assume bootstrap deployment role for failed-create recovery
+        if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::828547077857:role/cdk-hnb659fds-deploy-role-828547077857-us-east-1
+          aws-region: us-east-1
+          role-chaining: true
+      - name: Recover failed pilot create
+        if: inputs.operation == 'recover-failed-create' && inputs.confirm_reviewed_diff == true
+        run: |
+          status="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+            --query 'Stacks[0].StackStatus' --output text)"
+          test "$status" = 'ROLLBACK_FAILED'
+
+          bucket_status="$(aws cloudformation describe-stack-resource \
+            --stack-name StayPilotStack \
+            --logical-resource-id WebsiteBucket75C24D94 \
+            --query 'StackResourceDetail.ResourceStatus' --output text)"
+          user_pool_status="$(aws cloudformation describe-stack-resource \
+            --stack-name StayPilotStack \
+            --logical-resource-id UserPool6BA7E5F2 \
+            --query 'StackResourceDetail.ResourceStatus' --output text)"
+          test "$bucket_status" = 'DELETE_FAILED'
+          test "$user_pool_status" = 'DELETE_FAILED'
+
+          bucket_id="$(aws cloudformation describe-stack-resource \
+            --stack-name StayPilotStack \
+            --logical-resource-id WebsiteBucket75C24D94 \
+            --query 'StackResourceDetail.PhysicalResourceId' --output text)"
+          user_pool_id="$(aws cloudformation describe-stack-resource \
+            --stack-name StayPilotStack \
+            --logical-resource-id UserPool6BA7E5F2 \
+            --query 'StackResourceDetail.PhysicalResourceId' --output text)"
+
+          aws cloudformation update-termination-protection \
+            --stack-name StayPilotStack \
+            --no-enable-termination-protection
+          aws cloudformation delete-stack \
+            --stack-name StayPilotStack \
+            --retain-resources WebsiteBucket75C24D94 UserPool6BA7E5F2
+          aws cloudformation wait stack-delete-complete --stack-name StayPilotStack
+
+          {
+            printf '### Failed pilot create recovered\n\n'
+            printf -- "- Removed failed stack: \`StayPilotStack\`\n"
+            printf -- "- Retained empty user pool for controlled cleanup: \`%s\`\n" "$user_pool_id"
+            printf -- "- Retained generated website bucket for controlled cleanup: \`%s\`\n" "$bucket_id"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate deployment parameters
+        if: inputs.operation != 'recover-failed-create'
         env:
           HOSTED_ZONE_ID: ${{ inputs.hosted_zone_id }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}

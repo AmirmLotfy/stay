@@ -66,8 +66,13 @@ describe('StayDemoStack', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'stay-pilot-notification',
       Timeout: 60,
-      ReservedConcurrentExecutions: 4,
     });
+    const pilotNotificationFunctions = template.findResources('AWS::Lambda::Function', {
+      Properties: { FunctionName: 'stay-pilot-notification' },
+    });
+    expect(
+      Object.values(pilotNotificationFunctions)[0]?.Properties.ReservedConcurrentExecutions,
+    ).toBeUndefined();
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'stay-pilot-static-site',
       Environment: {

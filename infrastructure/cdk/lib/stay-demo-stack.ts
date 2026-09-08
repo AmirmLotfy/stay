@@ -595,7 +595,7 @@ export class StayDemoStack extends Stack {
       'NotificationFunction',
       'services/functions/src/notification-worker.ts',
       {
-        ...(pilot ? { timeout: Duration.seconds(60), reservedConcurrentExecutions: 4 } : {}),
+        ...(pilot ? { timeout: Duration.seconds(60) } : {}),
         environment: {
           SES_FROM_EMAIL: sesFromEmail.valueAsString,
           ...(sesRecipientEmail ? { SES_RECIPIENT_EMAIL: sesRecipientEmail.valueAsString } : {}),
