@@ -321,6 +321,7 @@ export class StayDemoStack extends Stack {
         format: apiAccessLogFormat,
       },
     });
+    let pilotRecoveryRehearsalPolicy: iam.Policy | undefined;
     if (pilot) {
       const cfnHttpStage = httpStage.node.defaultChild as apigwv2.CfnStage;
       cfnHttpStage.addOverride(
@@ -981,6 +982,68 @@ export class StayDemoStack extends Stack {
       alarmDescription: 'STAY API errors exceeded the demo tolerance.',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    if (pilot) {
+      // This role is created once by the protected judge stack and is also the
+      // main-only OIDC entrypoint for pilot workflows. The pilot owns only this
+      // removable policy attachment; it does not replace or broaden the role trust.
+      const repositoryDeploymentRole = iam.Role.fromRoleName(
+        this,
+        'ExistingRepositoryDeploymentRole',
+        'StayDemoStack-GitHubDeploymentRoleD4E2A70A-rZkQiFbwXt6s',
+      );
+      pilotRecoveryRehearsalPolicy = new iam.Policy(this, 'PilotRecoveryRehearsalPolicy', {
+        policyName: 'stay-pilot-recovery-rehearsal',
+        roles: [repositoryDeploymentRole],
+        statements: [
+          new iam.PolicyStatement({
+            actions: [
+              'dynamodb:DescribeContinuousBackups',
+              'dynamodb:DescribeTable',
+              'dynamodb:GetItem',
+              'dynamodb:Scan',
+              'dynamodb:UpdateItem',
+              'dynamodb:RestoreTableToPointInTime',
+            ],
+            resources: [table.tableArn],
+          }),
+          new iam.PolicyStatement({
+            actions: [
+              'dynamodb:DeleteTable',
+              'dynamodb:DescribeTable',
+              'dynamodb:PutItem',
+              'dynamodb:Scan',
+              'dynamodb:UpdateTable',
+            ],
+            resources: [
+              this.formatArn({
+                service: 'dynamodb',
+                resource: 'table',
+                resourceName: 'stay-pilot-restore-rehearsal-*',
+              }),
+            ],
+          }),
+          new iam.PolicyStatement({
+            actions: [
+              'kms:Decrypt',
+              'kms:DescribeKey',
+              'kms:Encrypt',
+              'kms:ReEncrypt*',
+              'kms:GenerateDataKey*',
+            ],
+            resources: [dataKey.keyArn],
+            conditions: {
+              StringEquals: {
+                'kms:ViaService': `dynamodb.${this.region}.${this.urlSuffix}`,
+              },
+            },
+          }),
+          new iam.PolicyStatement({
+            actions: ['cloudwatch:DescribeAlarms', 'cloudwatch:SetAlarmState'],
+            resources: [apiErrorAlarm.alarmArn],
+          }),
+        ],
+      });
+    }
     const metricsDlqAlarm = new cloudwatch.Alarm(this, 'MetricsDeadLetterAlarm', {
       metric: metricsDlq.metricApproximateNumberOfMessagesVisible({
         period: Duration.minutes(5),
@@ -1272,6 +1335,13 @@ export class StayDemoStack extends Stack {
         pilotOperatorPolicy,
         `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:ses:us-east-1:${acknowledgedAccount}:identity/*]`,
         'The pilot operator only reads verification state for participant-supplied SES email identities; it cannot create, modify, or send from identities.',
+      );
+    }
+    if (pilotRecoveryRehearsalPolicy) {
+      acknowledgeGranular(
+        pilotRecoveryRehearsalPolicy,
+        `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:dynamodb:us-east-1:${acknowledgedAccount}:table/stay-pilot-restore-rehearsal-*]`,
+        'The repository/main-only recovery workflow creates, validates and deletes only uniquely prefixed temporary restore tables. The source table and exact alarm remain separately ARN scoped.',
       );
     }
     for (const suppression of [
