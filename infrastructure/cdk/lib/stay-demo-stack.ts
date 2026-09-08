@@ -1043,6 +1043,18 @@ export class StayDemoStack extends Stack {
             },
           }),
           new iam.PolicyStatement({
+            actions: ['kms:CreateGrant'],
+            resources: [dataKey.keyArn],
+            conditions: {
+              StringEquals: {
+                'kms:ViaService': `dynamodb.${this.region}.${this.urlSuffix}`,
+              },
+              Bool: {
+                'kms:GrantIsForAWSResource': 'true',
+              },
+            },
+          }),
+          new iam.PolicyStatement({
             actions: ['cloudwatch:DescribeAlarms', 'cloudwatch:SetAlarmState'],
             resources: [apiErrorAlarm.alarmArn],
           }),
