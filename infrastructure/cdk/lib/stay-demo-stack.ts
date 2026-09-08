@@ -482,10 +482,10 @@ export class StayDemoStack extends Stack {
               actions: [
                 'dynamodb:GetItem',
                 'dynamodb:Query',
+                'dynamodb:ConditionCheckItem',
                 'dynamodb:PutItem',
                 'dynamodb:UpdateItem',
                 'dynamodb:DeleteItem',
-                'dynamodb:TransactWriteItems',
               ],
               resources: [table.tableArn],
             }),
