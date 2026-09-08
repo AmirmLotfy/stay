@@ -54,9 +54,10 @@ describe('StayDemoStack', () => {
       },
     });
     expect(Object.keys(operatorPolicies)).toHaveLength(1);
-    expect(JSON.stringify(Object.values(operatorPolicies)[0])).not.toContain(
-      'dynamodb:TransactWriteItems',
-    );
+    const operatorPolicy = JSON.stringify(Object.values(operatorPolicies)[0]);
+    expect(operatorPolicy).not.toContain('dynamodb:TransactWriteItems');
+    expect(operatorPolicy).toContain('kms:ViaService');
+    expect(operatorPolicy).toContain('dynamodb.');
     template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
       ManagedPolicyName: 'stay-pilot-household-operator',
       PolicyDocument: {
@@ -70,6 +71,41 @@ describe('StayDemoStack', () => {
               'dynamodb:UpdateItem',
               'dynamodb:DeleteItem',
             ]),
+          }),
+          Match.objectLike({
+            Action: Match.arrayWith([
+              'kms:Decrypt',
+              'kms:DescribeKey',
+              'kms:Encrypt',
+              'kms:ReEncrypt*',
+              'kms:GenerateDataKey*',
+            ]),
+            Condition: {
+              StringEquals: {
+                'kms:ViaService': {
+                  'Fn::Join': ['', ['dynamodb.us-east-1.', { Ref: 'AWS::URLSuffix' }]],
+                },
+              },
+            },
+            Resource: {
+              'Fn::GetAtt': [Match.stringLikeRegexp('^DataKey'), 'Arn'],
+            },
+          }),
+          Match.objectLike({
+            Action: 'kms:CreateGrant',
+            Condition: {
+              Bool: {
+                'kms:GrantIsForAWSResource': 'true',
+              },
+              StringEquals: {
+                'kms:ViaService': {
+                  'Fn::Join': ['', ['dynamodb.us-east-1.', { Ref: 'AWS::URLSuffix' }]],
+                },
+              },
+            },
+            Resource: {
+              'Fn::GetAtt': [Match.stringLikeRegexp('^DataKey'), 'Arn'],
+            },
           }),
           Match.objectLike({
             Action: Match.arrayWith(['cognito-idp:AdminDisableUser']),
