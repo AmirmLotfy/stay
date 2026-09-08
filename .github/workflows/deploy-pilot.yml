@@ -398,12 +398,18 @@ jobs:
 
           completed_at="$(date +%s)"
           elapsed_seconds="$((completed_at - started_at))"
+          cleanup_restore
+          trap - EXIT
+          if aws dynamodb describe-table --table-name "$target_table" >/dev/null 2>&1; then
+            printf 'Temporary restored table still exists after cleanup.\n' >&2
+            exit 1
+          fi
           {
             printf '### Isolated DynamoDB recovery rehearsal\n\n'
             printf -- '- PITR status: `ENABLED`\n'
             printf -- '- Restored table remained outside CloudFormation and had no stream.\n'
             printf -- '- RTO measured through validation: `%s seconds`\n' "$elapsed_seconds"
-            printf -- '- Temporary restored table cleanup: scheduled by guarded exit trap.\n'
+            printf -- '- Temporary restored table cleanup: confirmed.\n'
             printf -- '- Enrollment control left paused: `true`\n'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Exercise owner alarm subscription

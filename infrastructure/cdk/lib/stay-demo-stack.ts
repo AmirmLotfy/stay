@@ -1008,10 +1008,15 @@ export class StayDemoStack extends Stack {
           }),
           new iam.PolicyStatement({
             actions: [
+              'dynamodb:BatchWriteItem',
               'dynamodb:DeleteTable',
+              'dynamodb:DeleteItem',
               'dynamodb:DescribeTable',
+              'dynamodb:GetItem',
               'dynamodb:PutItem',
+              'dynamodb:Query',
               'dynamodb:Scan',
+              'dynamodb:UpdateItem',
               'dynamodb:UpdateTable',
             ],
             resources: [
