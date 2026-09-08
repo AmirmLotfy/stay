@@ -15,7 +15,7 @@ Every protected action has a visible control, accessible name, text status, and 
 
 ## Test matrix
 
-Automated Playwright/axe runs cover 40 scenarios across desktop, mobile, 1280 × 800 Echo Show 8 simulation, and 1920 × 1080 Echo Show 15 simulation. They exercise keyboard and activated skip navigation, touch-only protected flow, 48 × 48 targets across resident and Circle surfaces, system-aware persistent themes, RTL mobile-shell readiness, emergency boundary copy, versioned Path Lighting, Circle membership, full playbook controls, and the responsive mobile header and Updates panel. The deployed serial matrix passed all 36 public-runtime-applicable scenarios; four route-mocked contract cases remain intentionally local-only.
+Automated Playwright/axe runs cover 44 scenarios across desktop, mobile, 1280 × 800 Echo Show 8 simulation, 1920 × 1080 Echo Show 15 simulation, and four authenticated-pilot viewport contracts. They exercise keyboard and activated skip navigation, touch-only protected flow, 48 × 48 targets across resident and Circle surfaces, system-aware persistent themes, RTL mobile-shell readiness, emergency boundary copy, versioned Path Lighting, Circle membership, full playbook controls, the responsive mobile header and Updates panel, and pilot empty/preference/revocation behavior at 200% text. The fresh deployed judge matrix passed all 36 applicable scenarios; four pilot-only and four route-mocked contract cases skip outside their intended runtime.
 
 Manual release evidence still required:
 
