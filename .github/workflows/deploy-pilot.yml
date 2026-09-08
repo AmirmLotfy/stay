@@ -136,6 +136,23 @@ jobs:
           aws cloudformation update-termination-protection \
             --stack-name StayPilotStack \
             --no-enable-termination-protection
+
+          # CloudFormation accepts --retain-resources only after a delete has
+          # reached DELETE_FAILED, so make the guarded first attempt and then
+          # retain only the two resources already proven unable to roll back.
+          aws cloudformation delete-stack --stack-name StayPilotStack
+          if aws cloudformation wait stack-delete-complete --stack-name StayPilotStack; then
+            echo 'Expected the protected user pool and populated bucket to stop the first delete.' >&2
+            exit 1
+          fi
+          delete_status="$(aws cloudformation describe-stacks --stack-name StayPilotStack \
+            --query 'Stacks[0].StackStatus' --output text)"
+          test "$delete_status" = 'DELETE_FAILED'
+          failed_resources="$(aws cloudformation describe-stack-resources \
+            --stack-name StayPilotStack \
+            --query "StackResources[?ResourceStatus==\`DELETE_FAILED\`].LogicalResourceId" \
+            --output text | tr '\t' '\n' | sort | paste -sd, -)"
+          test "$failed_resources" = 'UserPool6BA7E5F2,WebsiteBucket75C24D94'
           aws cloudformation delete-stack \
             --stack-name StayPilotStack \
             --retain-resources WebsiteBucket75C24D94 UserPool6BA7E5F2
