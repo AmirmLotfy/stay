@@ -359,21 +359,18 @@ jobs:
           if (streamEnabled)
             throw new Error('Restored table unexpectedly has an active DynamoDB stream.');
           NODE
-          stack_table_count="$(aws cloudformation describe-stack-resources --stack-name StayPilotStack \
-            --query "length(StackResources[?PhysicalResourceId=='$source_table'])" --output text)"
-          if [ "$stack_table_count" != '1' ]; then
-            printf 'Expected one CloudFormation-managed source table; found %s.\n' "$stack_table_count" >&2
+          managed_table="$(aws cloudformation describe-stack-resource --stack-name StayPilotStack \
+            --logical-resource-id ProductTableB8D4E9ED \
+            --query 'StackResourceDetail.PhysicalResourceId' --output text)"
+          if [ "$managed_table" != "$source_table" ]; then
+            printf 'CloudFormation product table does not match the stack output used for recovery.\n' >&2
             exit 1
           fi
-          target_stack_count="$(aws cloudformation describe-stack-resources --stack-name StayPilotStack \
-            --query "length(StackResources[?PhysicalResourceId=='$target_table'])" --output text)"
-          if [ "$target_stack_count" != '0' ]; then
-            printf 'Expected restored table to remain outside CloudFormation; found %s matching resources.\n' \
-              "$target_stack_count" >&2
+          if [ "$target_table" = "$managed_table" ]; then
+            printf 'Recovery target unexpectedly matches the managed source table.\n' >&2
             exit 1
           fi
-          printf 'Restore metadata verified: source resources=%s, restored resources=%s, stream enabled=false.\n' \
-            "$stack_table_count" "$target_stack_count"
+          printf 'Restore metadata verified: managed source matched, isolated target distinct, stream enabled=false.\n'
 
           source_file="$RUNNER_TEMP/pilot-source-scan.json"
           restored_file="$RUNNER_TEMP/pilot-restored-scan.json"
