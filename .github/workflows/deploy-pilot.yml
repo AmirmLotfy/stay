@@ -13,6 +13,7 @@ on:
           - deploy
           - recover-failed-create
           - request-recipient-verification
+          - cleanup-restore-rehearsal
           - restore-rehearsal
           - alarm-rehearsal
       hosted_zone_id:
@@ -36,6 +37,10 @@ on:
         options:
           - a
           - b
+      restore_table_name:
+        description: Exact temporary restore table to clean after a failed rehearsal
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -48,7 +53,7 @@ concurrency:
 jobs:
   pilot:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     env:
       NEXT_PUBLIC_APP_URL: https://pilot.saystay.site
     steps:
@@ -279,35 +284,64 @@ jobs:
             *) printf 'Unsafe restore target.\n' >&2; exit 1 ;;
           esac
           started_at="$(date +%s)"
+          wait_until_active() {
+            local table_name="$1"
+            local deadline="$((SECONDS + 1500))"
+            local status=''
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              status="$(aws dynamodb describe-table --table-name "$table_name" \
+                --query 'Table.TableStatus' --output text 2>/dev/null)" || status='NOT_FOUND'
+              case "$status" in
+                ACTIVE) return 0 ;;
+                CREATING|UPDATING|RESTORING|NOT_FOUND) sleep 15 ;;
+                *) printf 'Restore table entered terminal status: %s\n' "$status" >&2; return 1 ;;
+              esac
+            done
+            printf 'Restore table did not become active within 25 minutes.\n' >&2
+            return 1
+          }
           cleanup_restore() {
-            set +e
+            local cleanup_status=''
             case "$target_table" in
               stay-pilot-restore-rehearsal-*) ;;
-              *) return ;;
+              *) return 1 ;;
             esac
+            if ! aws dynamodb describe-table --table-name "$target_table" >/dev/null 2>&1; then
+              return 0
+            fi
+            if ! wait_until_active "$target_table"; then
+              return 1
+            fi
             if aws dynamodb describe-table --table-name "$target_table" >/dev/null 2>&1; then
               protected="$(aws dynamodb describe-table --table-name "$target_table" \
                 --query 'Table.DeletionProtectionEnabled' --output text 2>/dev/null)"
               if [ "$protected" = 'True' ]; then
                 aws dynamodb update-table --table-name "$target_table" \
                   --no-deletion-protection-enabled >/dev/null
-                aws dynamodb wait table-exists --table-name "$target_table"
+                wait_until_active "$target_table"
               fi
               aws dynamodb delete-table --table-name "$target_table" >/dev/null
-              aws dynamodb wait table-not-exists --table-name "$target_table"
+              cleanup_deadline="$((SECONDS + 900))"
+              while [ "$SECONDS" -lt "$cleanup_deadline" ]; do
+                cleanup_status="$(aws dynamodb describe-table --table-name "$target_table" \
+                  --query 'Table.TableStatus' --output text 2>/dev/null)" || return 0
+                case "$cleanup_status" in
+                  DELETING) sleep 15 ;;
+                  *) printf 'Restore cleanup entered unexpected status: %s\n' "$cleanup_status" >&2; return 1 ;;
+                esac
+              done
+              printf 'Restore table was not deleted within 15 minutes.\n' >&2
+              return 1
             fi
           }
-          trap cleanup_restore EXIT
+          trap 'cleanup_restore || true' EXIT
 
           aws dynamodb restore-table-to-point-in-time \
             --source-table-name "$source_table" \
             --target-table-name "$target_table" \
             --use-latest-restorable-time \
             --billing-mode-override PAY_PER_REQUEST >/dev/null
-          aws dynamodb wait table-exists --table-name "$target_table"
-          while [ "$(aws dynamodb describe-table --table-name "$target_table" --query 'Table.TableStatus' --output text)" != 'ACTIVE' ]; do
-            sleep 10
-          done
+          wait_until_active "$target_table"
 
           stream_arn="$(aws dynamodb describe-table --table-name "$target_table" \
             --query 'Table.LatestStreamArn' --output text)"
@@ -411,6 +445,59 @@ jobs:
             printf -- '- RTO measured through validation: `%s seconds`\n' "$elapsed_seconds"
             printf -- '- Temporary restored table cleanup: confirmed.\n'
             printf -- '- Enrollment control left paused: `true`\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Clean a failed isolated restore
+        if: inputs.operation == 'cleanup-restore-rehearsal' && inputs.confirm_reviewed_diff == true
+        env:
+          RESTORE_TABLE_NAME: ${{ inputs.restore_table_name }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$RESTORE_TABLE_NAME" | grep -Eq '^stay-pilot-restore-rehearsal-[0-9]+-[0-9]+$'
+          if ! aws dynamodb describe-table --table-name "$RESTORE_TABLE_NAME" >/dev/null 2>&1; then
+            printf 'Temporary restore table is already absent.\n'
+          else
+            deadline="$((SECONDS + 1500))"
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              status="$(aws dynamodb describe-table --table-name "$RESTORE_TABLE_NAME" \
+                --query 'Table.TableStatus' --output text)"
+              case "$status" in
+                ACTIVE) break ;;
+                CREATING|UPDATING|RESTORING) sleep 15 ;;
+                *) printf 'Restore table entered terminal status: %s\n' "$status" >&2; exit 1 ;;
+              esac
+            done
+            test "$status" = 'ACTIVE'
+            protected="$(aws dynamodb describe-table --table-name "$RESTORE_TABLE_NAME" \
+              --query 'Table.DeletionProtectionEnabled' --output text)"
+            if [ "$protected" = 'True' ]; then
+              aws dynamodb update-table --table-name "$RESTORE_TABLE_NAME" \
+                --no-deletion-protection-enabled >/dev/null
+              update_deadline="$((SECONDS + 300))"
+              while [ "$SECONDS" -lt "$update_deadline" ]; do
+                status="$(aws dynamodb describe-table --table-name "$RESTORE_TABLE_NAME" \
+                  --query 'Table.TableStatus' --output text)"
+                [ "$status" = 'ACTIVE' ] && break
+                sleep 15
+              done
+              test "$status" = 'ACTIVE'
+            fi
+            aws dynamodb delete-table --table-name "$RESTORE_TABLE_NAME" >/dev/null
+            cleanup_deadline="$((SECONDS + 900))"
+            while [ "$SECONDS" -lt "$cleanup_deadline" ]; do
+              if ! aws dynamodb describe-table --table-name "$RESTORE_TABLE_NAME" >/dev/null 2>&1; then
+                break
+              fi
+              sleep 15
+            done
+            if aws dynamodb describe-table --table-name "$RESTORE_TABLE_NAME" >/dev/null 2>&1; then
+              printf 'Temporary restore table cleanup timed out.\n' >&2
+              exit 1
+            fi
+          fi
+          {
+            printf '### Failed restore cleanup\n\n'
+            printf -- '- Exact temporary table cleanup: confirmed.\n'
+            printf -- '- Enrollment control remains paused.\n'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Exercise owner alarm subscription
         if: inputs.operation == 'alarm-rehearsal' && inputs.confirm_reviewed_diff == true
