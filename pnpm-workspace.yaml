@@ -4,6 +4,9 @@ packages:
   - services/*
   - infrastructure/*
 
+overrides:
+  js-yaml: 4.3.2
+
 allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true
