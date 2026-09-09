@@ -1,16 +1,24 @@
 # STAY recovery checkpoint
 
-Updated: 2026-09-08. Resume here before making release claims. The requirement-by-requirement status is in `PROJECT_COMPLETION_MATRIX.md`.
+Updated: 2026-09-09. Resume here before making release claims. The requirement-by-requirement status is in `PROJECT_COMPLETION_MATRIX.md`.
 
 ## Baseline
 
 - Recovered source: `4a7aa49240ecd8a69afe7bb35443aaa32fadd5bd`.
-- Current source: `2a8fc0d2df995fc210332eddc150ba21ac7bc9f2` on `main`; [CI 34213242093](https://github.com/AmirmLotfy/stay/actions/runs/34213242093) passed the complete pipeline and 44 browser scenarios. The active candidate branch adds secure operator request files, automated TOTP-backed live verification, and the pilot SES configuration-set permission correction.
+- Current implementation baseline: `6c0b04a47e996f4f381263bf5a23821fb5f371a7` on `main`; [CI 34300275510](https://github.com/AmirmLotfy/stay/actions/runs/34300275510) passed the complete pipeline and 44 browser scenarios.
 - Public judge deployment remains `d569032`; deployment run `33886987014` succeeded.
 - Judge URL: https://saystay.site
 - Video: https://youtu.be/oCoXdCRVyMo
 - Repository: https://github.com/AmirmLotfy/stay
 - Devpost: https://devpost.com/software/stay-ljbdk8 (submitted 2026-09-08; authenticated editor reports Submitted, 5/5 steps done).
+
+## Technical pilot closeout — 2026-09-09
+
+- [Recovery rehearsal 34300295502](https://github.com/AmirmLotfy/stay/actions/runs/34300295502) passed on exact source `6c0b04a47e996f4f381263bf5a23821fb5f371a7`. DynamoDB PITR restored 29 records to a uniquely prefixed table with no active stream; the workflow reapplied two current security states, exactly compared 10 access/profile/privacy/membership/contact records, retained one revoked membership and one sent delivery marker, measured **245 seconds** through validation, deleted the temporary table, and left enrollment paused.
+- [Alarm rehearsal 34300823241](https://github.com/AmirmLotfy/stay/actions/runs/34300823241) passed against the same exact source. The deployed API alarm entered `ALARM` and returned to its prior state. The subscribed owner inbox visibly received both AWS Notifications messages at 4:53 AM Cairo time.
+- A fresh post-fix event reached `sent`; Gmail received the neutral sign-in-only household-A update, and household B had no delivery marker. The earlier ambiguous attempt remains `unknown` and was never replayed.
+- Private mode-0600 exports succeeded for both synthetic households. Household B was revoked, its contact and membership were disabled, Cognito was disabled and globally signed out, and a token issued before revocation then received REST 401, MCP 401, and no authenticated WebSocket delivery.
+- The pilot remains deliberately enrollment-paused. No real participant has been onboarded.
 
 ## Accepted decisions
 
@@ -28,8 +36,8 @@ Updated: 2026-09-08. Resume here before making release claims. The requirement-b
 - Fresh GitHub deployment-role inspection on 2026-09-08: the live one-hour OIDC trust requires STS audience and exact immutable subject `repo:AmirmLotfy@178108135/stay@1354119197:ref:refs/heads/main`; there are no attached managed policies and the inline policy covers change-set/artifact operations plus the four account/region CDK bootstrap roles.
 - Local AWS authentication identifies as the dedicated `stay-pilot-operator-login` user and assumes only `stay-pilot-household-operator-role`; no root login token or long-lived access key is configured for pilot operations. Pilot deployments continue through the scoped GitHub OIDC workflow. The isolated `StayPilotStack` is `UPDATE_COMPLETE` with termination protection and 35-day PITR. Two synthetic test households now occupy separate partitions and Cognito identities. Exact household queries succeed while unrelated IAM/S3 operations and broad DynamoDB scans remain denied. The demo remains available. SES remains sandboxed with the verified/DKIM-successful `saystay.site` identity and two individually verified test recipients.
 - Approved YouTube captions are saved and visibly render in the public player. A public-player continuity pass ran from 0:00 through 2:50 without interruption; the manual track showed the approved opening cue and synchronized text at 1:01 and 2:01 before normal autoplay began. Devpost was completed on 2026-09-08 under `amirmolotfy`: Submitted, 5/5 steps done, with all 26 additional fields and the full media/copy packet saved. Authenticated pilot MCP initialize/list/read-only-call now passes for both MFA-backed test identities.
-- Pilot implementation is deployed at `https://pilot.saystay.site`. PR #15 deployed the table-key permission correction; PRs #16 and #17 added the private SES verification workflow and its narrowly scoped repository-OIDC permission. Two synthetic households were provisioned with invitations suppressed, reconciled to six expected records each, then invited and enrolled with required TOTP MFA. Live OAuth, REST, MCP and WebSocket checks pass across both partitions with no demo fixtures or cross-household event/read leakage. The first neutral email attempt created a household-A-only delivery marker but ended `unknown` and produced no inbox receipt. Source and AWS service-authorization evidence identify the missing SES configuration-set ARN permission; the candidate adds that exact permission and preserves ambiguous-send hold behavior.
-- Real-device accessibility, corrected email inbox receipt and suppression exercises, revocation of an already-issued session, alert receipt, restore/rollback rehearsal, one-household seven-day observation and five-household fourteen-day observation remain release gates.
+- Pilot implementation is deployed at `https://pilot.saystay.site`. Two synthetic households passed authenticated OAuth, REST, MCP, WebSocket and email isolation. A new neutral A-only message reached Gmail after the exact sender-policy correction; B was revoked and a previously issued token was denied across REST/MCP/WebSocket. Recovery and owner-alarm evidence is recorded in the 2026-09-09 closeout section above.
+- Remaining gates are physical VoiceOver/Safari and TalkBack/Chrome accessibility, real-participant consent and owner acceptance, controlled application cutover/rollback, one-household seven-day observation, and five-household fourteen-day observation. Provider bounce/complaint testing remains optional while sending is confined to individually verified SES sandbox recipients.
 
 ## Verification commands
 
@@ -63,7 +71,7 @@ Fresh evidence on 2026-09-05:
 - Live read-only AWS cost query on 2026-09-08 returned effectively $0 estimated unblended account cost for September 1–9, and the existing STAY $25 monthly alert budget reported $0 calculated actual spend. Free allowances, credits and reporting lag can make both incomplete; neither is a pilot forecast or spending stop.
 - Fresh read-only Cognito inspection on 2026-09-08 returned zero users in the deployed demo pool and two clients (public web and Alexa account linking). Source inspection confirms both use authorization code; no client-credentials flow exists. Fresh authenticated MCP verification therefore needs a reviewed synthetic test identity or valid supplied credentials; the verifier checks initialize, list and read-only call without printing tokens or household content.
 
-External gates still open: participant start-to-finish video review; controlled inbox/feedback/alert tests after the configuration-set permission deploy; live revoked-session proof; restore and rollback rehearsal; real-device accessibility; actual participant consent/identities; seven-day then fourteen-day observations. Do not mark the whole completion plan achieved from this checkpoint.
+External gates still open: physical-device accessibility; actual participant consent and identity verification; controlled application cutover/rollback; seven-day first-household observation; and fourteen further days after expansion. Do not mark the real-household pilot complete from synthetic verification.
 
 Merged pilot baseline: `474cdf102e66aa763cba90400a4a72b5b341522e` on `main`. Full `pnpm verify` passed before the final independent review. Review found and fixed SES sandbox pacing and an offboarding race. Pilot notification admission holds a fenced shared lease through authorization and send, then starts a cooldown; detail remains in logs while one pilot metric limits recurring cost. CI includes strict pilot synthesis. Current cost calculations and identity limitations are recorded in `pilot-infrastructure-review.md`. The independent reviewer reproduced the original latency gap, then verified its fix with 15 notification tests (18 paced sends across two households with variable authorization latency). Cognito provisioning uses the verified email for the email-only pool. Later deployment and Devpost milestones are recorded below; no household enrollment has occurred.
 
@@ -87,9 +95,9 @@ Merged pilot baseline: `474cdf102e66aa763cba90400a4a72b5b341522e` on `main`. Ful
 - Local final functions: **85 passed**; type checking, lint, build, coverage and strict pilot synthesis passed. Read-only pilot diff creates one stack.
 - A documentation-only follow-up records these results; it does not change the tested implementation.
 
-Resume commands: `git status --short`, `git log -3 --oneline`, `gh pr view 14`, `gh run view 34186126312`, `gh run view 34186149469`, `gh run view 34186575227`, then read this checkpoint. Do not rerun or deploy the judge stack to resume the pilot.
+Resume commands: `git status --short`, `git log -3 --oneline`, `gh run view 34300275510`, `gh run view 34300295502`, `gh run view 34300823241`, then read this checkpoint and `PROJECT_COMPLETION_MATRIX.md`. Do not rerun or deploy the judge stack to resume the pilot.
 
-Devpost submission and pilot deployment authorization are complete. The only local AWS profile remains root-backed and must not be used for pilot mutations. Pilot diff and deployment run through the existing main-branch GitHub OIDC role. Actual participant consent and verified household identities are still required before enrollment. After deployment, complete live authenticated isolation/MCP/WS, inbox/feedback/alert, restore/rollback and device accessibility checks. The seven-day and fourteen-day observation gates remain unchanged.
+Devpost submission and pilot deployment are complete. Infrastructure changes run through the existing main-branch GitHub OIDC role; household operations use the dedicated MFA-gated operator role with no long-lived access key. Actual participant consent and verified household identities are still required before enrollment. Live authenticated isolation/MCP/WebSocket, neutral inbox delivery, issued-session revocation, database restore/cleanup, and owner alert receipt are complete. Physical-device accessibility, controlled application cutover/rollback, real-participant onboarding, and the seven-day plus fourteen-day observation gates remain.
 
 ## Merge and pilot diff milestone — 2026-09-08
 
@@ -163,7 +171,7 @@ Devpost submission and pilot deployment authorization are complete. The only loc
 
 ## Two-household authentication and delivery milestone — 2026-09-08
 
-- [PR #15](https://github.com/AmirmLotfy/stay/pull/15) deployed the least-privilege KMS correction. [PR #16](https://github.com/AmirmLotfy/stay/pull/16) added the private recipient-verification workflow, and [PR #17](https://github.com/AmirmLotfy/stay/pull/17) corrected its role path. Current `main` is `2a8fc0d2df995fc210332eddc150ba21ac7bc9f2`; [main CI 34213242093](https://github.com/AmirmLotfy/stay/actions/runs/34213242093) passed the full pipeline and 44 browser scenarios.
+- [PR #15](https://github.com/AmirmLotfy/stay/pull/15) deployed the least-privilege KMS correction. [PR #16](https://github.com/AmirmLotfy/stay/pull/16) added the private recipient-verification workflow, and [PR #17](https://github.com/AmirmLotfy/stay/pull/17) corrected its role path. At that milestone, `main` was `2a8fc0d2df995fc210332eddc150ba21ac7bc9f2`; [main CI 34213242093](https://github.com/AmirmLotfy/stay/actions/runs/34213242093) passed the full pipeline and 44 browser scenarios.
 - The nonexecuting demo diff [34213275303](https://github.com/AmirmLotfy/stay/actions/runs/34213275303) showed additive IAM plus already-tested application refreshes with no replacement or removal. The exact-main demo deployment [34213711785](https://github.com/AmirmLotfy/stay/actions/runs/34213711785) succeeded and retained termination protection.
 - Private SES verification runs [34214088207](https://github.com/AmirmLotfy/stay/actions/runs/34214088207) and [34214395906](https://github.com/AmirmLotfy/stay/actions/runs/34214395906) completed without printing either address. Both test aliases now report `VerifiedForSendingStatus=true`.
 - The operator resumed enrollment, provisioned two synthetic households, and sent their reviewed Cognito invitations. Each household reconciles to exactly six expected records: access, membership, private notification contact, privacy, profile and task. The control record is `paused=false`, contains exactly both test household IDs, and the operator remains unable to scan the whole table. Both users completed permanent-password setup and required TOTP MFA. Private credentials remain in an ignored mode-0600 operator file.

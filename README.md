@@ -1,6 +1,6 @@
 # STAY
 
-> Recovery update (2026-09-08): see [current checkpoint](docs/RECOVERY_CHECKPOINT.md). Strict submission verification passes, approved manual YouTube captions render through complete public playback, and the isolated pilot is deployed with two MFA-backed synthetic households undergoing live release checks. Earlier release evidence below describes the judge deployment.
+> Recovery update (2026-09-09): the Devpost submission is complete. The isolated pilot is deployed, two-household isolation and post-revocation denial pass, neutral email delivery and owner alerts are confirmed, and a 245-second isolated database restore/reconciliation/cleanup rehearsal passed. Enrollment remains paused pending physical-device accessibility and real-participant rollout gates. See the [current checkpoint](docs/RECOVERY_CHECKPOINT.md).
 
 **Adaptive Independent Living + Crisis Coordination for Alexa+**
 
