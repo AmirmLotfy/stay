@@ -343,15 +343,37 @@ jobs:
             --billing-mode-override PAY_PER_REQUEST >/dev/null
           wait_until_active "$target_table"
 
-          stream_arn="$(aws dynamodb describe-table --table-name "$target_table" \
-            --query 'Table.LatestStreamArn' --output text)"
-          test "$stream_arn" = 'None'
+          target_metadata="$RUNNER_TEMP/pilot-restored-table-metadata.json"
+          aws dynamodb describe-table --table-name "$target_table" > "$target_metadata"
+          TARGET_METADATA="$target_metadata" node <<'NODE'
+          const fs = require('node:fs');
+          const metadata = JSON.parse(fs.readFileSync(process.env.TARGET_METADATA, 'utf8'));
+          const table = metadata.Table ?? {};
+          const streamEnabled = table.StreamSpecification?.StreamEnabled === true;
+          console.log(JSON.stringify({
+            restoredTableStatus: table.TableStatus,
+            streamEnabled,
+          }));
+          if (table.TableStatus !== 'ACTIVE')
+            throw new Error('Restored table was not active before validation.');
+          if (streamEnabled)
+            throw new Error('Restored table unexpectedly has an active DynamoDB stream.');
+          NODE
           stack_table_count="$(aws cloudformation describe-stack-resources --stack-name StayPilotStack \
             --query "length(StackResources[?PhysicalResourceId=='$source_table'])" --output text)"
-          test "$stack_table_count" = '1'
+          if [ "$stack_table_count" != '1' ]; then
+            printf 'Expected one CloudFormation-managed source table; found %s.\n' "$stack_table_count" >&2
+            exit 1
+          fi
           target_stack_count="$(aws cloudformation describe-stack-resources --stack-name StayPilotStack \
             --query "length(StackResources[?PhysicalResourceId=='$target_table'])" --output text)"
-          test "$target_stack_count" = '0'
+          if [ "$target_stack_count" != '0' ]; then
+            printf 'Expected restored table to remain outside CloudFormation; found %s matching resources.\n' \
+              "$target_stack_count" >&2
+            exit 1
+          fi
+          printf 'Restore metadata verified: source resources=%s, restored resources=%s, stream enabled=false.\n' \
+            "$stack_table_count" "$target_stack_count"
 
           source_file="$RUNNER_TEMP/pilot-source-scan.json"
           restored_file="$RUNNER_TEMP/pilot-restored-scan.json"
@@ -390,6 +412,11 @@ jobs:
               `- Current source records: \`${source.length}\`\n` +
               `- Revocation/deletion states reapplied: \`${securityState.length}\`\n`,
           );
+          console.log(JSON.stringify({
+            restoredRecords: restored.length,
+            sourceRecords: source.length,
+            securityStatesReapplied: securityState.length,
+          }));
           NODE
 
           aws dynamodb scan --table-name "$target_table" --consistent-read --output json > "$reconciled_file"
@@ -426,8 +453,13 @@ jobs:
             process.env.GITHUB_STEP_SUMMARY,
             `- Exact access/profile/privacy/membership records verified: \`${relevant.length}\`\n` +
               `- Revoked memberships retained: \`${revokedMemberships}\`\n` +
-              `- Sent delivery markers retained with no stream attached: \`${sent}\`\n`,
+              `- Sent delivery markers retained with no active stream: \`${sent}\`\n`,
           );
+          console.log(JSON.stringify({
+            exactSecurityRecordsVerified: relevant.length,
+            revokedMemberships,
+            sentDeliveryMarkers: sent,
+          }));
           NODE
 
           completed_at="$(date +%s)"
@@ -441,11 +473,13 @@ jobs:
           {
             printf '### Isolated DynamoDB recovery rehearsal\n\n'
             printf -- '- PITR status: `ENABLED`\n'
-            printf -- '- Restored table remained outside CloudFormation and had no stream.\n'
+            printf -- '- Restored table remained outside CloudFormation and had no active stream.\n'
             printf -- '- RTO measured through validation: `%s seconds`\n' "$elapsed_seconds"
             printf -- '- Temporary restored table cleanup: confirmed.\n'
             printf -- '- Enrollment control left paused: `true`\n'
           } >> "$GITHUB_STEP_SUMMARY"
+          printf 'Recovery rehearsal passed: RTO=%ss, cleanup=confirmed, enrollment_paused=true.\n' \
+            "$elapsed_seconds"
       - name: Clean a failed isolated restore
         if: inputs.operation == 'cleanup-restore-rehearsal' && inputs.confirm_reviewed_diff == true
         env:
