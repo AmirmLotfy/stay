@@ -5,7 +5,7 @@ Updated: 2026-09-09. Resume here before making release claims. The requirement-b
 ## Baseline
 
 - Recovered source: `4a7aa49240ecd8a69afe7bb35443aaa32fadd5bd`.
-- Current implementation baseline: `6c0b04a47e996f4f381263bf5a23821fb5f371a7` on `main`; [CI 34300275510](https://github.com/AmirmLotfy/stay/actions/runs/34300275510) passed the complete pipeline and 44 browser scenarios.
+- Technical closeout [PR #32](https://github.com/AmirmLotfy/stay/pull/32) merged as `49e1b5d9d5004270c4bb68120443f3c51d074fd9`; exact-merge [CI 34327994974](https://github.com/AmirmLotfy/stay/actions/runs/34327994974) passed the complete pipeline with 44 browser scenarios. The merged dependency override resolves `js-yaml` to patched version 4.3.2, and GitHub marks the high-severity alert fixed.
 - Public judge deployment remains `d569032`; deployment run `33886987014` succeeded.
 - Judge URL: https://saystay.site
 - Video: https://youtu.be/oCoXdCRVyMo
