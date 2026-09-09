@@ -18,8 +18,8 @@
     "test:coverage": "vitest run src --coverage"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "3.1124.0",
-    "@aws-sdk/lib-dynamodb": "3.1124.0",
+    "@aws-sdk/client-dynamodb": "3.1126.0",
+    "@aws-sdk/lib-dynamodb": "3.1126.0",
     "@stay/contracts": "workspace:*",
     "@stay/domain": "workspace:*"
   },

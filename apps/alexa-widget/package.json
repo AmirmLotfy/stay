@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
-    "lucide-react": "1.39.0",
+    "lucide-react": "1.40.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
