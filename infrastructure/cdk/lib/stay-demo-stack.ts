@@ -1055,6 +1055,19 @@ export class StayDemoStack extends Stack {
             },
           }),
           new iam.PolicyStatement({
+            actions: [
+              'cloudformation:DescribeStackResource',
+              'cloudformation:DescribeStackResources',
+            ],
+            resources: [
+              this.formatArn({
+                service: 'cloudformation',
+                resource: 'stack',
+                resourceName: `${this.stackName}/*`,
+              }),
+            ],
+          }),
+          new iam.PolicyStatement({
             actions: ['cloudwatch:DescribeAlarms', 'cloudwatch:SetAlarmState'],
             resources: [apiErrorAlarm.alarmArn],
           }),
