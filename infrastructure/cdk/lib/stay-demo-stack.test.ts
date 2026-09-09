@@ -92,6 +92,22 @@ describe('StayDemoStack', () => {
             },
           }),
           Match.objectLike({
+            Action: Match.arrayWith([
+              'cloudformation:DescribeStackResource',
+              'cloudformation:DescribeStackResources',
+            ]),
+            Resource: {
+              'Fn::Join': [
+                '',
+                [
+                  'arn:',
+                  { Ref: 'AWS::Partition' },
+                  ':cloudformation:us-east-1:111111111111:stack/StayPilotStack/*',
+                ],
+              ],
+            },
+          }),
+          Match.objectLike({
             Action: Match.arrayWith(['cloudwatch:DescribeAlarms', 'cloudwatch:SetAlarmState']),
             Resource: { 'Fn::GetAtt': [Match.stringLikeRegexp('^ApiErrorAlarm'), 'Arn'] },
           }),
