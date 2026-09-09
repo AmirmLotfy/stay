@@ -384,14 +384,17 @@ jobs:
           const source = JSON.parse(fs.readFileSync(process.env.SOURCE_FILE, 'utf8')).Items ?? [];
           const restored = JSON.parse(fs.readFileSync(process.env.RESTORED_FILE, 'utf8')).Items ?? [];
           const scalar = (value) => value?.S ?? value?.N ?? value?.BOOL;
+          const entity = (item) => item.entity?.M ?? {};
           const key = (item) => `${scalar(item.PK)}\u0000${scalar(item.SK)}`;
           const restoredKeys = new Set(restored.map(key));
           const securityState = source.filter((item) => {
             const sk = String(scalar(item.SK) ?? '');
+            const current = entity(item);
             return (
-              (sk.startsWith('MEMBERSHIP#') && scalar(item.active) === false) ||
-              (sk.startsWith('NOTIFICATION_CONTACT#') && scalar(item.enabled) === false) ||
-              (sk.startsWith('PROFILE#') && scalar(item.status) === 'closed') ||
+              (sk.startsWith('MEMBERSHIP#') && scalar(current.active) === false) ||
+              (sk.startsWith('CIRCLE-MEMBER#') && scalar(current.active) === false) ||
+              (sk.startsWith('NOTIFICATION-CONTACT#') && scalar(current.enabled) === false) ||
+              (sk.startsWith('PROFILE#') && scalar(current.status) === 'closed') ||
               sk.startsWith('TOMBSTONE#')
             );
           });
@@ -422,6 +425,7 @@ jobs:
           const source = JSON.parse(fs.readFileSync(process.env.SOURCE_FILE, 'utf8')).Items ?? [];
           const restored = JSON.parse(fs.readFileSync(process.env.RESTORED_FILE, 'utf8')).Items ?? [];
           const scalar = (value) => value?.S ?? value?.N ?? value?.BOOL;
+          const entity = (item) => item.entity?.M ?? {};
           const key = (item) => `${scalar(item.PK)}\u0000${scalar(item.SK)}`;
           const restoredByKey = new Map(restored.map((item) => [key(item), item]));
           const canonical = (value) => {
@@ -430,7 +434,14 @@ jobs:
               return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
             return value;
           };
-          const exactPrefixes = ['ACCESS#', 'MEMBERSHIP#', 'NOTIFICATION_CONTACT#', 'PRIVACY#', 'PROFILE#'];
+          const exactPrefixes = [
+            'ACCESS#',
+            'CIRCLE-MEMBER#',
+            'MEMBERSHIP#',
+            'NOTIFICATION-CONTACT#',
+            'PRIVACY#',
+            'PROFILE#',
+          ];
           const relevant = source.filter((item) => exactPrefixes.some((prefix) =>
             String(scalar(item.SK) ?? '').startsWith(prefix),
           ));
@@ -440,10 +451,10 @@ jobs:
               throw new Error('Restored access, privacy, profile, or membership state differs from current state.');
           }
           const sent = restored.filter((item) =>
-            String(scalar(item.SK) ?? '').startsWith('DELIVERY#') && scalar(item.status) === 'sent',
+            String(scalar(item.SK) ?? '').startsWith('DELIVERY#') && scalar(item.state) === 'sent',
           ).length;
           const revokedMemberships = restored.filter((item) =>
-            String(scalar(item.SK) ?? '').startsWith('MEMBERSHIP#') && scalar(item.active) === false,
+            String(scalar(item.SK) ?? '').startsWith('MEMBERSHIP#') && scalar(entity(item).active) === false,
           ).length;
           if (revokedMemberships < 1) throw new Error('Expected synthetic revoked membership is missing.');
           fs.appendFileSync(
