@@ -23,10 +23,10 @@
     "zod-openapi": "6.0.2"
   },
   "devDependencies": {
-    "@types/node": "26.4.1",
+    "@types/node": "26.6.5",
     "openapi-typescript": "7.13.0",
-    "tsx": "4.23.13",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   }
 }
