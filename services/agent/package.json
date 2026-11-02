@@ -15,7 +15,7 @@
     "@aws-sdk/client-bedrock-runtime": "3.1124.0",
     "@stay/contracts": "workspace:*",
     "@strands-agents/sdk": "1.16.0",
-    "zod": "4.5.4"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "typescript": "5.9.3",

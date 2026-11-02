@@ -172,11 +172,11 @@ importers:
   packages/contracts:
     dependencies:
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.6
+        version: 4.6.6
       zod-openapi:
         specifier: 6.0.2
-        version: 6.0.2(zod@4.5.4)
+        version: 6.0.2(zod@4.6.6)
     devDependencies:
       '@types/node':
         specifier: 26.4.1
@@ -279,10 +279,10 @@ importers:
         version: link:../../packages/contracts
       '@strands-agents/sdk':
         specifier: 1.16.0
-        version: 1.16.0(@aws-sdk/client-s3@3.1124.0)(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.5.4)
+        version: 1.16.0(@aws-sdk/client-s3@3.1124.0)(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.6.6))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.6.6)
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       typescript:
         specifier: 5.9.3
@@ -336,8 +336,8 @@ importers:
         specifier: 5.2.1
         version: 5.2.1
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/aws-lambda':
         specifier: 8.10.162
@@ -370,8 +370,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/persistence
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/aws-lambda':
         specifier: 8.10.162
@@ -1353,6 +1353,7 @@ packages:
   '@smithy/core@3.33.3':
     resolution: {integrity: sha512-CsOeKq/9kA3y6VJHt+/+VTCtBaxJ4OTFpgrjIUhPpDIKxBci1k2bJaQASF2h/ELWrulGp+t97DZ0mevfAD8idg==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -3285,8 +3286,8 @@ packages:
   zod@4.2.1:
     resolution: {integrity: sha512-0wZ1IRqGGhMP76gLqz8EyfBXKk0J2qo2+H3fi4mcUP/KtTocoX08nmIAHl1Z2kJIZbZee8KOpBCSNPRgauucjw==}
 
-  zod@4.5.4:
-    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
 snapshots:
 
@@ -3951,9 +3952,9 @@ snapshots:
 
   '@modelcontextprotocol/core@2.0.0':
     dependencies:
-      zod: 4.5.4
+      zod: 4.6.6
 
-  '@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4)':
+  '@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.6.6)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.5)
       ajv: 8.20.0
@@ -3970,15 +3971,15 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.5.4
-      zod-to-json-schema: 3.25.2(zod@4.5.4)
+      zod: 4.6.6
+      zod-to-json-schema: 3.25.2(zod@4.6.6)
     transitivePeerDependencies:
       - supports-color
 
   '@modelcontextprotocol/server@2.0.0':
     dependencies:
       '@modelcontextprotocol/core': 2.0.0
-      zod: 4.5.4
+      zod: 4.6.6
 
   '@next/env@16.3.4': {}
 
@@ -4227,16 +4228,16 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@strands-agents/sdk@1.16.0(@aws-sdk/client-s3@3.1124.0)(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.5.4))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.5.4)':
+  '@strands-agents/sdk@1.16.0(@aws-sdk/client-s3@3.1124.0)(@modelcontextprotocol/sdk@1.30.0(supports-color@10.2.2)(zod@4.6.6))(@opentelemetry/api@1.9.1)(@smithy/types@4.17.2)(express@5.2.1(supports-color@10.2.2))(supports-color@7.2.0)(typescript@5.9.3)(zod@4.6.6)':
     dependencies:
       '@aws-sdk/client-bedrock-runtime': 3.1122.0
-      '@modelcontextprotocol/sdk': 1.30.0(supports-color@10.2.2)(zod@4.5.4)
+      '@modelcontextprotocol/sdk': 1.30.0(supports-color@10.2.2)(zod@4.6.6)
       '@opentelemetry/api': 1.9.1
       '@smithy/fetch-http-handler': 5.7.2
       '@types/json-schema': 7.0.15
       uuid: 14.0.2
       yaml: 2.9.0
-      zod: 4.5.4
+      zod: 4.6.6
     optionalDependencies:
       '@aws-sdk/client-s3': 3.1124.0
       '@smithy/types': 4.17.2
@@ -6158,15 +6159,15 @@ snapshots:
   yoctocolors@2.2.0:
     optional: true
 
-  zod-openapi@6.0.2(zod@4.5.4):
+  zod-openapi@6.0.2(zod@4.6.6):
     dependencies:
-      zod: 4.5.4
+      zod: 4.6.6
 
-  zod-to-json-schema@3.25.2(zod@4.5.4):
+  zod-to-json-schema@3.25.2(zod@4.6.6):
     dependencies:
-      zod: 4.5.4
+      zod: 4.6.6
 
   zod@4.2.1:
     optional: true
 
-  zod@4.5.4: {}
+  zod@4.6.6: {}
